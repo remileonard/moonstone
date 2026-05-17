@@ -351,8 +351,14 @@ static MoonPiv *piv_from_ilbm(const uint8_t *buf, size_t len)
                 uint8_t r = ck_data[i * 3 + 0];
                 uint8_t g = ck_data[i * 3 + 1];
                 uint8_t b = ck_data[i * 3 + 2];
-                /* Convert to Amiga 12-bit: keep high nibble of each channel */
-                pal[i] = (uint16_t)(((r >> 4) << 8) | ((g >> 4) << 4) | (b >> 4));
+                /* Convert to Amiga 9-bit colour matching the game's assembly
+                 * formula (program.asm LAB_0437 / mog.asm LAB_0C5C):
+                 *   MOVE.B R,D1 / LSL.W #4 / OR.B G / LSL.W #4 / OR.B B
+                 *   LSR.W #5 / ANDI.W #$0777
+                 * For standard IFF CMAP bytes (channel stored in high nibble,
+                 * low nibble = 0), this reduces to taking bits 7..5 of each
+                 * byte, giving a 3-bit (0..7) value per channel. */
+                pal[i] = (uint16_t)(((r >> 5) << 8) | ((g >> 5) << 4) | (b >> 5));
             }
         } else if (ck_id == CC_BODY) {
             if (!got_bmhd)
