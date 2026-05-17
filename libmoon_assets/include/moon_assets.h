@@ -45,10 +45,13 @@ void moon_shutdown(void);
 /**
  * MoonCelFrame - metadata + pixel data for a single animation frame.
  *
- * Pixels are 1-bit-per-plane planar data, interleaved row-by-row.
- * Each row is (width_words * 2) bytes per plane; there are `planes`
- * planes per row, so one row of planar data is:
- *   planes * ((width + 15) / 16) * 2  bytes
+ * Pixels are 1-bit-per-plane planar data, stored plane-sequential:
+ *   bitplane 0 occupies bytes [0 .. row_bytes*height - 1],
+ *   bitplane 1 occupies bytes [row_bytes*height .. 2*row_bytes*height - 1],
+ *   …
+ * where row_bytes = ((width + 15) / 16) * 2.
+ * Within each plane, rows are top-to-bottom and the MSB of each byte is
+ * the left-most pixel.
  *
  * Total size of `data`:
  *   planes * ((width + 15) / 16) * 2 * height  bytes
@@ -90,8 +93,12 @@ void moon_cel_free(MoonCel *cel);
 /**
  * MoonPiv - a decoded PIV background bitmap.
  *
- * Bitmap data is planar (Amiga-style): `planes` consecutive bitplanes,
- * each of size (((width+15)/16)*2) * height bytes (row-major, MSB first).
+ * Bitmap data is plane-sequential (matching Amiga hardware layout and
+ * the LAB_0408 / LAB_043A output in program.asm):
+ *   bitplane 0 occupies bytes [0 .. row_bytes*height - 1],
+ *   bitplane 1 occupies bytes [row_bytes*height .. 2*row_bytes*height - 1],
+ *   …
+ * where row_bytes = ((width+15)/16)*2.  MSB of each byte is left-most pixel.
  *
  * Palette entries are Amiga 12-bit colors: 0x0RGB (4 bits per channel,
  * only the lower 12 bits are significant).

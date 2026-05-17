@@ -31,7 +31,15 @@ static const uint32_t default_pal16[16] = {
     0x888800, 0xFFFF00, 0x888888, 0xFFFFFF,
 };
 
-/* Extract pixel index from planar data */
+/* Extract pixel index from planar data.
+ *
+ * CEL pixel data is plane-sequential (matching LAB_04A8 / LAB_04AC in
+ * program.asm where each active plane's rows are read consecutively):
+ *   plane 0: rows 0..height-1
+ *   plane 1: rows 0..height-1
+ *   …
+ * Within each plane MSB of each byte is the left-most pixel.
+ */
 static int get_pixel(const MoonCelFrame *fr, int x, int y)
 {
     if (x < 0 || x >= (int)fr->width || y < 0 || y >= (int)fr->height)
@@ -40,7 +48,8 @@ static int get_pixel(const MoonCelFrame *fr, int x, int y)
     int row_bytes = row_words * 2;
     int pixel_idx = 0;
     for (int pl = 0; pl < (int)fr->planes; pl++) {
-        size_t byte_off = (size_t)(y * fr->planes + pl) * (size_t)row_bytes
+        size_t byte_off = (size_t)pl * (size_t)fr->height * (size_t)row_bytes
+                        + (size_t)y  * (size_t)row_bytes
                         + (size_t)(x / 8);
         int bit_off = 7 - (x % 8);
         if (fr->data) {

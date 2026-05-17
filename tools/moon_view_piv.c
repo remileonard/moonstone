@@ -32,17 +32,20 @@ static uint32_t amiga_to_argb(uint16_t c)
 
 /* Extract pixel index from planar bitmap.
  *
- * Amiga bitplane data is stored row-interleaved:
- *   row 0 plane 0, row 0 plane 1, ..., row 0 plane N-1,
- *   row 1 plane 0, ...
- * So byte offset = (y * planes + pl) * row_bytes + x/8.
+ * Pixel data is stored plane-sequential (matching the Amiga hardware
+ * layout and the LAB_0408 / LAB_043A output):
+ *   bitplane 0: rows 0..height-1  (byte 0 .. row_bytes*height-1)
+ *   bitplane 1: rows 0..height-1  (next row_bytes*height bytes)
+ *   …
+ * Within each plane, MSB of each byte is the left-most pixel.
  */
 static int get_pixel(const MoonPiv *piv, int x, int y)
 {
     int row_bytes = ((piv->width + 15) / 16) * 2;
     int pixel_idx = 0;
     for (int pl = 0; pl < piv->planes; pl++) {
-        size_t byte_off = (size_t)((y * piv->planes + pl) * row_bytes)
+        size_t byte_off = (size_t)pl  * (size_t)piv->height * (size_t)row_bytes
+                        + (size_t)y   * (size_t)row_bytes
                         + (size_t)(x / 8);
         int bit = (piv->bitmap[byte_off] >> (7 - (x % 8))) & 1;
         pixel_idx |= (bit << pl);
