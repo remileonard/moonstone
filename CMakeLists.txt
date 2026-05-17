@@ -30,12 +30,10 @@ target_include_directories(moon_assets
 )
 
 # ---------------------------------------------------------------
-# Optional SDL2 for tools
+# SDL2 (required) and SDL2_mixer (optional) for tools
 # ---------------------------------------------------------------
-find_package(PkgConfig QUIET)
-if(PkgConfig_FOUND)
-    pkg_check_modules(SDL2 sdl2)
-endif()
+find_package(SDL2 REQUIRED)
+find_package(SDL2_mixer QUIET)
 
 # ---------------------------------------------------------------
 # CLI tools
