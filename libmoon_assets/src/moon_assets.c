@@ -244,24 +244,27 @@ uint8_t *moon_file_read(const char *name, size_t *out_size)
 /* ------------------------------------------------------------------ */
 
 /*
- * CEL file format (observed from LAB_04A8 / LAB_049C in program.asm):
+ * CEL file format (observed from LAB_04A8 / LAB_049C in program.asm,
+ * confirmed by §6.2.3 of DOC_TECHNIQUE.md):
  *
- * Header:
+ * Global header (10 bytes):
  *   word[0]   = frame_count  (number of animation frames)
  *   long[1]   = data_offset  (byte offset to start of LZSS-compressed frame data)
- *   frames × (per-frame-header):
- *     long  = offset_from_data_start (byte offset to this frame's data)
+ *   byte[6..9]= reserved     (4 padding bytes)
+ *
+ * frames × (per-frame-header, 11 bytes each):
+ *     long  = offset_from_data_start (byte offset into decompressed pixel data)
  *     word  = width   (pixels)
  *     word  = height  (rows)
- *     byte  = draw_flags
- *     byte  = planes or minterm
+ *     byte  = planes_or_flags  (bitmask of active bitplanes)
+ *     byte  = draw_flags       (& 0x01 = "cached" toggle)
+ *     byte  = blit_minterm     (blitter minterm byte)
  *
- * The per-frame header stride is 10 bytes.
  * All values are big-endian.
  *
- * After the header array, starting at data_offset, the compressed pixel data
- * begins.  The entire payload starting at data_offset is LZSS-compressed as
- * a single stream; the per-frame offsets index into the decompressed output.
+ * After the header array, starting at data_offset, the LZSS-compressed pixel
+ * data begins as a single stream; the per-frame offsets index into the
+ * decompressed output.  Pixel data is planar, 5 planes, interleaved row-by-row.
  */
 
 static MoonCel *cel_decode(const uint8_t *buf, size_t len)
@@ -276,9 +279,14 @@ static MoonCel *cel_decode(const uint8_t *buf, size_t len)
     if (frame_count == 0 || data_offset >= len)
         return NULL;
 
-    /* Per-frame metadata starts at offset 6, each entry is 10 bytes */
-    size_t meta_size = (size_t)frame_count * 10;
-    if (6 + meta_size > len)
+    /*
+     * Global header: 2 (frame_count) + 4 (data_offset) + 4 (reserved) = 10 bytes.
+     * Per-frame metadata starts at offset 10, each entry is 11 bytes:
+     *   4 (data_offset) + 2 (width) + 2 (height) +
+     *   1 (planes_or_flags) + 1 (draw_flags) + 1 (blit_minterm).
+     */
+    size_t meta_size = (size_t)frame_count * 11;
+    if (10 + meta_size > len)
         return NULL;
 
     /* Decompress the pixel data payload */
@@ -311,24 +319,31 @@ static MoonCel *cel_decode(const uint8_t *buf, size_t len)
     }
 
     for (int i = 0; i < (int)frame_count; i++) {
-        const uint8_t *m = buf + 6 + (size_t)i * 10;
+        const uint8_t *m = buf + 10 + (size_t)i * 11;
         uint32_t frame_off = ((uint32_t)m[0] << 24) | ((uint32_t)m[1] << 16) |
                              ((uint32_t)m[2] << 8)  |  (uint32_t)m[3];
-        uint16_t w         = (uint16_t)((m[4] << 8) | m[5]);
-        uint16_t h         = (uint16_t)((m[6] << 8) | m[7]);
-        uint8_t  flags     = m[8];
-        uint8_t  minterm   = m[9];
+        uint16_t w              = (uint16_t)((m[4] << 8) | m[5]);
+        uint16_t h              = (uint16_t)((m[6] << 8) | m[7]);
+        uint8_t  planes_flags   = m[8];   /* bitmask of active bitplanes */
+        uint8_t  draw_flags     = m[9];
+        uint8_t  blit_minterm   = m[10];
 
         MoonCelFrame *f = &cel->frames[i];
         f->width      = w;
         f->height     = h;
-        f->draw_flags = flags;
-        f->minterm    = minterm;
+        f->draw_flags = draw_flags;
+        f->minterm    = blit_minterm;
 
-        /* Determine planes from minterm/flags (default 5 for Moonstone) */
-        f->planes = 5;
-        if ((flags & 0x0F) != 0 && (flags & 0x0F) <= 5)
-            f->planes = flags & 0x0F;
+        /*
+         * Determine the number of active bitplanes from the bitmask.
+         * Moonstone uses 5 planes by default; count set bits, clamped to 1..5.
+         */
+        {
+            int p = 0;
+            for (int b = 0; b < 5; b++)
+                if (planes_flags & (1 << b)) p++;
+            f->planes = (p >= 1 && p <= 5) ? (uint8_t)p : 5;
+        }
 
         /* Row stride per plane, word-aligned */
         int row_bytes = ((w + 15) / 16) * 2;
