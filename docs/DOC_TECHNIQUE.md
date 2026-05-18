@@ -36,7 +36,7 @@ Caractéristiques globales :
   - **RNC ProPack type 1** (`LAB_0190`) — utilisé pour `music.cmp` / `vmusic.cmp` (Huffman + magic `$524E4301`)
   - **LZSS** (`LAB_049C`) — utilisé pour les sprites `.cel` (fenêtre 2 Ko, longueur 2..34 octets)
   - **Bitplane RLE** (`LAB_0448` / `SECSTRT_21`) — utilisé pour les décors `.stile` (opcodes 2 bits)
-  Les fonds d'écran `.PIV` sont au format IFF/ILBM avec PackBits standard (décodé par `LAB_0434`).
+  Les fonds d'écran `.PIV` Mindscape (magic `0x0005`/`0x0004`) utilisent un format **propriétaire** dont le body est compressé avec le même **LZSS** (`LAB_049C`) que les sprites `.cel`. `LAB_0434` (PackBits) gère une variante IFF/ILBM non utilisée par les fichiers de jeu observés.
   Les fichiers `.CEL` sont des sprites propriétaires avec en-tête décrit en §10.16.
 - **Pas d'auto-modification de code** identifiée (à confirmer pour les
   patchs de copper list / blitter list construits dynamiquement, qui ne
@@ -427,17 +427,17 @@ struct cel_file {
 | Fichier | Taille (oct.) | Magic (hex) | Format | Compressé | Algorithme / routine |
 |---------|---------------|-------------|--------|-----------|----------------------|
 | `au1.cel` | 31 289 | `005c 0000` | Sprite CEL Mindscape — 0x5c=92 frames | ✅ Oui | LZSS → `LAB_049C` |
-| `bg1a.PIV` | 15 742 | `0005 0000` | Fond PIV Mindscape — 5 plans (32 couleurs) | ✅ Oui | PackBits → `LAB_0434` |
-| `bg1b.PIV` | 28 190 | `0005 0000` | Fond PIV Mindscape — 5 plans | ✅ Oui | PackBits → `LAB_0434` |
-| `bg1c.PIV` | 16 828 | `0005 0000` | Fond PIV Mindscape — 5 plans | ✅ Oui | PackBits → `LAB_0434` |
-| `bg2.PIV` | 17 571 | `0005 0000` | Fond PIV Mindscape — 5 plans | ✅ Oui | PackBits → `LAB_0434` |
-| `bg2a.PIV` | 21 170 | `0005 0000` | Fond PIV Mindscape — 5 plans | ✅ Oui | PackBits → `LAB_0434` |
-| `bg3.PIV` | 20 984 | `0005 0000` | Fond PIV Mindscape — 5 plans | ✅ Oui | PackBits → `LAB_0434` |
-| `bg4.PIV` | 11 082 | `0005 0000` | Fond PIV Mindscape — 5 plans | ✅ Oui | PackBits → `LAB_0434` |
-| `bg5.piv` | 16 586 | `0005 0000` | Fond PIV Mindscape — 5 plans | ✅ Oui | PackBits → `LAB_0434` |
-| `bg5a.PIV` | 25 442 | `0005 0000` | Fond PIV Mindscape — 5 plans | ✅ Oui | PackBits → `LAB_0434` |
-| `bg7.PIV` | 13 969 | `0004 0000` | Fond PIV Mindscape — 4 plans (16 couleurs) | ✅ Oui | PackBits → `LAB_0434` |
-| `bg8.PIV` | 13 194 | `0005 0000` | Fond PIV Mindscape — 5 plans | ✅ Oui | PackBits → `LAB_0434` |
+| `bg1a.PIV` | 15 742 | `0005 0000` | Fond PIV Mindscape — 5 plans (32 couleurs) | ✅ Oui | LZSS → `LAB_049C` |
+| `bg1b.PIV` | 28 190 | `0005 0000` | Fond PIV Mindscape — 5 plans | ✅ Oui | LZSS → `LAB_049C` |
+| `bg1c.PIV` | 16 828 | `0005 0000` | Fond PIV Mindscape — 5 plans | ✅ Oui | LZSS → `LAB_049C` |
+| `bg2.PIV` | 17 571 | `0005 0000` | Fond PIV Mindscape — 5 plans | ✅ Oui | LZSS → `LAB_049C` |
+| `bg2a.PIV` | 21 170 | `0005 0000` | Fond PIV Mindscape — 5 plans | ✅ Oui | LZSS → `LAB_049C` |
+| `bg3.PIV` | 20 984 | `0005 0000` | Fond PIV Mindscape — 5 plans | ✅ Oui | LZSS → `LAB_049C` |
+| `bg4.PIV` | 11 082 | `0005 0000` | Fond PIV Mindscape — 5 plans | ✅ Oui | LZSS → `LAB_049C` |
+| `bg5.piv` | 16 586 | `0005 0000` | Fond PIV Mindscape — 5 plans | ✅ Oui | LZSS → `LAB_049C` |
+| `bg5a.PIV` | 25 442 | `0005 0000` | Fond PIV Mindscape — 5 plans | ✅ Oui | LZSS → `LAB_049C` |
+| `bg7.PIV` | 13 969 | `0004 0000` | Fond PIV Mindscape — 4 plans (16 couleurs) | ✅ Oui | LZSS → `LAB_049C` |
+| `bg8.PIV` | 13 194 | `0005 0000` | Fond PIV Mindscape — 5 plans | ✅ Oui | LZSS → `LAB_049C` |
 | `bold.f` | 12 133 | `004c 0000` | Police bitmap Mindscape — 0x4c=76 glyphes | ✅ Probable | LZSS → `LAB_049C` (même famille que `.cel`) |
 | `co.stile` | 960 | `0000 0000` | Tileset décor (combat) | ✅ Oui | Bitplane RLE 2 bits → `LAB_0448` |
 | `co1.cel` | 8 652 | `0019 0000` | Sprite CEL Mindscape — 0x19=25 frames | ✅ Oui | LZSS → `LAB_049C` |
@@ -451,8 +451,8 @@ struct cel_file {
 | `Klift1.CEL` | 12 927 | `0037 0000` | Sprite CEL Mindscape — 0x37=55 frames | ✅ Oui | LZSS → `LAB_049C` |
 | `kn1.ob` | 5 | `6c697374` (`"list"`) | Données objet chevalier (stub IFF LIST ?) | ❌ Non | binaire brut |
 | `li1.cel` | 14 724 | `001e 0000` | Sprite CEL Mindscape — 0x1e=30 frames | ✅ Oui | LZSS → `LAB_049C` |
-| `message.piv` | 3 694 | `0004 0000` | Message PIV Mindscape — 4 plans | ✅ Oui | PackBits → `LAB_0434` |
-| `mindscape` | 16 473 | `0005 0000` | Logo splash PIV Mindscape — 5 plans | ✅ Oui | PackBits → `LAB_0434` |
+| `message.piv` | 3 694 | `0004 0000` | Message PIV Mindscape — 4 plans | ✅ Oui | LZSS → `LAB_049C` |
+| `mindscape` | 16 473 | `0005 0000` | Logo splash PIV Mindscape — 5 plans | ✅ Oui | LZSS → `LAB_049C` |
 | `mog` | 172 260 | `0000 03f3` | Amiga Hunk overlay (jeu interactif) | ❌ Non | binaire brut |
 | `music.cmp` | 88 187 | `524e4301` (`"RNC\x01"`) | Module SoundTracker compressé RNC | ✅ Oui | RNC ProPack 1 → `LAB_0190` |
 | `nb` | 15 732 | `0000 03f3` | Amiga Hunk bootstrap — trackloader + couche HAL hardware (§6.6) | ❌ Non | binaire brut |
@@ -464,7 +464,7 @@ struct cel_file {
 
 - **Magic `0000 03f3`** = magic Amiga Hunk (exécutable/overlay AmigaOS). Ces fichiers sont chargés par le loader hunk de `program` (`SECSTRT_4`) et exécutés directement en mémoire chip/fast — **aucune décompression**.
 - **Magic `005x 0000` / `001x 0000`** = en-tête propriétaire Mindscape CEL. Le premier mot (`word[0]`) encode le nombre de frames de l'animation. Format **non standard** (pas IFF). Compressé en LZSS frame par frame.
-- **Magic `0005 0000` / `0004 0000`** (fichiers `.PIV`) = en-tête propriétaire Mindscape PIV. Le premier mot encode le **nombre de plans** (4 ou 5). Format **non IFF** malgré l'utilisation de PackBits en body. Une image 320×200×5 plans non compressée ferait ~40 000 octets ; les tailles observées (11–28 Ko) confirment la compression.
+- **Magic `0005 0000` / `0004 0000`** (fichiers `.PIV`) = en-tête propriétaire Mindscape PIV. Le premier mot encode le **nombre de plans** (4 ou 5). Format **non IFF**. Le body est compressé en **LZSS** (`LAB_049C`) — même algorithme que les sprites `.cel`. Une image 320×200×5 plans non compressée ferait ~40 000 octets ; les tailles observées (11–28 Ko) confirment la compression.
 - **Magic `524e4301`** = `"RNC\x01"` = signature RNC ProPack type 1 sans ambiguïté. Header 18 octets (taille décompressée, taille compressée, CRC16).
 - **`kn1.ob`** (5 octets, `"list"`) = fichier de 5 octets, très probablement un stub ou un résidu de développement (les 5 octets = `6c 69 73 74` + un octet de donnée).
 
@@ -903,26 +903,26 @@ Total estimé en BSS : ≈ 4 Kio + bitmap en `S_27`/`S_30`.
 | `.cmp` | RNC ProPack 1 | `524e4301` ("RNC\x01") | ✅ Oui | `LAB_0190` ([program.asm#L3617](program.asm#L3617)) | ~88 Ko → ~140 Ko (music) |
 | `.cel` / `.CEL` | CEL Mindscape propriétaire | `word[0]` = nb frames | ✅ Oui | `LAB_049C` LZSS ([program.asm#L9210](program.asm#L9210)) | ratio ~0.4..0.6 selon sprite |
 | `.stile` | Tileset RLE bitplane | `0000 0000`/`0001` | ✅ Oui | `LAB_0448` / `SECSTRT_21` ([program.asm#L7923](program.asm#L7923)) | 960 octets (petit dataset) |
-| `.PIV` / `.piv` | PIV Mindscape propriétaire | `word[0]` = nb plans (4 ou 5) | ✅ Oui | `LAB_0434` PackBits maison ([program.asm#L7663](program.asm#L7663)) | ~11–28 Ko vs ~40 Ko raw |
+| `.PIV` / `.piv` | PIV Mindscape propriétaire | `word[0]` = nb plans (4 ou 5) | ✅ Oui | `LAB_049C` LZSS ([program.asm#L9210](program.asm#L9210)) | ~11–28 Ko vs ~40 Ko raw |
 | `.f` | Police bitmap Mindscape | `word[0]` = nb glyphes | ✅ Probable | `LAB_049C` LZSS (même famille CEL) | 12 Ko |
 | `.ob` | Données objet (stub) | `"list"` | ❌ Non | — | 5 octets |
 | sans ext. (hunks) | Amiga Hunk binaire | `0000 03f3` | ❌ Non | — (chargé brut par `SECSTRT_4`) | `program`=60 Ko, `mog`=172 Ko |
 
-> ⚠️ **Correction :** les fichiers `.PIV` **ne sont pas au format IFF/ILBM standard**. Leur magic (`0x0005`/`0x0004`) ne correspond pas à `"FORM"` (`0x464F524D`). Il s'agit d'un format Mindscape propriétaire dont le body est compressé avec un algorithme PackBits maison (byte ≥ 0 : N+1 littéraux ; byte < 0 : répétition ; `$80` = NOP), parsé par `LAB_0434`. La confusion venait d'une analyse initiale du code avant vérification des magic bytes réels.
+> ⚠️ **Correction :** les fichiers `.PIV` **ne sont pas au format IFF/ILBM standard**. Leur magic (`0x0005`/`0x0004`) ne correspond pas à `"FORM"` (`0x464F524D`). Il s'agit d'un format Mindscape propriétaire dont le body est compressé avec **LZSS** (`LAB_049C`) — le même décompresseur que les sprites `.cel`. La confusion initiale (PackBits / `LAB_0434`) venait d'une lecture partielle du code avant analyse complète de la chaîne d'appel (`LAB_03FC → LAB_0406 → LAB_049C`).
 
 ### 8.2 Pourquoi trois algorithmes ?
 
 - **RNC ProPack** (musique) : outil standard Amiga très répandu en 1992, excellent ratio sur données séquentielles comme les modules tracker.
-- **LZSS** (sprites) : compromis vitesse/ratio adapté aux données pixel avec beaucoup de répétitions locales ; décodage rapide sans table.
+- **LZSS** (sprites **et fonds PIV**) : compromis vitesse/ratio adapté aux données pixel avec beaucoup de répétitions locales ; décodage rapide sans table. Utilisé aussi bien pour les `.cel` que pour les `.PIV` custom Mindscape.
 - **RLE bitplane** (décors) : exploite la nature bitplane des tiles — les plans nuls ou constants se compressent à 2 bits par ligne, gains importants sur les grandes zones vides de décor.
-- **IFF/ILBM + PackBits** (fonds) : format standard Amiga produit directement par Deluxe Paint ; aucun décodeur maison requis.
+- **IFF/ILBM + PackBits** (`LAB_0434`) : présent dans le code pour une variante PIV IFF non utilisée par les fichiers de jeu observés.
 
 ### 8.3 Impact pour le portage
 
 - `music.cmp` / `vmusic.cmp` : décompresser avec un décodeur RNC1 standard (bibliothèques disponibles) avant chargement du module tracker.
 - `*.cel` : décompresser via le port de `LAB_049C` (LZSS, ~60 lignes ASM → ~30 lignes C).
 - `*.stile` : décompresser via le port de `LAB_0448` (RLE 2 bits, ~80 lignes ASM).
-- `*.PIV` : utiliser n'importe quelle bibliothèque IFF/ILBM existante (libiff, etc.).
+- `*.PIV` : décompresser le body via le port de `LAB_049C` (LZSS, même décodeur que les `.cel`) — `moon_lzss_decompress` dans `libmoon_assets`.
 - `*.ob` : copier directement en mémoire (données brutes structurées, voir §10.17).
 
 ---
@@ -1551,19 +1551,16 @@ Utilisé pour les données pixel des `.stile` (décors) :
   - `11` = back-reference longue variable
 - D7 = compteur de bits restants à traiter
 
-#### Décodeur PIV Mindscape — `LAB_0434` ([program.asm#L7663](program.asm#L7663))
+#### Décodeur PIV Mindscape — format custom (magic `0x0004`/`0x0005`)
 
-> ⚠️ **Correction d'analyse :** les fichiers `.PIV` ne sont **pas** au format IFF/ILBM standard (magic réel = `0x00050000` ou `0x00040000`, pas `"FORM"`). Il s'agit d'un format Mindscape propriétaire.
+> ⚠️ **Correction d'analyse :** le body des fichiers `.PIV` Mindscape est compressé avec **LZSS** (`LAB_049C`), **pas** avec PackBits (`LAB_0434`). La chaîne d'appel confirmée dans `program.asm` est `JSR LAB_03FC → LAB_0406 → JSR LAB_049C`, identique aux sprites `.cel`. `LAB_0434` gère une variante IFF/ILBM non utilisée par les fichiers de jeu.
 
 Structure d'un fichier `.PIV` (vérifiée sur les fichiers du workspace) :
 - `word[0]` = nombre de plans (4 ou 5) — le first word `0x0005`/`0x0004` identifie le format
-- `word[1]` = flags ou hauteur (à confirmer)
-- Palette : 32 mots Amiga 12-bit (`$0RGB`) — conversion depuis les octets RGB source : `(R << 8 | G << 4 | B) >> 5 & 0x0777` *(inféré par analogie — à valider sur le code)*
-- Body : PackBits/ByteRun1 maison — même algorithme que IFF mais sans wrapper :
-  - byte ≥ 0 → N+1 octets littéraux suivants
-  - byte < 0 → répéter l'octet suivant `(1 - byte)` fois
-  - byte `$80` → NOP
-- Décodage plan par plan vers le bitmap interleaved (N plans × 320/8 octets par ligne)
+- `long[1]` = taille en octets du body compressé
+- Palette : 32 mots Amiga 12-bit (`$0RGB`) stockés après l'en-tête (32 ou 64 octets selon le nombre de plans)
+  - `LAB_03F4 / LAB_03FF` : `BCLR #15,D0` ; si bit15=0 → `LSL.W #1,D0` (décalage gauche × 2)
+- Body : **bitstream LZSS** (même algorithme que `LAB_049C` pour les `.cel`) décompressé en un seul bloc vers le bitmap plane-séquentiel (tous les plans consécutifs)
 
 ---
 
@@ -2184,7 +2181,7 @@ Chaque décompresseur est isolé dans son propre fichier source sans dépendance
 | `rnc1.c` | RNC ProPack 1 (Huffman + LZ) | `LAB_0190` | ~150 lignes C |
 | `lzss_cel.c` | LZSS Mindscape (fenêtre 2 Ko, longueur 2..34) | `LAB_049C` | ~60 lignes C |
 | `rle_stile.c` | RLE 2 bits (opcodes `00`/`01`/`10`/`11`) | `LAB_0448` | ~80 lignes C |
-| `packbits_piv.c` | PackBits maison (format PIV Mindscape) | `LAB_0434` | ~50 lignes C |
+| `packbits_piv.c` | PIV Mindscape : LZSS pour le format custom (body via `LAB_049C`) + PackBits IFF (`LAB_0434`) | `LAB_049C` / `LAB_0434` | ~150 lignes C |
 
 Chacun expose une fonction `int decompress_xxx(const uint8_t *src, size_t src_len, uint8_t *dst, size_t dst_len)` retournant les octets écrits ou `-1` en cas d'erreur.
 
@@ -2230,7 +2227,7 @@ Fichier : bg3.PIV  (20984 octets)
 Format  : PIV Mindscape propriétaire
 Plans   : 5 (32 couleurs)
 Raw     : ~40000 octets  →  ratio 0.52
-Algo    : PackBits maison (LAB_0434)
+Algo    : LZSS (LAB_049C)
 
 # Extraire la frame 0 d'un sprite en PNG (pour comparaison émulateur)
 $ moon-view-cel au1.cel 0 --out frame0.png
