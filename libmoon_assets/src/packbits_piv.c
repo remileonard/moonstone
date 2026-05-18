@@ -471,7 +471,7 @@ static MoonPiv *piv_from_custom(const uint8_t *buf, size_t len)
             pal[i] = (uint16_t)(raw << 1); /* normal case: double the value */
     }
 
-    /* Body (LAB_0408 bitstream) starts immediately after the palette. */
+    /* Body (LZSS-compressed bitstream) starts immediately after the palette. */
     const uint8_t *body = buf + 6 + pal_bytes;
     size_t body_avail   = len - (size_t)(6 + pal_bytes);
     if (body_size > (uint32_t)body_avail)
@@ -496,15 +496,15 @@ static MoonPiv *piv_from_custom(const uint8_t *buf, size_t len)
     }
     memcpy(piv->palette, pal, sizeof(pal));
 
-    /* Decompress one plane at a time; LAB_03FA calls LAB_0408 four or five
-     * times with A1 = LAB_04D9 + plane * 0x1F40 (= plane * 8000). */
-    const uint8_t *src = body;
-    for (int pl = 0; pl < planes; pl++) {
-        uint8_t *plane_dst = piv->bitmap + (size_t)pl * plane_bytes;
-        lab0408_decomp_plane(&src, plane_dst);
-        /* Guard: do not read past the end of the body buffer */
-        if (src > body + body_size)
-            break;
+    /* Decompress the full body with LZSS (LAB_049C in program.asm).
+     * The confirmed call path is JSR LAB_03FC → LAB_0406 → JSR LAB_049C,
+     * identical to the CEL decompressor.  The output is the raw plane-
+     * sequential bitmap (all bitplanes laid out consecutively). */
+    int r = moon_lzss_decompress(body, (size_t)body_size, piv->bitmap, bitmap_size);
+    if (r <= 0) {
+        free(piv->bitmap);
+        free(piv);
+        return NULL;
     }
 
     return piv;
