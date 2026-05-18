@@ -5,11 +5,11 @@
  * without any file conversion: .cel, .PIV, .stile, .cmp, .ob
  *
  * File formats supported:
- *   - CEL  : sprite sheets (LZSS compressed, proprietary header)
- *   - PIV  : background bitmaps (IFF/ILBM with PackBits, or proprietary)
+ *   - CEL  : sprite sheets (LZSS compressed, proprietary Mindscape header)
+ *   - PIV  : background bitmaps (proprietary Mindscape, LZSS body)
  *   - STILE: tile maps (2-bit RLE)
- *   - CMP  : SoundTracker modules (RNC ProPack 1 compressed)
- *   - OB   : object data (uncompressed)
+ *   - CMP  : ProTracker modules (RNC ProPack 1 compressed)
+ *   - OB   : character sprite sheets (same format as CEL, LZSS compressed)
  *
  * All multi-byte values in Mindscape files are big-endian (Amiga/68000).
  */
@@ -156,49 +156,87 @@ MoonStile *moon_stile_load(const char *name);
 void moon_stile_free(MoonStile *stile);
 
 /* ------------------------------------------------------------------ */
-/* CMP — SoundTracker modules (RNC ProPack 1 compressed)              */
+/* CMP — ProTracker modules (RNC ProPack 1 compressed)                */
 /* ------------------------------------------------------------------ */
 
 /**
- * MoonMod - decompressed SoundTracker/NoiseTracker module data.
+ * MoonModSample - descriptor and PCM data for one ProTracker sample slot.
  *
- * The decompressed `data` is a raw MOD module ready for a tracker player.
+ * Matches the 30-byte sample header layout of a ProTracker MOD file
+ * (big-endian Amiga format).  All length/loop fields are in WORDS
+ * (multiply by 2 to get byte counts).
  */
 typedef struct {
-    size_t   size;  /* byte count of decompressed module */
-    uint8_t *data;  /* decompressed module data */
+    char     name[23];            /* null-terminated sample name (22 chars max) */
+    uint16_t length_words;        /* sample length in words (bytes = length_words * 2) */
+    int8_t   finetune;            /* signed fine-tune value: -8..+7                   */
+    uint8_t  volume;              /* playback volume: 0..64                           */
+    uint16_t repeat_offset_words; /* loop start position, in words                   */
+    uint16_t repeat_length_words; /* loop length in words (1 = no loop)              */
+    uint8_t *data;                /* PCM sample data (signed 8-bit), may be NULL     */
+} MoonModSample;
+
+/**
+ * MoonMod - a fully parsed ProTracker MOD module.
+ *
+ * The decompressed .cmp file is a standard 31-sample, 4-channel ProTracker
+ * module (as confirmed by program.asm LAB_0061: offset 0x3B8 = 952 for the
+ * pattern order table, 0x43C = 1084 for pattern data, 31-sample loop at
+ * LAB_0064).  All fields are decoded from the raw big-endian MOD header.
+ *
+ * Pattern data layout: pattern_count × 64 rows × 4 channels × 4 bytes.
+ * Each 4-byte channel word:
+ *   [sample_hi(4)] [period_hi(4)] [period_lo(8)] [sample_lo(4)] [effect(12)]
+ */
+typedef struct {
+    char          title[21];          /* null-terminated module title (20 chars max) */
+    uint8_t       song_length;        /* number of valid entries in order[]          */
+    uint8_t       restart_position;   /* restart position (ProTracker field)         */
+    uint8_t       order[128];         /* pattern order / position table              */
+    uint32_t      pattern_count;      /* number of distinct patterns                 */
+    uint8_t      *pattern_data;       /* raw pattern data: pattern_count × 1024 B   */
+    int           sample_count;       /* always 31 for Moonstone modules             */
+    MoonModSample samples[31];        /* sample descriptors (index 0 = slot 1)      */
 } MoonMod;
 
 /**
- * moon_mod_load - load and decompress a .cmp music file.
+ * moon_mod_load - load, decompress and parse a .cmp music file.
  * @name: filename (e.g. "music.cmp").
  * Returns a newly allocated MoonMod, or NULL on error.
  */
 MoonMod *moon_mod_load(const char *name);
 
-/** moon_mod_free - release a MoonMod. */
+/** moon_mod_free - release a MoonMod obtained from moon_mod_load(). */
 void moon_mod_free(MoonMod *mod);
 
 /* ------------------------------------------------------------------ */
-/* OB — raw object data                                                */
+/* OB — character sprite sheets (same format as CEL)                  */
 /* ------------------------------------------------------------------ */
 
 /**
- * MoonOb - raw object data (uncompressed).
+ * MoonOb - a decoded .ob character object sprite sheet.
+ *
+ * The .ob format is structurally identical to the .cel format: a 10-byte
+ * global header (frame_count word + two longs), a frame table of
+ * frame_count × 10-byte entries, and an LZSS-compressed pixel body.
+ * Loading is handled by the same decoder used for .cel files.
+ *
+ * Frame pixel data layout is identical to MoonCelFrame — see the CEL
+ * section above for the full description of the planar format.
  */
 typedef struct {
-    size_t   size;
-    uint8_t *data;
+    int           frame_count; /* total number of animation frames */
+    MoonCelFrame *frames;      /* array of frame_count frames (same layout as CEL) */
 } MoonOb;
 
 /**
- * moon_ob_load - load a .ob object data file (uncompressed).
+ * moon_ob_load - load and decode a .ob character sprite file.
  * @name: filename (e.g. "kn1.ob").
  * Returns a newly allocated MoonOb, or NULL on error.
  */
 MoonOb *moon_ob_load(const char *name);
 
-/** moon_ob_free - release a MoonOb. */
+/** moon_ob_free - release a MoonOb obtained from moon_ob_load(). */
 void moon_ob_free(MoonOb *ob);
 
 /* ------------------------------------------------------------------ */

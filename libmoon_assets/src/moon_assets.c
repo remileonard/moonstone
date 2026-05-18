@@ -157,14 +157,18 @@ static void free_asset(AssetType type, void *asset)
     }
     case ASSET_MOD: {
         MoonMod *m = (MoonMod *)asset;
-        free(m->data);
+        free(m->pattern_data);
+        for (int i = 0; i < m->sample_count; i++)
+            free(m->samples[i].data);
         free(m);
         break;
     }
     case ASSET_OB: {
-        MoonOb *o = (MoonOb *)asset;
-        free(o->data);
-        free(o);
+        MoonCel *c = (MoonCel *)asset;   /* MoonOb has identical layout */
+        for (int i = 0; i < c->frame_count; i++)
+            free(c->frames[i].data);
+        free(c->frames);
+        free(c);
         break;
     }
     }
@@ -538,6 +542,115 @@ void moon_stile_free(MoonStile *stile)
 /* MOD / CMP loader                                                    */
 /* ------------------------------------------------------------------ */
 
+/*
+ * ProTracker MOD format (31-sample, 4-channel) as used by Moonstone:
+ *
+ *   Offset    0 : title (20 bytes, null-padded)
+ *   Offset   20 : sample headers, 31 × 30 bytes each:
+ *                   name[22], length(u16), finetune(u8), volume(u8),
+ *                   repeat_offset(u16), repeat_length(u16)
+ *   Offset  950 : song_length (u8)  — number of valid entries in order[]
+ *   Offset  951 : restart_position (u8)
+ *   Offset  952 : order[128] (u8 each)
+ *   Offset 1080 : magic "M.K." (4 bytes)
+ *   Offset 1084 : pattern data, (max_pattern+1) × 64 rows × 4 ch × 4 B
+ *   After patterns: sample PCM data (signed 8-bit), concatenated
+ *
+ * Confirmed by program.asm LAB_0061:
+ *   ADDA.L #$0003B8,A1  → A1 points to order[0] at offset 952
+ *   ADDI.L #$00043C,D2  → pattern data starts at 1084 = 952+128+4
+ *   MOVEQ  #30,D0       → loop for 31 sample descriptors
+ *   ADDA.L #$1E,A0      → descriptor stride = 30 bytes
+ */
+
+#define MOD_TITLE_LEN       20
+#define MOD_SAMPLE_COUNT    31
+#define MOD_SAMPLE_DESCR    30   /* bytes per sample descriptor */
+#define MOD_SAMPLE_NAME     22   /* bytes of name in descriptor  */
+#define MOD_SONG_LEN_OFF   950
+#define MOD_RESTART_OFF    951
+#define MOD_ORDER_OFF      952
+#define MOD_ORDER_COUNT    128
+#define MOD_MAGIC_OFF     1080
+#define MOD_HEADER_SIZE   1084  /* = 1080 + 4 (magic) */
+#define MOD_PATTERN_BYTES 1024  /* 64 rows × 4 channels × 4 bytes */
+
+static MoonMod *mod_decode(const uint8_t *data, size_t len)
+{
+    if (len < MOD_HEADER_SIZE)
+        return NULL;
+
+    /* Determine pattern count from the order table */
+    uint8_t song_length = data[MOD_SONG_LEN_OFF];
+    if (song_length == 0 || song_length > MOD_ORDER_COUNT)
+        song_length = MOD_ORDER_COUNT; /* clamp gracefully */
+
+    uint8_t max_pattern = 0;
+    for (int i = 0; i < MOD_ORDER_COUNT; i++) {
+        uint8_t p = data[MOD_ORDER_OFF + i];
+        if (p > max_pattern)
+            max_pattern = p;
+    }
+    uint32_t pattern_count = (uint32_t)max_pattern + 1;
+
+    /* Verify pattern data fits */
+    size_t pattern_data_size = (size_t)pattern_count * MOD_PATTERN_BYTES;
+    if (MOD_HEADER_SIZE + pattern_data_size > len)
+        return NULL;
+
+    MoonMod *mod = (MoonMod *)calloc(1, sizeof(MoonMod));
+    if (!mod)
+        return NULL;
+
+    /* Title */
+    memcpy(mod->title, data, MOD_TITLE_LEN);
+    mod->title[MOD_TITLE_LEN] = '\0';
+
+    mod->song_length       = song_length;
+    mod->restart_position  = data[MOD_RESTART_OFF];
+    memcpy(mod->order, data + MOD_ORDER_OFF, MOD_ORDER_COUNT);
+    mod->pattern_count     = pattern_count;
+    mod->sample_count      = MOD_SAMPLE_COUNT;
+
+    /* Copy pattern data */
+    mod->pattern_data = (uint8_t *)malloc(pattern_data_size);
+    if (!mod->pattern_data) {
+        free(mod);
+        return NULL;
+    }
+    memcpy(mod->pattern_data, data + MOD_HEADER_SIZE, pattern_data_size);
+
+    /* Parse sample descriptors and copy PCM data */
+    size_t sample_offset = MOD_HEADER_SIZE + pattern_data_size;
+    for (int i = 0; i < MOD_SAMPLE_COUNT; i++) {
+        const uint8_t *desc = data + MOD_TITLE_LEN + (size_t)i * MOD_SAMPLE_DESCR;
+        MoonModSample  *s   = &mod->samples[i];
+
+        memcpy(s->name, desc, MOD_SAMPLE_NAME);
+        s->name[MOD_SAMPLE_NAME] = '\0';
+
+        s->length_words        = (uint16_t)((desc[22] << 8) | desc[23]);
+        /* finetune: lower nibble, signed 4-bit two's-complement */
+        {
+            uint8_t ft = desc[24] & 0x0Fu;
+            s->finetune = (ft < 8u) ? (int8_t)ft : (int8_t)((int)ft - 16);
+        }
+        s->volume              = desc[25];
+        s->repeat_offset_words = (uint16_t)((desc[26] << 8) | desc[27]);
+        s->repeat_length_words = (uint16_t)((desc[28] << 8) | desc[29]);
+
+        size_t sample_bytes = (size_t)s->length_words * 2u;
+        if (sample_bytes > 0 && sample_offset + sample_bytes <= len) {
+            s->data = (uint8_t *)malloc(sample_bytes);
+            if (s->data)
+                memcpy(s->data, data + sample_offset, sample_bytes);
+        }
+        sample_offset += sample_bytes;
+    }
+
+    return mod;
+}
+
 MoonMod *moon_mod_load(const char *name)
 {
     if (!g_ctx.initialised)
@@ -554,46 +667,39 @@ MoonMod *moon_mod_load(const char *name)
     if (!buf)
         return NULL;
 
-    /* Check for RNC1 magic */
-    int is_rnc = (len >= 4 && buf[0] == 'R' && buf[1] == 'N' &&
-                  buf[2] == 'C' && buf[3] == 0x01);
-
-    uint8_t *data = NULL;
-    size_t   data_size;
+    /* Decompress if RNC1-compressed */
+    uint8_t *raw      = NULL;
+    size_t   raw_size = 0;
+    int      is_rnc   = (len >= 4 && buf[0] == 'R' && buf[1] == 'N' &&
+                         buf[2] == 'C' && buf[3] == 0x01);
 
     if (is_rnc) {
-        /* Read uncompressed size from header */
-        uint32_t uncomp_size = ((uint32_t)buf[4] << 24) | ((uint32_t)buf[5] << 16) |
-                               ((uint32_t)buf[6] <<  8) |  (uint32_t)buf[7];
-        data_size = (size_t)uncomp_size + 4; /* slight extra headroom */
-        data = (uint8_t *)malloc(data_size);
-        if (!data) {
+        uint32_t uncomp = ((uint32_t)buf[4] << 24) | ((uint32_t)buf[5] << 16) |
+                          ((uint32_t)buf[6] <<  8) |  (uint32_t)buf[7];
+        raw_size = (size_t)uncomp + 16; /* small headroom */
+        raw = (uint8_t *)malloc(raw_size);
+        if (!raw) {
             free(buf);
             return NULL;
         }
-        int written = moon_rnc1_decompress(buf, len, data, data_size);
+        int written = moon_rnc1_decompress(buf, len, raw, raw_size);
+        free(buf);
         if (written < 0) {
-            free(data);
-            free(buf);
+            free(raw);
             return NULL;
         }
-        data_size = (size_t)written;
+        raw_size = (size_t)written;
     } else {
-        /* Not compressed — treat as raw module */
-        data = buf;
-        buf  = NULL; /* ownership transferred */
-        data_size = len;
+        raw      = buf;
+        raw_size = len;
+        buf      = NULL;
     }
 
-    free(buf);
+    MoonMod *mod = mod_decode(raw, raw_size);
+    free(raw);
 
-    MoonMod *mod = (MoonMod *)calloc(1, sizeof(MoonMod));
-    if (!mod) {
-        free(data);
+    if (!mod)
         return NULL;
-    }
-    mod->size = data_size;
-    mod->data = data;
 
     cache_insert(name, ASSET_MOD, mod);
     return mod;
@@ -621,6 +727,29 @@ void moon_mod_free(MoonMod *mod)
 /* OB loader                                                           */
 /* ------------------------------------------------------------------ */
 
+/*
+ * The .ob file format is structurally identical to .cel:
+ *
+ *   Global header (10 bytes, big-endian):
+ *     word[0..1]  = frame_count
+ *     long[2..5]  = compressed pixel body size (bytes)
+ *     long[6..9]  = reserved
+ *
+ *   Frame table: frame_count × 10 bytes
+ *     long [0..3] = pixel_data_offset (into decompressed pixel buffer)
+ *     word [4..5] = width  (pixels)
+ *     word [6..7] = height (rows)
+ *     byte [8]    = toggle_flags
+ *     byte [9]    = planes_mask
+ *
+ *   Compressed pixel body (LZSS, same algorithm as .cel / LAB_049C)
+ *
+ * Confirmed by program.asm LAB_0496 (lines 8596-8650) which uses the
+ * same header-parsing and LZSS decompression (JSR LAB_049C) as the
+ * CEL loader, and by mog.asm LAB_0CBB which uses LAB_0CC2 — a variant
+ * of the same LZSS algorithm with identical encoding.
+ */
+
 MoonOb *moon_ob_load(const char *name)
 {
     if (!g_ctx.initialised)
@@ -637,13 +766,17 @@ MoonOb *moon_ob_load(const char *name)
     if (!buf)
         return NULL;
 
-    MoonOb *ob = (MoonOb *)calloc(1, sizeof(MoonOb));
-    if (!ob) {
-        free(buf);
+    /* .ob files use the same format as .cel files */
+    MoonCel *cel = cel_decode(buf, len);
+    free(buf);
+    if (!cel)
         return NULL;
-    }
-    ob->size = len;
-    ob->data = buf;
+
+    /*
+     * MoonOb has an identical layout to MoonCel (frame_count + frames).
+     * Cast directly: both structs have the same fields in the same order.
+     */
+    MoonOb *ob = (MoonOb *)(void *)cel;
 
     cache_insert(name, ASSET_OB, ob);
     return ob;

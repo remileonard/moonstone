@@ -397,27 +397,38 @@ Le mode blitter configuré est typiquement :
 Le rendu se fait en 5 passes (une par plan), `LAB_0504` = ligne stride en
 octets.
 
-#### 6.2.3 Format CEL
+#### 6.2.3 Format CEL et OB
 
-Reconstitué d'après [program.asm#L8830-L8870](program.asm#L8830-L8870) :
+Reconstitué d'après [program.asm#L8596-L8650](program.asm#L8596-L8650) (loader CEL/OB `LAB_0496`) :
 
 ```c
-struct cel_file {
-    u16 frame_count;             // nombre de frames
-    u32 data_offset;             // décalage début des données pixel
-    u8  reserved[4];             // header pad
+/*
+ * Format commun .cel / .ob — big-endian (Amiga 68000)
+ * Chargé par LAB_0496 (program.asm) et LAB_0CBB (mog.asm).
+ * Corps compressé en LZSS (LAB_049C / LAB_0CC2, algorithme identique).
+ */
+struct cel_ob_file {
+    uint16_t frame_count;       /* nombre de frames d'animation          */
+    uint32_t comp_body_size;    /* taille du corps LZSS compressé        */
+    uint32_t reserved;          /* non utilisé                           */
 
-    struct frame_index {
-        u32 data_offset;         // depuis data_offset
-        u16 width;               // largeur en pixels
-        u16 height;              // hauteur en lignes
-        u8  planes_or_flags;     // bits = sélection plans actifs
-        u8  draw_flags;          // & 0x01 = "cached" toggle
-        u8  blit_minterm;        // logique blitter à appliquer
-    } frames[frame_count];
-    // ... pixel data, planar, 5 plans interleaved row-by-row
+    /* Table de frames : frame_count × 10 octets                        */
+    struct frame_entry {
+        uint32_t pixel_data_offset; /* offset dans le buffer décompressé */
+        uint16_t width;             /* largeur en pixels                  */
+        uint16_t height;            /* hauteur en lignes                  */
+        uint8_t  toggle_flags;      /* bit 0 = flip draw-toggle           */
+        uint8_t  planes_mask;       /* bit n = plan n actif (bits 0..4)   */
+    } frames[frame_count];         /* stride = 10 octets                 */
+
+    /* Corps LZSS : décompressé → buffer planaire continu               */
+    /* row_bytes = ((width + 15) / 16) * 2                              */
+    /* taille par frame = planes * row_bytes * height                   */
+    uint8_t compressed_body[];
 };
 ```
+
+Les fichiers `.cel` contiennent les sprites des personnages/créatures ; les fichiers `.ob` utilisent **exactement le même format** (confirmé par l'analyse de `LAB_0496` et `LAB_0CBB` dans `mog.asm`). La bibliothèque `libmoon_assets` traite les deux avec le même décodeur.
 
 #### 6.2.4 Inventaire des fichiers — format et compression
 
@@ -449,7 +460,7 @@ struct cel_file {
 | `intro.stile` | 960 | `0000 0001` | Tileset décor (intro) | ✅ Oui | Bitplane RLE 2 bits → `LAB_0448` |
 | `iraosx` | — | — | Outil macOS (désassembleur IRA v2.11) | N/A | hors jeu |
 | `Klift1.CEL` | 12 927 | `0037 0000` | Sprite CEL Mindscape — 0x37=55 frames | ✅ Oui | LZSS → `LAB_049C` |
-| `kn1.ob` | 5 | `6c697374` (`"list"`) | Données objet chevalier (stub IFF LIST ?) | ❌ Non | binaire brut |
+| `kn1.ob` | 5 | `6c697374` (`"list"`) | Sprite objet chevalier — stub/résidu de développement (5 octets : `"list"` + 1 octet) ; le format .ob complet est identique au format CEL (voir §6.2.3). Les .ob réels en jeu sont chargés par `LAB_0496`/`LAB_0CBB` avec LZSS. | ❌ Non (stub) | Format CEL identique → LZSS `LAB_049C` |
 | `li1.cel` | 14 724 | `001e 0000` | Sprite CEL Mindscape — 0x1e=30 frames | ✅ Oui | LZSS → `LAB_049C` |
 | `message.piv` | 3 694 | `0004 0000` | Message PIV Mindscape — 4 plans | ✅ Oui | LZSS → `LAB_049C` |
 | `mindscape` | 16 473 | `0005 0000` | Logo splash PIV Mindscape — 5 plans | ✅ Oui | LZSS → `LAB_049C` |
@@ -466,7 +477,7 @@ struct cel_file {
 - **Magic `005x 0000` / `001x 0000`** = en-tête propriétaire Mindscape CEL. Le premier mot (`word[0]`) encode le nombre de frames de l'animation. Format **non standard** (pas IFF). Compressé en LZSS frame par frame.
 - **Magic `0005 0000` / `0004 0000`** (fichiers `.PIV`) = en-tête propriétaire Mindscape PIV. Le premier mot encode le **nombre de plans** (4 ou 5). Format **non IFF**. Le body est compressé en **LZSS** (`LAB_049C`) — même algorithme que les sprites `.cel`. Une image 320×200×5 plans non compressée ferait ~40 000 octets ; les tailles observées (11–28 Ko) confirment la compression.
 - **Magic `524e4301`** = `"RNC\x01"` = signature RNC ProPack type 1 sans ambiguïté. Header 18 octets (taille décompressée, taille compressée, CRC16).
-- **`kn1.ob`** (5 octets, `"list"`) = fichier de 5 octets, très probablement un stub ou un résidu de développement (les 5 octets = `6c 69 73 74` + un octet de donnée).
+- **`kn1.ob`** (5 octets, `"list"`) = stub ou résidu de développement — ce fichier est trop petit pour être un asset valide. Le **format .ob complet** (utilisé en jeu) est identique au format `.cel` : en-tête 10 octets (`word` frame_count + deux `long`) + table de frames (`frame_count × 10` octets) + corps LZSS. Confirmé par `LAB_0496` (`program.asm`, lignes 8596–8650) et `LAB_0CBB` (`mog.asm`) qui utilisent exactement le même décodeur que les sprites `.cel`.
 
 #### 6.2.5 Cycling palette — `SECSTRT_31`
 
@@ -506,9 +517,11 @@ compatible MOD) :
   Paula** (37 notes : C-1 à B-3).
 - Effets : `MOVE.B 3(A6)` puis split haut/bas + `DIVS #3` = identique au
   *« vibrato / portamento / volume slide »* tracker.
-- Pas de signature « M.K. » dans le binaire ; les fichiers `.cmp` sont
-  donc des dumps mémoire « pré-mâchés » (header propriétaire) plutôt que
-  des `.MOD` standard.
+- Le player lit `LAB_0124` comme un **module ProTracker 31-instruments standard**
+  (format `.MOD`) — les offsets 0x3B8 et 0x43C sont les signatures exactes de
+  ce format. Les fichiers `.cmp` sont des `.MOD` standard compressés avec RNC1,
+  dont la décompression produit un fichier `.MOD` valide avec magic `"M.K."` à
+  l'offset 1080.
 
 API audio :
 
@@ -519,6 +532,43 @@ API audio :
 | `LAB_0065` | étape : effets sur chaque canal courant                             |
 | `LAB_006D` | fetch nouvelle note (toutes les `LAB_0096` VBL)                     |
 | `LAB_005B` | stop audio (clear `AUD0..3VOL`)                                     |
+
+#### 6.3.1 Format ProTracker MOD (`.cmp` décompressé)
+
+Un fichier `.cmp` décompressé est un module ProTracker 31-instruments 4-canaux standard. Structure mémoire :
+
+| Offset | Taille | Champ                                                              |
+|--------|--------|--------------------------------------------------------------------|
+| 0      | 20 B   | Titre du module (null-padded)                                      |
+| 20     | 31×30 B | Descripteurs de samples (voir ci-dessous)                         |
+| 950    | 1 B    | `song_length` — nombre de positions dans `order[]`                 |
+| 951    | 1 B    | `restart_position`                                                 |
+| 952    | 128 B  | `order[128]` — table d'ordre des patterns (indices 0..63)          |
+| 1080   | 4 B    | Magic `"M.K."` (ProTracker 4 canaux)                               |
+| 1084   | N×1024 B | N patterns (`song_length` max + 1), 64 rows × 4 canaux × 4 B    |
+| 1084+N×1024 | — | Données PCM des samples (signées 8-bit, concaténées)           |
+
+Structure d'un descripteur de sample (30 octets, big-endian) :
+
+| Offset | Taille | Champ                                                              |
+|--------|--------|--------------------------------------------------------------------|
+| 0      | 22 B   | Nom du sample (null-padded)                                        |
+| 22     | 2 B    | `length` en mots (octets = length × 2)                             |
+| 24     | 1 B    | `finetune` — nibble bas, signé 4 bits (-8..+7)                     |
+| 25     | 1 B    | `volume` — 0..64                                                   |
+| 26     | 2 B    | `repeat_offset` en mots                                            |
+| 28     | 2 B    | `repeat_length` en mots (1 = pas de boucle)                        |
+
+Format d'un mot de canal (4 octets par canal par row) :
+
+```
+[bits 31..28] = sample_hi (4 bits poids forts du numéro de sample)
+[bits 27..16] = period    (période Paula en cycles, 12 bits)
+[bits 15..12] = sample_lo (4 bits poids faibles du numéro de sample)
+[bits 11.. 0] = effect    (commande d'effet + paramètre)
+```
+
+`libmoon_assets` décode l'intégralité de cette structure via `moon_mod_load()` → `MoonMod`.
 
 `LAB_0124` = pointeur module musical actuellement chargé.
 
@@ -923,7 +973,7 @@ Total estimé en BSS : ≈ 4 Kio + bitmap en `S_27`/`S_30`.
 - `*.cel` : décompresser via le port de `LAB_049C` (LZSS, ~60 lignes ASM → ~30 lignes C).
 - `*.stile` : décompresser via le port de `LAB_0448` (RLE 2 bits, ~80 lignes ASM).
 - `*.PIV` : décompresser le body via le port de `LAB_049C` (LZSS, même décodeur que les `.cel`) — `moon_lzss_decompress` dans `libmoon_assets`.
-- `*.ob` : copier directement en mémoire (données brutes structurées, voir §10.17).
+- `*.ob` : décoder comme un sprite CEL (même format — en-tête 10 octets + table de frames + body LZSS) → `moon_ob_load` dans `libmoon_assets`.
 
 ---
 
@@ -2104,19 +2154,20 @@ Le portage ne doit **jamais nécessiter de convertir les fichiers originaux** en
 libmoon_assets
 ├── Décompression in-memory
 │   ├── RNC ProPack 1   → music.cmp, vmusic.cmp
-│   ├── LZSS Mindscape  → *.cel, *.CEL, bold.f
+│   ├── LZSS Mindscape  → *.cel, *.CEL, *.ob, bold.f
 │   └── RLE 2-bit       → *.stile
 ├── Parsing de format
-│   ├── CEL             → frames indexées + métadonnées
-│   ├── PIV             → bitmap planaire + palette Amiga
-│   ├── STILE           → tableau de tuiles
-│   ├── CMP             → données module (opaque, pour le player audio)
-│   └── OB              → données objet brutes
+│   ├── CEL             → frames indexées + métadonnées (planar, LZSS)
+│   ├── OB              → frames indexées + métadonnées (format identique à CEL)
+│   ├── PIV             → bitmap planaire + palette Amiga 12-bit
+│   ├── STILE           → tableau de tuiles décompressé
+│   └── CMP             → module ProTracker 31-instruments parsé
+│                          (titre, patterns, 31 samples + PCM)
 └── Cache fichiers
     └── hash de nom → évite les chargements redondants
 ```
 
-#### 11.2.2 API publique proposée
+#### 11.2.2 API publique (implémentée)
 
 ```c
 /* --- Initialisation ----------------------------------------- */
@@ -2125,9 +2176,17 @@ void moon_shutdown(void);
 
 /* --- CEL (sprites) ------------------------------------------ */
 typedef struct {
-    int       frame_count;
-    int       width, height;
-    uint8_t **frames;   /* pixels indexés 8-bit, frame_count pointeurs */
+    uint16_t width;        /* largeur en pixels */
+    uint16_t height;       /* hauteur en lignes */
+    uint8_t  planes;       /* nombre de plans actifs (1..5) */
+    uint8_t  draw_flags;   /* flags blit issus de l'en-tête CEL */
+    uint8_t  minterm;      /* logique blitter */
+    uint8_t *data;         /* données planaires (planes × row_bytes × height) */
+} MoonCelFrame;
+
+typedef struct {
+    int           frame_count;
+    MoonCelFrame *frames;
 } MoonCel;
 
 MoonCel  *moon_cel_load(const char *name);   /* ex: "au1.cel" */
@@ -2137,7 +2196,7 @@ void      moon_cel_free(MoonCel *cel);
 typedef struct {
     int      planes;        /* 4 ou 5 */
     int      width, height; /* 320×200 standard */
-    uint8_t *bitmap;        /* données planaires (planes × width/8 × height) */
+    uint8_t *bitmap;        /* données planaires (planes × row_bytes × height) */
     uint16_t palette[32];   /* couleurs Amiga 12-bit $0RGB */
 } MoonPiv;
 
@@ -2146,26 +2205,42 @@ void      moon_piv_free(MoonPiv *piv);
 
 /* --- STILE (tilemaps) --------------------------------------- */
 typedef struct {
-    int      tile_count;
-    uint8_t *data;          /* données RLE décompressées */
+    size_t   size;
+    uint8_t *data;  /* données RLE décompressées */
 } MoonStile;
 
 MoonStile *moon_stile_load(const char *name);
 void       moon_stile_free(MoonStile *stile);
 
-/* --- CMP (modules audio) ------------------------------------ */
+/* --- CMP (modules ProTracker) ------------------------------- */
 typedef struct {
-    size_t   size;
-    uint8_t *data;    /* module SoundTracker décompressé, prêt pour le player */
+    char     name[23];            /* nom du sample (max 22 chars) */
+    uint16_t length_words;        /* longueur en mots (octets / 2) */
+    int8_t   finetune;            /* accordage fin : -8..+7 */
+    uint8_t  volume;              /* volume : 0..64 */
+    uint16_t repeat_offset_words; /* début boucle en mots */
+    uint16_t repeat_length_words; /* longueur boucle en mots (1 = pas de boucle) */
+    uint8_t *data;                /* données PCM signées 8-bit */
+} MoonModSample;
+
+typedef struct {
+    char          title[21];         /* titre du module */
+    uint8_t       song_length;       /* nombre de positions valides dans order[] */
+    uint8_t       restart_position;
+    uint8_t       order[128];        /* table d'ordre des patterns */
+    uint32_t      pattern_count;     /* nombre de patterns distincts */
+    uint8_t      *pattern_data;      /* pattern_count × 1024 octets */
+    int           sample_count;      /* toujours 31 pour Moonstone */
+    MoonModSample samples[31];       /* descripteurs + données PCM */
 } MoonMod;
 
 MoonMod  *moon_mod_load(const char *name);   /* ex: "music.cmp" */
 void      moon_mod_free(MoonMod *mod);
 
-/* --- OB (données objet) ------------------------------------- */
+/* --- OB (sprites objet — même format que CEL) --------------- */
 typedef struct {
-    size_t   size;
-    uint8_t *data;
+    int           frame_count;
+    MoonCelFrame *frames;   /* même layout que les frames CEL */
 } MoonOb;
 
 MoonOb   *moon_ob_load(const char *name);
