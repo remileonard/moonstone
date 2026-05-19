@@ -152,7 +152,7 @@ sont ajoutées au runtime dans le buffer `SECSTRT_2` :
 | Type   | Nom UI (LAB_08F4)          | Gestionnaire | Description courte               |
 |--------|----------------------------|--------------|-----------------------------------|
 | `0x01` | —                          | `LAB_004F`   | Duel PvP (chevalier actif)        |
-| `0x02` | —                          | `LAB_005B`   | Combat créature aléatoire         |
+| `0x02` | —                          | `LAB_005B`   | Combat contre créature à **position fixe** (peut porter une Clef de la Vallée) |
 | `0x15` | "Enter Village"            | `LAB_00B0`   | Village de Richard (faction 0)    |
 | `0x16` | "Enter Village"            | `LAB_00B0`   | Village de Godber (faction 1)     |
 | `0x17` | "Enter Village"            | `LAB_00B0`   | Village de Jeffrey (faction 2)    |
@@ -415,15 +415,153 @@ Le message de Math (LAB_075C-LAB_075E) :
 
 #### Nœuds dynamiques (runtime — buffer `SECSTRT_2`)
 
-Ces nœuds ne sont **pas** dans `LAB_069F`. Ils sont ajoutés par `LAB_006B`
-et `LAB_0071` à chaque frame à partir des positions actuelles des entités.
+Ces nœuds ne sont **pas** dans `LAB_069F`. Ils sont construits à chaque
+frame par `LAB_006B` / `LAB_0069` à partir de l'état courant des entités.
 
-| Type   | Condition                                        | Gestionnaire | Effet                           |
-|--------|--------------------------------------------------|--------------|---------------------------------|
-| `0x01` | Autre chevalier actif (`73(A0) > 0`)             | `LAB_004F`   | Duel PvP immédiat               |
-| `0x21` | Chevalier mort (`73(A0) <= 0`) → tombe pillable  | `LAB_004F`   | Pillage : récupérer l'équipement du défunt |
-| `0x02` | Créature (rencontre aléatoire sur la carte)      | `LAB_005B`   | Combat PvE aléatoire            |
-| dragon | Collision avec le dragon volant                  | via `LAB_0E27` | Combat contre le dragon        |
+| Type   | Source                                           | Gestionnaire   | Effet                               |
+|--------|--------------------------------------------------|----------------|-------------------------------------|
+| `0x01` | Autre chevalier actif (`73(A0) > 0`)             | `LAB_004F`     | Duel PvP immédiat                   |
+| `0x21` | Chevalier mort (`73(A0) <= 0`) → tombe pillable  | `LAB_004F`     | Pillage : récupérer l'équipement du défunt |
+| `0x02` | Table de créatures **prédéfinie** à positions fixes (`LAB_05C6`) | `LAB_005B` | Combat PvE contre la créature   |
+| dragon | Collision avec le dragon volant                  | via `LAB_0E27` | Combat contre le dragon             |
+
+---
+
+### 1.7 Nœuds de créatures (type `0x02`) — structure et mécanique complète
+
+Contrairement aux chevaliers (position variable selon l'IA), les **créatures
+sont placées à des positions fixes** dans une table initialisée au démarrage.
+Leur position ne change jamais en cours de partie sauf lorsqu'elles sont
+vaincues (marquées inactives). Visiter et vaincre ces créatures est l'**objectif
+principal** du jeu : certaines d'entre elles portent la **Clef de la Vallée**,
+indispensable pour entrer dans la Vallée des Dieux.
+
+#### Structure de la table de créatures
+
+```
+LAB_05C6 = pointeur vers le bloc de données créatures (chip RAM)
+           initialisé à la chaîne de démarrage (mog.asm L281-282)
+Taille    : 24 entrées × 20 octets = 480 octets ($1E0)
+```
+
+Chaque entrée de créature (stride 20 octets, `ADDA.L #$00000014,A0`) :
+
+| Offset | Taille | Description                                                            |
+|--------|--------|------------------------------------------------------------------------|
+| 0      | long   | Pointeur vers le bloc de butin : 24 octets (1 par type d'item)        |
+| 4      | word   | Index du type de combat (`4(A0)`, utilisé par `LAB_01A3` pour lancer la bonne séquence d'animation) |
+| 8      | word   | **Clef présente** : 0 = pas de clef, ≠0 = la créature porte une clef  |
+| 10     | word   | **X overworld** (position fixe ; $FFFF = créature vaincue/inactive)   |
+| 12     | word   | **Y overworld** (position fixe)                                        |
+| 14     | word   | Puissance de combat / points de vie de la créature                     |
+| 16     | long   | Pointeur vers les données d'animation sprite de la créature            |
+
+Le champ aux offsets 10–13 est traité comme un **long** lors de la mise à mort :
+```asm
+MOVE.L #$ffffffff,10(A0)   ; X=$FFFF, Y=$FFFF → créature inactive
+```
+Quand `TST.L 10(A0)` est négatif (bit de signe du long = 1), la créature
+est ignorée dans la boucle de détection.
+
+#### Construction des nœuds 0x02 dans SECSTRT_2
+
+`LAB_0077` ([mog.asm#L1147](../amiga_asm/mog.asm)) :
+
+```asm
+LAB_0077:
+  A0 ← MOVEA.L 68(LAB_05B9), A0   ; = LAB_05C6 : début de la table créatures
+  D7 ← #$0017                       ; compteur 0..23 → 24 créatures
+
+LAB_0077_loop:
+  TST.L 10(A0)          ; X overworld (long)
+  BMI  → skip           ; < 0 → créature vaincue : ignorer
+
+  D0 ← #31              ; sprite-index 31 (icône générique de créature)
+  D1 ← 10(A0)           ; X créature
+  D2 ← 12(A0)           ; Y créature
+  D3,D4 ← pos chevalier ; 126(knight), 128(knight)
+
+  BSR LAB_0067          ; test de proximité : D5=2 si dans le rayon de détection
+  BNE → skip            ; trop loin : pas de nœud
+
+  ; Afficher l'icône créature à l'écran (sprite 31 aux coords D1,D2)
+  JSR LAB_0CDA
+
+  ; Enregistrer dans le buffer SECSTRT_2 :
+  MOVE.L A0, (A2)+      ; ptr vers l'entrée créature
+  MOVE.L #$00000002, (A2)+  ; type = 0x02
+
+  ADDA.L #$00000014, A0 ; entrée suivante (stride 20)
+  DBF D7, LAB_0077_loop
+```
+
+Résultat : chaque créature **vivante** dans le rayon de détection du chevalier
+est ajoutée comme nœud de type `0x02` dans `SECSTRT_2`.
+
+#### Condition de victoire sur une créature
+
+`LAB_005F` ([mog.asm#L948](../amiga_asm/mog.asm)) — appelé après le combat :
+
+```asm
+LAB_005F:
+  if multiplayer (LAB_065E ≠ 0) → RTS (pas de kill en multi)
+
+  D0 ← 0               ; flag "créature encore active"
+
+  if 8(A0) ≠ 0          ; créature porte encore une clef ?
+    D0 ← 1              ; oui → reste active
+
+  A1 ← 0(A0)            ; ptr vers le bloc de butin 24 octets
+  D7 ← 23
+  loop: if (A1)+ ≠ 0    ; au moins un item dans le butin ?
+    D0 ← 1              ; oui → reste active
+  DBF D7
+
+  if D0 = 0             ; clef=0 ET butin vide ?
+    MOVE.L #$ffffffff, 10(A0)   ; marquer la créature comme vaincue
+```
+
+La créature n'est **définitivement éliminée** de la carte (et son nœud ne
+réapparaît plus) que lorsque le joueur a ramassé **tous ses objets ET sa
+clef**. Tant qu'un item ou la clef reste dans son butin, la créature
+réapparaît sur la carte à sa position fixe.
+
+#### Collecte de la Clef de la Vallée
+
+Quand le joueur entre en collision avec un nœud `0x02`, `LAB_005B` est
+appelé avec `A1` = pointeur vers l'entrée créature. Après combat :
+
+1. Si le joueur gagne (`LAB_05DC bit 0 = 0`) :
+   - `battles_fought += 1` via `78(knight) + 1`
+   - Le menu de pillage est affiché (état 2) listant les items récupérables
+   - Le joueur voit `"Take Key to the Valley"` si `8(créature) ≠ 0`
+   - Sélectionner la clef : `8(créature) ← 0`, bit correspondant de
+     `inventaire[20]` mis à 1 (un bit par faction/creature-group)
+2. `LAB_005F` vérifie si la créature doit être marquée comme vaincue.
+
+Pour accéder à la **Vallée des Dieux** (`0x1c`), le joueur doit avoir
+`inventaire[20] == 0x0f` : les 4 bits (un par Chevalier Noir / groupe de
+créatures) tous à 1, ce qui signifie qu'il a collecté les 4 clefs.
+
+#### Tri des créatures pour l'IA ennemie
+
+`LAB_0DE0` ([mog.asm#L25193](../amiga_asm/mog.asm)) trie en temps réel les
+24 créatures par distance Manhattan au chevalier IA, pour que l'ennemi
+se dirige vers la créature la plus proche :
+
+```asm
+LAB_0DE0:
+  A0 ← LAB_05C6         ; table créatures
+  D7 ← 23               ; 24 entrées
+  pour chaque créature :
+    if 10(A0) < 0 : distance ← $FFFF  ; créature morte → loin
+    sinon : dist ← |X_creat-X_knight| + |Y_creat-Y_knight|
+  → remplir LAB_0672 (table de 24 × 6 octets : dist:word, ptr:long)
+  → tri-bulles sur la distance (23 passes)
+```
+
+L'IA du Chevalier Noir utilise ensuite cette liste triée (`LAB_0DEB`) pour
+choisir sa prochaine cible de déplacement.
 
 ---
 
@@ -612,7 +750,7 @@ Après le traitement de l'événement, le retour s'effectue toujours vers
 | Type nœud | Nom UI                          | Action                                                | Handler       |
 |-----------|---------------------------------|-------------------------------------------------------|---------------|
 | `0x01`    | —                               | Duel PvP (combat immédiat)                            | `LAB_004F`    |
-| `0x02`    | —                               | Combat contre créature aléatoire                      | `LAB_005B`    |
+| `0x02`    | —                               | Combat contre une créature **prédéfinie** (position fixe, peut porter une Clef de la Vallée) | `LAB_005B`    |
 | `0x15..0x18` | "Enter Village"              | Village natal → skill +1 (max 3 via village)          | `LAB_00B0`    |
 | `0x19`    | "Enter the city of Highwood"    | Cité de Highwood : arène / achat / sorcier / forge    | `LAB_0093`    |
 | `0x1a`    | "Enter the city of Waterdeep"   | Cité de Waterdeep : arène / achat / taverne           | `LAB_008A`    |
