@@ -126,24 +126,304 @@ La décompression RNC1 est assurée par `LAB_0190`. Magic : `$524E4301`
 
 ### 1.5 Données de nœuds interactifs (mog.asm)
 
-`LAB_069F` ([mog.asm#L1037](../amiga_asm/mog.asm)) : table de triplets
-`(type:word, x:word, y:word)` terminée par `$FFFF`. Elle liste tous les
-lieux interactifs de la carte avec leur type et leurs coordonnées overworld.
+#### Format de la table `LAB_069F`
 
-| Type (hex) | Lieu                          |
-|------------|-------------------------------|
-| `0x01`     | Position d'un chevalier joueur (duel PvP) |
-| `0x02`     | Rencontre créature (monstre aléatoire) |
-| `0x15`     | Château de Richard (faction 0) |
-| `0x16`     | Château de Godber (faction 1)  |
-| `0x17`     | Château de Jeffrey (faction 2) |
-| `0x18`     | Château d'Edward (faction 3)   |
-| `0x19`     | Ville avec armurier + arène + sorcier |
-| `0x1a`     | Ville avec taverne + arène     |
-| `0x1b`     | Sorcier Mythral               |
-| `0x1c`     | **Antre du Dragon** (accès conditionnel) |
-| `0x1e`     | Temple de guérison            |
-| `0x21`     | Rencontre chevalier (variante) |
+`LAB_069F` ([mog.asm#L12971](../amiga_asm/mog.asm)) est une table de
+triplets `(type:word, x:word, y:word)` terminée par le mot `$FFFF`.
+Elle liste les **9 emplacements statiques** de la carte, chacun avec
+son type et ses coordonnées overworld (en pixels, carte 320×200).
+
+Le mouvement sur la carte est **libre** (le joystick déplace le sprite
+du chevalier en continu) ; il n'y a pas de graphe d'arêtes prédéfini.
+La détection d'événement se fait par **proximité** : `LAB_006B` parcourt
+`LAB_069F` à chaque frame et appelle `LAB_0067` pour chaque nœud.
+Si la distance chevalier-nœud ≤ seuil, le type du nœud est dispatché
+vers `LAB_0E45` qui appelle le gestionnaire approprié.
+
+En plus des 9 nœuds statiques, deux catégories de nœuds **dynamiques**
+sont ajoutées au runtime dans le buffer `SECSTRT_2` :
+
+- **Chevaliers ennemis / alliés** : position de chaque autre chevalier
+  actif (type `0x01` ou `0x21`).
+- **Dragon** : si le dragon entre en collision, type implicite dragon.
+
+#### Référence des types de nœuds
+
+| Type   | Nom UI (LAB_08F4)          | Gestionnaire | Description courte               |
+|--------|----------------------------|--------------|-----------------------------------|
+| `0x01` | —                          | `LAB_004F`   | Duel PvP (chevalier actif)        |
+| `0x02` | —                          | `LAB_005B`   | Combat créature aléatoire         |
+| `0x15` | "Enter Village"            | `LAB_00B0`   | Village de Richard (faction 0)    |
+| `0x16` | "Enter Village"            | `LAB_00B0`   | Village de Godber (faction 1)     |
+| `0x17` | "Enter Village"            | `LAB_00B0`   | Village de Jeffrey (faction 2)    |
+| `0x18` | "Enter Village"            | `LAB_00B0`   | Village d'Edward (faction 3)      |
+| `0x19` | "Enter the city of Highwood" | `LAB_0093` | Cité de Highwood                  |
+| `0x1a` | "Enter the city of Waterdeep" | `LAB_008A` | Cité de Waterdeep                 |
+| `0x1b` | "Enter Stonehenge"         | `LAB_00A1`   | Stonehenge — Mythral le Mystique  |
+| `0x1c` | "Enter Valley of the Gods" | `LAB_009D`   | Vallée des Dieux                  |
+| `0x1e` | "Visit Math the Wizard"    | `LAB_007C`   | Math le Sorcier (guérison + skill)|
+| `0x21` | "Pillage knight's grave"   | `LAB_004F`   | Tombe d'un chevalier mort (pillage) |
+
+---
+
+### 1.6 Description complète des nœuds de la carte
+
+La carte overworld fait **320×200 pixels**. Les neuf nœuds statiques sont
+répartis comme suit (X=0 = gauche, Y=0 = haut) :
+
+```
+  x=  0                  x=160                 x=320
+y=  0  [0x15 x=18]  [0x1e x=217]  [0x16 x=286]
+       Richard         Math          Godber
+
+y= 28  [0x19 x=82]
+       Highwood
+
+y= 97                [0x1c x=152]
+                     Vallée des Dieux
+
+y=143                               [0x1a x=277]
+                                    Waterdeep
+
+y=155  [0x1b x=88]
+       Stonehenge
+
+y=187  [0x17 x=0]
+       Jeffrey
+
+y=192                               [0x18 x=303]
+                                    Edward
+```
+
+---
+
+#### Nœud 1 — Village de Richard (type `0x15`)
+
+| Attribut     | Valeur                        |
+|--------------|-------------------------------|
+| Type         | `0x15`                        |
+| Coordonnées  | X=18, Y=11 (coin NW)          |
+| Gestionnaire | `LAB_00B0` [mog.asm#L1653]    |
+| Nom UI       | "Enter Village"               |
+| Faction      | 0 (SIR RICHARD — bleu)        |
+
+**Comportement** : Le chevalier de la faction 0 peut entrer dans son village
+d'origine pour restaurer ses points de vie et augmenter son niveau de
+compétence (`skill_level`, offset 73). Les chevaliers d'autres factions ne
+reçoivent aucun bonus (`LAB_00B0` vérifie `54(A0) == faction_id`).
+
+```text
+LAB_00B0 :
+  if skill_level < 3 → skill_level += 1
+  → état 9 (retour carte)
+```
+
+---
+
+#### Nœud 2 — Village de Godber (type `0x16`)
+
+| Attribut     | Valeur                        |
+|--------------|-------------------------------|
+| Type         | `0x16`                        |
+| Coordonnées  | X=286, Y=11 (coin NE)         |
+| Gestionnaire | `LAB_00B0` [mog.asm#L1653]    |
+| Nom UI       | "Enter Village"               |
+| Faction      | 1 (SIR GODBER — rouge)        |
+
+**Comportement** : identique au Village de Richard, mais réservé à la
+faction 1. Un chevalier rouge visite son château d'origine : `skill += 1`
+(max 3 via ce chemin ; le maximum absolu de 5 est atteint via Math).
+
+---
+
+#### Nœud 3 — Village de Jeffrey (type `0x17`)
+
+| Attribut     | Valeur                        |
+|--------------|-------------------------------|
+| Type         | `0x17`                        |
+| Coordonnées  | X=0, Y=187 (bord W)           |
+| Gestionnaire | `LAB_00B0` [mog.asm#L1653]    |
+| Nom UI       | "Enter Village"               |
+| Faction      | 2 (SIR JEFFREY — vert)        |
+
+**Comportement** : identique aux autres villages, faction 2.
+
+---
+
+#### Nœud 4 — Village d'Edward (type `0x18`)
+
+| Attribut     | Valeur                        |
+|--------------|-------------------------------|
+| Type         | `0x18`                        |
+| Coordonnées  | X=303, Y=192 (coin SE)        |
+| Gestionnaire | `LAB_00B0` [mog.asm#L1653]    |
+| Nom UI       | "Enter Village"               |
+| Faction      | 3 (SIR EDWARD — jaune)        |
+
+**Comportement** : identique aux autres villages, faction 3. Les quatre
+villages occupent les quatre coins/bords de la carte.
+
+---
+
+#### Nœud 5 — Cité de Highwood (type `0x19`)
+
+| Attribut     | Valeur                         |
+|--------------|--------------------------------|
+| Type         | `0x19`                         |
+| Coordonnées  | X=82, Y=28 (quart NW)          |
+| Gestionnaire | `LAB_0093` [mog.asm#L1391]     |
+| Nom UI       | "Enter the city of Highwood"   |
+| Fond PIV     | `bg2.piv` (arrière-plan ville) |
+
+**Comportement** : menu principal `LAB_009B` avec 5 options
+(Y=0x1e, 0x42, 0x6a, 0x8c, 0xb7 en pixels verticaux) :
+
+| Option (`16(item)`) | Action                              |
+|---------------------|-------------------------------------|
+| 1                   | Arène (combat PvE, gain d'or)        |
+| 2                   | Acheter/vendre équipement            |
+| 3                   | Augmenter le skill chez le sorcier   |
+| 4                   | Forge / armurier                     |
+| 5                   | Sortir (`LAB_0092`)                  |
+
+---
+
+#### Nœud 6 — Cité de Waterdeep (type `0x1a`)
+
+| Attribut     | Valeur                          |
+|--------------|---------------------------------|
+| Type         | `0x1a`                          |
+| Coordonnées  | X=277, Y=143 (quart E)          |
+| Gestionnaire | `LAB_008A` [mog.asm#L1320]      |
+| Nom UI       | "Enter the city of Waterdeep"   |
+| Fond PIV     | `bg2.piv` (arrière-plan ville)  |
+
+**Comportement** : menu `LAB_009C` avec 5 options similaires à Highwood
+mais sans forge ; à la place, une taverne (option 4 = `LAB_047C` = achat
+de potions / repos). Les deux cités sont les seuls endroits où acheter
+des équipements et des parchemins.
+
+| Option (`16(item)`) | Action                              |
+|---------------------|-------------------------------------|
+| 1                   | Arène (combat PvE)                   |
+| 2                   | Acheter/vendre équipement            |
+| 3                   | Sorcier — augmenter skill             |
+| 4                   | Taverne (potions, repos)             |
+| 5                   | Sortir                               |
+
+---
+
+#### Nœud 7 — Stonehenge — Mythral le Mystique (type `0x1b`)
+
+| Attribut     | Valeur                          |
+|--------------|---------------------------------|
+| Type         | `0x1b`                          |
+| Coordonnées  | X=88, Y=155 (SW)                |
+| Gestionnaire | `LAB_00A1` [mog.asm#L1561]      |
+| Nom UI       | "Enter Stonehenge"              |
+| Fond PIV     | `bg8.piv` (arrière-plan)        |
+
+**Comportement** : Mythral le Mystique (`LAB_0753`) propose d'offrir un
+objet magique à la déesse Danu en échange d'une vie supplémentaire (skill
++1). Le joueur choisit un objet de son inventaire parmi ceux listés par
+le menu `LAB_06A5..LAB_00A5`. Les objets offerts sont : Parchemin de
+Rapidité, Parchemin d'Acquisition, Anneau de Protection ou Talisman du
+Wyrm (selon `22(A2)` bits 0-3).
+
+```text
+LAB_00A1 :
+  if inventaire a un item éligible (bits 0-3 de 22(A2)) :
+    → afficher menu de sélection d'objet
+    → consommer l'objet choisi
+    → skill_level += 1 (cap 5)
+  else :
+    → message "Offer a magic item within Stonehenge"
+    → retour carte
+```
+
+Le message de Mythral au premier contact (LAB_0751-LAB_075E) :
+> *"Seek the knowledge … Mythral the Mystic … Offer a magic item within
+> Stonehenge and Danu will grant you a longer life … Seek the wisdom of
+> Math the wizard to aid you in your quest … Visit your home village to
+> restore lost lives."*
+
+---
+
+#### Nœud 8 — Vallée des Dieux (type `0x1c`)
+
+| Attribut     | Valeur                          |
+|--------------|---------------------------------|
+| Type         | `0x1c`                          |
+| Coordonnées  | X=152, Y=97 (centre de la carte)|
+| Gestionnaire | `LAB_009D` [mog.asm#L1525]      |
+| Nom UI       | "Enter Valley of the Gods"      |
+| Fond PIV     | chargé par `LAB_0DBD`           |
+
+**Comportement** : c'est l'objectif final du jeu. La condition d'entrée
+est que le joueur possède les **4 Clefs de la Vallée** (bitmask
+`inventaire[20] == 0x0f` : bits 0-3 tous à 1, une clef par faction de
+Chevalier Noir).
+
+```text
+LAB_009D :
+  A0 = 96(knight)             ; inventaire du chevalier
+  if inventaire[20] != 0x0f  ; pas toutes les 4 clefs ?
+    → message "You must have all four keys to enter the Valley of the Gods"
+    → retour carte (LAB_00B3)
+  else                        ; accès accordé
+    → LAB_0DBD                ; charger le fond de la Vallée
+    → LAB_01A0                ; séquence de combat final (Gardien)
+    → JSR LAB_0036 (tour IA)
+    → si victoire (LAB_05DC bit 0) :
+        battles_fought += 3
+        inventaire[20] = 0    ; effacer les 4 clefs
+        → LAB_0DCA            ; séquence de fin de partie
+    → si défaite :
+        skill_level -= 2
+        → état 9 (respawn)
+```
+
+**Obtenir les Clefs** : chaque Chevalier Noir (IA) garde une clef. Après
+avoir battu un Chevalier Noir en duel PvE (`LAB_0083`), le chevalier
+gagnant reçoit un bit dans `inventaire[20]`. Il faut en accumuler les 4.
+
+---
+
+#### Nœud 9 — Math le Sorcier / Temple (type `0x1e`)
+
+| Attribut     | Valeur                          |
+|--------------|---------------------------------|
+| Type         | `0x1e`                          |
+| Coordonnées  | X=217, Y=11 (bord N)            |
+| Gestionnaire | `LAB_007C` [mog.asm#L1224]      |
+| Nom UI       | "Visit Math the Wizard"         |
+
+**Comportement** : Math the Wizard (`LAB_075D`) restaure les HP et
+permet d'augmenter le skill contre paiement d'or. C'est le seul endroit
+où le skill peut dépasser 3 pour atteindre 5.
+
+```text
+LAB_007C :
+  → LAB_0456 (restauration HP complète)
+  → état 9 (retour carte)
+```
+
+Le message de Math (LAB_075C-LAB_075E) :
+> *"Seek the wisdom of Math the wizard to aid you in your quest."*
+
+---
+
+#### Nœuds dynamiques (runtime — buffer `SECSTRT_2`)
+
+Ces nœuds ne sont **pas** dans `LAB_069F`. Ils sont ajoutés par `LAB_006B`
+et `LAB_0071` à chaque frame à partir des positions actuelles des entités.
+
+| Type   | Condition                                        | Gestionnaire | Effet                           |
+|--------|--------------------------------------------------|--------------|---------------------------------|
+| `0x01` | Autre chevalier actif (`73(A0) > 0`)             | `LAB_004F`   | Duel PvP immédiat               |
+| `0x21` | Chevalier mort (`73(A0) <= 0`) → tombe pillable  | `LAB_004F`   | Pillage : récupérer l'équipement du défunt |
+| `0x02` | Créature (rencontre aléatoire sur la carte)      | `LAB_005B`   | Combat PvE aléatoire            |
+| dragon | Collision avec le dragon volant                  | via `LAB_0E27` | Combat contre le dragon        |
 
 ---
 
@@ -283,23 +563,28 @@ Résultats stockés dans `LAB_00C0` (joueur 1) et `LAB_00C1` (joueur 2) :
 > (lecture via la table de scancodes `LAB_036C`, 128 octets, section S_17)
 > ou par un partage de joystick selon la configuration.
 
-#### Déplacement sur le graphe de nœuds
+#### Déplacement libre sur la carte
 
-Le déplacement du chevalier se fait **nœud par nœud** sur un graphe de
-chemins prédéfinis. L'algorithme est :
+Le mouvement sur la carte overworld est **continu et libre** (pas de
+graphe d'arêtes). L'algorithme de déplacement (`LAB_0E0C`) est :
 
-1. Le joueur déplace le joystick dans une direction.
-2. Le moteur sélectionne le nœud voisin le plus proche dans cette direction
-   en consultant `LAB_00E7` (table des ~145 entrées de 6 octets).
+1. Le joueur oriente le joystick dans une direction.
+2. Le moteur calcule un vecteur vers la destination courante (autre joueur,
+   nœud retenu ou position libre), à partir du Bresenham simplifié de
+   `LAB_0E0C`.
 3. Une animation de déplacement est jouée :
-   - Déplacement vers la droite → `LAB_00D7` (`anim_map_knight_walk_r`, CEL `$0C`)
+   - Déplacement vers la droite → `LAB_00D7` (`anim_map_knight_walk_r`, `kn*.ob`)
    - Déplacement vers la gauche → `LAB_00D8` (`anim_map_knight_walk_l`)
-   - Continuation de chemin → `LAB_00D9` / `LAB_00DA`
+   - Continuation → `LAB_00D9` / `LAB_00DA`
 4. La position du chevalier est mise à jour :
    - `126(knight)` = X overworld (position courante)
    - `128(knight)` = Y overworld (position courante)
 5. À chaque frame, `LAB_006B` balaie `LAB_069F` pour tester si le chevalier
-   est arrivé sur un nœud interactif (`LAB_0067` retourne D5=2 si match).
+   est proche d'un nœud interactif (`LAB_0067` retourne D5=2 si match).
+
+`LAB_00E7` (table de ~145 entrées en `program.asm`) contient les
+**scripts de rendu du fond de carte** (positions d'icônes), non les
+chemins navigables. Il n'existe pas de liste d'adjacence.
 
 #### Durée d'un déplacement
 
@@ -324,16 +609,17 @@ Après le traitement de l'événement, le retour s'effectue toujours vers
 
 #### Résumé des actions déclenchables sur la carte
 
-| Type nœud | Action                                           | Sortie de carte |
-|-----------|--------------------------------------------------|-----------------|
-| `0x01`/`0x21` | Duel PvP (combat immédiat)                  | Oui (combat)    |
-| `0x02`    | Combat contre créature aléatoire                 | Oui (combat)    |
-| `0x15..0x18` | Visite d'un château allié → skill +1          | Non (retour carte) |
-| `0x19`    | Ville : arène / achat / sorcier / armurier       | Non (menu ville)|
-| `0x1a`    | Ville : arène / achat / sorcier / taverne        | Non (menu ville)|
-| `0x1b`    | Sorcier Mythral → échange moonstones / skill     | Non (menu)      |
-| `0x1c`    | **Antre du Dragon** — lair accessible sous conditions (Moonstone + reliques) | Non (menu)      |
-| `0x1e`    | Temple de guérison → restaure HP                 | Non (menu)      |
+| Type nœud | Nom UI                          | Action                                                | Handler       |
+|-----------|---------------------------------|-------------------------------------------------------|---------------|
+| `0x01`    | —                               | Duel PvP (combat immédiat)                            | `LAB_004F`    |
+| `0x02`    | —                               | Combat contre créature aléatoire                      | `LAB_005B`    |
+| `0x15..0x18` | "Enter Village"              | Village natal → skill +1 (max 3 via village)          | `LAB_00B0`    |
+| `0x19`    | "Enter the city of Highwood"    | Cité de Highwood : arène / achat / sorcier / forge    | `LAB_0093`    |
+| `0x1a`    | "Enter the city of Waterdeep"   | Cité de Waterdeep : arène / achat / taverne           | `LAB_008A`    |
+| `0x1b`    | "Enter Stonehenge"              | Stonehenge — Mythral : offrande → skill +1 (max 5)   | `LAB_00A1`    |
+| `0x1c`    | "Enter Valley of the Gods"      | **Vallée des Dieux** : objectif final, requiert 4 clefs | `LAB_009D`  |
+| `0x1e`    | "Visit Math the Wizard"         | Math le Sorcier : restaure HP, augmente skill         | `LAB_007C`    |
+| `0x21`    | "Pillage knight's grave"        | Pillage d'une tombe : récupérer l'équipement du mort  | `LAB_004F`    |
 
 ---
 
