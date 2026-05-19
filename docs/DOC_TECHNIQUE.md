@@ -1223,7 +1223,7 @@ Quand tous les rounds sont finis ou qu'un chevalier obtient la Moonstone → `ga
 
 ---
 
-### 10.6 Carte overworld — graphe de nœuds
+### 10.6 Carte overworld — nœuds et déplacement libre
 
 `LAB_00E7` ([program.asm#L2215](program.asm#L2215)) contient ~145 entrées de 6 octets = les positions d'affichage des chevaliers sur la carte overworld. Chaque entrée est une instruction de dessin standard :
 
@@ -1238,8 +1238,9 @@ Entrée (6 bytes) :
 
 Les positions décodées en pixels 320×200 à partir de l'offset 4 et du byte 2 (+ base X de l'acteur = 0, Y de l'acteur = 0) donnent les **coordonnées des nœuds de la carte**.
 
-Structure du graphe inférée (positions relatives en pixels, +/- 5 px d'incertitude) :
 Le fichier contient environ 36 nœuds distincts (lieux sur la carte) et ~70 chemins bidirectionnels. Les données sont dupliquées (une entrée A→B et une entrée B→A) pour permettre le dessin de chaque chevalier quel que soit son sens de déplacement.
+
+> **Note** : `LAB_00E7` est utilisé comme **script de positionnement d'icônes** (render-script), pas comme un graphe d'arêtes. Le déplacement du chevalier est **libre** (joystick continu, pas contraint à des arêtes prédéfinies). La détection d'interaction se fait par **proximité** entre la position du chevalier et les coordonnées des nœuds.
 
 `LAB_003A` ([program.asm#L760](program.asm#L760)) référence `LAB_00E7` dans une table de 10 pointeurs :
 
@@ -1267,9 +1268,11 @@ Dans `mog`, la table `LAB_069F` ([mog.asm#L1037](mog.asm#L1037)) contient les po
 Voir **§10.19** pour le tableau complet des types de nœuds (0x01, 0x02, 0x15..0x1c, 0x1e, 0x21) et leurs effets en jeu.
 
 **Séquence de déclenchement** :
-1. À chaque frame overworld, `LAB_006B` balaie `LAB_069F` et appelle `LAB_0067` pour tester si le chevalier est sur un nœud.
-2. Si match (D5=2), le type déclenche le gestionnaire correspondant.
-3. Le retour se fait toujours vers `LAB_00B2` → `SECSTRT_36` (restauration hardware) → reprise de la carte.
+1. À chaque frame overworld, `LAB_006B` balaie d'abord `LAB_069F` (nœuds statiques) et appelle `LAB_0067` pour tester la proximité du chevalier avec chaque nœud.
+2. `LAB_0077` balaie ensuite la table de créatures (`LAB_05C6`, 24 entrées × 20 octets) et ajoute dans le buffer `SECSTRT_2` chaque créature vivante à portée (type `0x02`).
+3. Les positions des autres chevaliers actifs (type `0x01` / `0x21`) sont également ajoutées dans `SECSTRT_2` à chaque frame.
+4. Si match (D5=2), le type déclenche le gestionnaire correspondant.
+5. Le retour se fait toujours vers `LAB_00B2` → `SECSTRT_36` (restauration hardware) → reprise de la carte.
 
 ---
 
@@ -1451,8 +1454,8 @@ Dans `mog`, le combat (états 1, 2, 5, 10) se déroule en temps réel avec la bo
 - Si le perdant a skill == 0 : `LAB_0022` (transfert total de tous les items)
 - Si le coup final est type `0x14` (coup décisif) : `LAB_0021` (partage de l'or)
 
-**Après dragon (état 10) :**
-- Si victoire : `78(knight) += 2`, séquence de fin (si `LAB_05DC bit 0`)
+**Après Vallée des Dieux (état 10) :**
+- Si victoire : `78(knight) += 3`, séquence de fin (`LAB_0DCA`, si `LAB_05DC bit 0`) — efface `inventaire[20]` (les 4 clefs)
 - Sinon : perte de 2 skill levels, retour vers état 9 (temple)
 
 **Respawn/mort (`LAB_000E`) :** quand `80(knight) ≤ 0`, HP restaurés au max (`84`) et skill decremented de 1.
@@ -1559,10 +1562,11 @@ Les rencontres spéciales sont déclenchées lors du passage sur un nœud de la 
 - Permet échange de moonstones contre bonus de skill
 - Écran correspondant : état 3 (background `LAB_0696`)
 
-**Créature aléatoire (0x02 — `LAB_005B`) :**
-- Sélectionne une créature depuis `LAB_08C6` (table de structures créatures)
-- Incrémente le compteur de rencontres de la créature (`20(creature)`)
-- Quand compteur == 3 : avance le cycle global `LAB_06C1` (mod 8) → prochaine créature
+**Créature à position fixe (0x02 — `LAB_005B`) :**
+- Les créatures sont dans une table prédéfinie (`LAB_05C6`, 24 entrées × 20 octets) initialisée au démarrage ; leurs coordonnées overworld ne changent pas en cours de partie.
+- `LAB_08C6` = variable de travail qui sauvegarde le pointeur vers **l'entrée créature courante** (MOVE.L A1,LAB_08C6 dans `LAB_005B`). Ce n'est pas la table principale.
+- Certaines créatures portent la **Clef de la Vallée** (champ `8(créature) ≠ 0`). Après victoire, le joueur peut ramasser cette clef via le menu de butin (état 2).
+- Une créature est marquée vaincue (`10(A0) = $FFFFFFFF`) uniquement lorsque son butin ET sa clef sont tous les deux épuisés (`LAB_005F`).
 - Écran correspondant : état 2 (background `LAB_069A`+`LAB_0698`)
 
 **Duel entre chevaliers (0x01 / 0x21 — `LAB_004F`) :**
@@ -1570,10 +1574,10 @@ Les rencontres spéciales sont déclenchées lors du passage sur un nœud de la 
 - Résolution via `LAB_001C` puis `LAB_000E` (mort/respawn)
 - Écran correspondant : état 1 (background `LAB_0694`)
 
-**Antre du Dragon (0x1c — `LAB_009D`) :**
-- Condition d'accès : `inventaire[20] == 0x0f` (quatrième relique / Dragon key)
-- Sans relique : perte de 2 skill levels → temple (état 9)
-- Victoire Dragon : `78(knight) += 3`, efface item, séquence de fin (`LAB_0DCA`)
+**Vallée des Dieux (0x1c — `LAB_009D`) :**
+- Condition d'accès : `inventaire[20] == 0x0f` — les **4 Clefs de la Vallée** (bitmask 4 bits, une clef par faction de Chevalier Noir / groupe de créatures), toutes collectées
+- Sans les 4 clefs : perte de 2 skill levels → temple (état 9)
+- Victoire : `78(knight) += 3`, efface les clefs (`inventaire[20] = 0`), séquence de fin (`LAB_0DCA`)
 - Écran correspondant : état 10 (background `LAB_0694`+`LAB_0698`)
 
 #### Décompresseur RNC — `LAB_0190` ([program.asm#L3617](program.asm#L3617))
@@ -1717,17 +1721,19 @@ Chaque entrée du pool comprend (inféré d'après la taille et le format 6 octe
 - Etat animation (flags + compteurs)
 - **Champs d'état de jeu** (HP, reliques possédées, or, …) dans les octets restants (~28 octets)
 
-#### Les 4 reliques
+#### Les 4 Clefs de la Vallée
 
-Les reliques sont obtenues en battant les créatures gardant les sanctuaires (`shrine nodes` sur la carte). D'après le code :
+Les **Clefs de la Vallée** (`Key to the Valley`) sont l'objectif principal du jeu. Elles sont portées par des **créatures à position fixe** dans la table `LAB_05C6` (champ `8(créature) ≠ 0`). Ce ne sont **pas** des reliques de sanctuaires.
 
 ```text
-Relique obtenue → animation LAB_00EB déclenchée (loot screen)
-    Sprites CEL $14 24/25/26/27 = les 4 types de reliques
+Clef collectée → animation LAB_00EB déclenchée (loot screen)
+    Sprites CEL $14 24/25/26/27 = objets droppés (dont la clef)
     Victoire confirmée → animation LAB_00EC (chevalier sort de l'écran)
 ```
 
-Les 4 indices CEL `$14 24..27` correspondent probablement aux 4 reliques distinctes. La possession d'une relique est vraisemblablement encodée comme un **bit-flag** dans les 42 octets d'état du chevalier.
+La possession des clefs est encodée comme un **bitmask 4 bits** dans `inventaire[20]` du chevalier (un bit par faction/groupe de créatures). La condition `inventaire[20] == 0x0f` (4 bits à 1) est requise pour entrer dans la **Vallée des Dieux** (nœud `0x1c`).
+
+Voir **DOC_MODE_OVERWORLD §1.7** pour la description complète de la structure des entrées de créature et du mécanisme de collecte.
 
 #### Fichier `kn1.ob`
 
@@ -1813,9 +1819,11 @@ ROUND N :
 "Loading..." → rechargement via SECSTRT_4 → ROUND N+1
 ```
 
-#### Les 4 reliques (clés)
+#### Les 4 Clefs de la Vallée
 
-Les sanctuaires sont des nœuds spéciaux sur la carte overworld. Chaque sanctuaire est gardé par une créature (`LAB_002F` → spawn `LAB_00E4/E5`). La victoire donne une relique (CEL `$14 24..27`). Collecter les 4 reliques est requis pour accéder au nœud du boss final.
+Les créatures gardant les clefs occupent des **positions fixes** sur la carte overworld (table `LAB_05C6`, 24 entrées). Chaque créature peut porter la Clef de la Vallée (champ `8(créature)`) ; certaines créatures n'en portent pas. La victoire sur une créature porte-clef donne accès au menu de butin qui inclut `"Take Key to the Valley"`. Collecter les 4 clefs (`inventaire[20] == 0x0f`) est requis pour accéder au nœud final.
+
+Voir **DOC_MODE_OVERWORLD §1.7** pour la structure complète.
 
 #### Le boss final
 
@@ -2003,7 +2011,7 @@ LAB_04CF:
 | Valeur | Écran           | Description                                                                  | Pointeurs actifs             | Layout principal |
 |--------|-----------------|------------------------------------------------------------------------------|------------------------------|-----------------|
 | `1`    | PvP             | Duel entre deux chevaliers joueurs                                           | LAB_068B=k0, LAB_068D=k1     | `LAB_0694`      |
-| `2`    | Créature        | Combat contre créature/NPC (struct `LAB_08C6`)                               | LAB_068B=k0, LAB_068D=ennemi | `LAB_069A`+`LAB_0698` |
+| `2`    | Créature        | Combat contre créature à **position fixe** (`LAB_08C6` = ptr créature courant, table source = `LAB_05C6`) | LAB_068B=k0, LAB_068D=ennemi | `LAB_069A`+`LAB_0698` |
 | `3`    | Sorcier/Mystic  | Witch Doctor / Mythral the Mystic — échange moonstones ↔ skill              | LAB_068B=k0                  | `LAB_0696`      |
 | `5`    | Arène           | Combat dans l'arène d'une ville                                              | LAB_068B=k0                  | `LAB_0695`      |
 | `6`    | Carte/Inventaire| Carte overworld + interaction items/NPC                                      | LAB_068B=k0                  | `LAB_0695`+`LAB_0697` |
@@ -2016,7 +2024,7 @@ LAB_04CF:
 
 - `LAB_05E4[0]` = chevalier principal → toujours `LAB_068B` (+ `LAB_068C = 96(LAB_068B)`)
 - `LAB_05E4[1]` = second chevalier (états 1, 8, 11) → `LAB_068D`
-- État 2 : `LAB_068D = LAB_08C6` (struct de la créature ennemie rencontrée)
+- État 2 : `LAB_068D = LAB_08C6` (`LAB_08C6` = variable qui pointe vers l'entrée créature courante dans `LAB_05C6`, sauvegardée par `LAB_005B`)
 - État 10 : `LAB_068D = LAB_0617` (struct du dragon / Chevalier Noir)
 
 **Noms des chevaliers** (définis en section S_4, [mog.asm#L13056](mog.asm#L13056)) :
@@ -2045,7 +2053,7 @@ Table de triplets `(type:word, x:word, y:word)` terminée par `$FFFF`. Lue par `
 
 **Dispatcher `LAB_0E45`** (entrée principale de déclenchement) :
 - `type == 0x01 || 0x21` → `LAB_004F` (rencontre chevalier → PvP ou échange)
-- `type == 0x02` → `LAB_005B` (rencontre créature → état 2)
+- `type == 0x02` → `LAB_005B` (rencontre créature à **position fixe** → état 2 ; certaines portent une **Clef de la Vallée**)
 - autres types → `LAB_007B` (switch étendu, voir tableau ci-dessous)
 
 **Switch étendu `LAB_007B`** :
@@ -2059,7 +2067,7 @@ Table de triplets `(type:word, x:word, y:word)` terminée par `$FFFF`. Lue par `
 | 25         | `0x19`     | `LAB_0093`    | Ville avec armurier + arène + sorcier (menu 5 boutons)             |
 | 26         | `0x1a`     | `LAB_008A`    | Ville avec taverne + arène (menu 5 boutons)                        |
 | 27         | `0x1b`     | `LAB_00A1`    | Sorcier Mythral → état 3                                           |
-| 28         | `0x1c`     | `LAB_009D`    | Antre du Dragon → état 10 (condition : `inventaire[20] == 0x0f`)   |
+| 28         | `0x1c`     | `LAB_009D`    | **Vallée des Dieux** → état 10 (condition : `inventaire[20] == 0x0f`, les 4 Clefs de la Vallée) |
 | 30         | `0x1e`     | `LAB_007C`    | Temple de guérison → état 9                                        |
 | 33         | `0x21`     | `LAB_004F`    | Rencontre chevalier (duel PvP)                                     |
 
@@ -2077,10 +2085,10 @@ Table de triplets `(type:word, x:word, y:word)` terminée par `$FFFF`. Lue par `
 - Bouton 4 → `LAB_047C` (taverne ?)
 - Bouton 5 → quitter
 
-**Antre du Dragon (type 0x1c, `LAB_009D`) :**
-- Condition d'entrée : `inventaire[20] == 0x0f` (item "clé du dragon / quatrième relique")
+**Vallée des Dieux (type 0x1c, `LAB_009D`) :**
+- Condition d'entrée : `inventaire[20] == 0x0f` — les **4 Clefs de la Vallée** (bitmask 4 bits, une par faction de créature)
 - Si `LAB_05DC bit 0` NON activé → perd 2 niveaux de skill → redirigé vers état 9
-- Si `LAB_05DC bit 0` activé → victoire : `78(knight) += 3`, efface item 20, séquence de fin de partie (`LAB_0DCA`)
+- Si `LAB_05DC bit 0` activé → victoire : `78(knight) += 3`, efface clefs (`inventaire[20] = 0`), séquence de fin de partie (`LAB_0DCA`)
 
 #### Résolution du combat — transfert d'items (`LAB_001C`)
 
