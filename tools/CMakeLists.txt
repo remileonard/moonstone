@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.15)
 # Helper to add a simple single-file tool
 function(add_moon_tool name source)
     add_executable(${name} ${source})
-    target_link_libraries(${name} PRIVATE moon_assets SDL2::SDL2)
+    target_link_libraries(${name} PRIVATE moon_assets SDL2::SDL2 m)
     target_compile_definitions(${name} PRIVATE HAVE_SDL2=1)
     if(SDL2_mixer_FOUND)
         target_link_libraries(${name} PRIVATE SDL2_mixer::SDL2_mixer)
