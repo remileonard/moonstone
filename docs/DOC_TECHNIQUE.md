@@ -2595,5 +2595,34 @@ Sur **~80 fichiers assets référencés** dans les binaires, seuls **~20** sont 
 
 ---
 
+## D. Routines partagées introduction / scènes de combat
+
+### D.1 `LAB_0030` — Spawn de décor partagé intro et arènes [program.asm#L526]
+
+`LAB_0030` spawne un groupe de 6 entités de décor (scripts `LAB_00DC`, `LAB_00DD`,
+`LAB_00DA` en mode normal via `LAB_0015`, et leurs miroirs `LAB_00DC`, `LAB_00DD`,
+`LAB_00D9` via `LAB_0016`).
+
+**Cette routine est utilisée dans deux contextes distincts :**
+
+1. **Introduction cinématique** (`LAB_001A`, plan 7) : les entités représentent les
+   druides/personnages positionnés sur la plaine devant Stonehenge (fond `bg1b.piv`).
+
+2. **Construction des décors d'arène de combat** (`mog.asm`) : les mêmes entités et
+   le même schéma de spawn servent à placer les éléments de décor des arènes de combat
+   (piliers, éléments de terrain, etc.) avant chaque round.
+
+Le code de construction de décor des arènes de combat provient donc des **mêmes scripts
+d'entités** que la cinématique d'introduction. Les assets (`LAB_00D9`, `LAB_00DA`,
+`LAB_00DC`, `LAB_00DD`) sont chargés une fois au démarrage et réutilisés dans les deux
+contextes.
+
+`LAB_0031` ([program.asm#L540](program.asm#L540)) est une variante étendue (10 entités)
+utilisée uniquement dans les plans 13-15 de l'introduction (`LAB_002F`) et dans le mode
+2 joueurs (`LAB_0036`) pour le cercle de cérémonie complet. Elle inclut des entités
+supplémentaires (`LAB_00DB`, `LAB_00DF`, `LAB_00E1`) absentes de `LAB_0030`.
+
+---
+
 *Fin du document — généré par analyse statique de [program.asm](program.asm) et [mog.asm](mog.asm).
 Mise à jour recommandée après analyse approfondie du job manager (S_10 handlers 5–20) et du format exact de `kn1.ob`.*

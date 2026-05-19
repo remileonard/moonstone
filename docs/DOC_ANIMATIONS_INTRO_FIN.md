@@ -206,79 +206,127 @@ La routine `LAB_0054` ([program.asm#L1047](program.asm#L1047)) fait la même cho
 
 ---
 
-## 3. Scène d'introduction (`LAB_0185`)
+## 3. Scène d'introduction
+
+L'introduction se déroule en deux grandes phases :
+
+1. **Phase de chargement** (`LAB_0185`) : charge progressivement les assets depuis le disque
+   et affiche successivement le logo, la lune et les écrans de crédits pendant le chargement.
+2. **Phase cinématique** (SECSTRT_0, après LAB_0185) : enchaîne 7 routines d'animation
+   (`LAB_05A5`, `LAB_001B`, `LAB_001C`, `LAB_001A`, `LAB_002C`, `LAB_002D`, `LAB_002F`,
+   `LAB_002E`) qui constituent les 19 plans du film d'introduction.
 
 ### 3.1 Point d'entrée
 
 ```
-SECSTRT_0  (line 108)
+SECSTRT_0  [program.asm#L108]
   │
-  ├─ bit $80 de LAB_0005 = 0  →  LAB_0185 (mode 1 joueur / demo)
-  └─ bit $80 de LAB_0005 = 1  →  LAB_0001 (mode 2 joueurs — intro rapide)
+  ├─ bit $80 de LAB_0005 = 0  →  mode 1 joueur
+  │     JSR LAB_025F          →  fondu au noir
+  │     JSR LAB_0185          →  chargement + logo + lune + crédits + musique
+  │     JSR LAB_05A5          →  scroll cinématique (défilé vers la forêt)
+  │     JSR LAB_001B          →  plan 5a : continuation du défilement
+  │     JSR LAB_001C          →  plan 6  : druides marchant
+  │     JSR LAB_0174          →  transition de palettes
+  │     JSR LAB_001A          →  plan 7  : druides vers Stonehenge
+  │     JSR LAB_002C          →  plans 8-9 : vue dessus + druides en cercle
+  │     JSR LAB_002D          →  plans 10-12 : plongée + contre-plongée + éclair
+  │     JSR LAB_002F          →  plans 13-15 : chevalier + main + entrée dans le cercle
+  │     JSR LAB_002E          →  plans 16-17 : druide + chevalier agenouillé
+  │     JSR LAB_025F          →  fondu au noir
+  │     LEA LAB_00AA, A0
+  │     JSR LAB_0054          →  plan 18 : carton texte de la quête
+  │     JSR LAB_054F (420 fr) →  attente
+  │     JSR LAB_025F          →  fondu au noir
+  │     JSR LAB_005B          →  stop musique
+  │     → SECSTRT_4 (menu de sélection)
+  │
+  └─ bit $80 de LAB_0005 = 1  →  mode 2 joueurs (intro rapide)
+        LAB_0054 (LAB_00A2)   →  texte "The ceremony of the Moonstone…"
+        LAB_018E              →  chargement rapide
+        LAB_0036 / 0037 / 0039 → scènes interactives
+        LAB_003B              →  cinématique de fin (§4)
 ```
 
-**Mode 1 joueur** (`LAB_0185`, [program.asm#L3300](program.asm#L3300)) :
-Séquence complète de ~8 écrans cinématiques avec chargement progressif.
+### 3.2 Séquence de chargement — `LAB_0185` [program.asm#L3300]
 
-**Mode 2 joueurs** (`LAB_0001`, [program.asm#L156](program.asm#L156)) :
-- Affiche l'écran de chargement rapide (`LAB_00A2` via `LAB_0054`)
-- Appelle `LAB_018E` ([program.asm#L3489](program.asm#L3489)) = version abrégée de l'intro
-- Lance directement les scènes interactives
+#### Mécanisme de décompression PIV
 
-### 3.2 Séquence de chargement — `LAB_0185`
+`LAB_026C(D0=dest)` enregistre les 5 pointeurs de bitplanes dans `LAB_04D9..DD`
+(chaque plan fait 0x1F40 = 8000 octets, soit 320×200/8 × 5 plans = 40 000 octets).
+`LAB_0402(A0=nom_fichier, A1=buf_compressé)` lit le fichier dans `A1`, puis appelle
+`LAB_049C` (LZSS) avec destination = `LAB_04D9` (positionné par le `LAB_026C` précédent).
+**Un seul appel `LAB_026C` suffit à fixer la destination pour le `LAB_0402` suivant.**
 
-La routine charge et affiche les scènes dans cet ordre :
+#### Ordre de chargement et affectation des buffers
+
+| Étape | Routine | Fichier → Buffer | Action d'affichage |
+|---|---|---|---|
+| 1 | `LAB_026C(SECSTRT_30)` + `LAB_0402(LAB_0184)` | `mindscape` → **SECSTRT_30** | Palette `LAB_0506` (dégradé sombre) → **logo Mindscape visible** |
+| 2 | `LAB_026C(LAB_00C8)` + `LAB_0402(LAB_017E)` | `bg1a.piv` → **LAB_00C8** | Palette `LAB_01CB` ; charge `intro.stile` ; `LAB_059E` initialise le défilement 3 buffers |
+| 3 | `LAB_026C(LAB_00C9)` + `LAB_0402(LAB_0180+1)` | `bg1c.piv` → **LAB_00C9** | `LAB_059F` → **affiche la lune** (sprite LAB_011A[16], x=73, y=9, w=60) sur fond noir ; palette bleu nuit |
+| 4 | `LAB_026C(LAB_00CA)` + `LAB_0402(LAB_0181)` | `bg1b.piv` → **LAB_00CA** | `LAB_05A0` → flash blanc (palette tout-0xFFF) puis fondu au noir (transition vers les crédits) |
+| 5 | `LAB_026C(LAB_00CB)` + `LAB_0402(LAB_016B+1)` | `bg4.piv` → **LAB_00CB** | Palette `LAB_01CE` ; `LAB_05A1` → crédit 0 (`LAB_00FD`) |
+| 6 | `LAB_026C(LAB_00CC)` + `LAB_0402(LAB_016C+1)` | `bg5a.piv` → **LAB_00CC** | Palette `LAB_01CF` ; `LAB_05A1` → crédit 1 (`LAB_00FF`) |
+| 7 | `LAB_026C(LAB_00CD)` + `LAB_0402(LAB_016D)` | `bg3.piv` → **LAB_00CD** | Palette `LAB_01D0` ; `LAB_05A1` → crédit 2 (`LAB_0102`) |
+| 8 | `LAB_026C(LAB_00CE)` + `LAB_0402(LAB_016F+1)` | `bg2.piv` → **LAB_00CE** | Palette `LAB_01D1` ; `LAB_05A1` → crédit 3 (`LAB_0105`) |
+| 9 | `LAB_026C(LAB_00CF)` + `LAB_0402(LAB_016E)` | `bg2a.piv` → **LAB_00CF** | Palette `LAB_01D2` ; `LAB_05A1` → crédit 4 (`LAB_010A`) |
+| 10 | Chargement `au1.cel` → zone `LAB_00C2` | — | `LAB_05A1` → crédit 5 (`LAB_0107`) pendant le chargement |
+| 11 | Chargement `li1.cel`, `da1.cel`, `dw1.cel`, `ha1.cel`, `bg1.cel` | — | Chargements en chaîne |
+| 12 | `LAB_0183+1` → `music.cmp` → `LAB_0124` | Musique ProTracker (RNC1) | `BRA.W LAB_0190` → démarre la lecture musicale |
+
+**Note :** Quand le joueur appuie sur feu (`LAB_05E7 = 1`), `LAB_0185` saute directement
+à `LAB_018C` (RTS), ce qui passe directement aux scènes cinématiques sans afficher les crédits.
+
+#### Récapitulatif des buffers bitmap (40 Ko chacun)
+
+| Buffer | Contenu PIV | Palette associée | Scène d'utilisation |
+|---|---|---|---|
+| `SECSTRT_30` | `mindscape` | `LAB_0506` | Logo éditeur (plan 1) |
+| `LAB_00C8` | `bg1a.piv` | `LAB_01CB` | Scroll ciel/crépuscule + plan 8 (LAB_002C phase 1) |
+| `LAB_00C9` | `bg1c.piv` | `LAB_01CC` | Lune + plan 9 (LAB_002C phase 2) |
+| `LAB_00CA` | `bg1b.piv` | `LAB_01CD` | Plans 7, 13-15 (LAB_001A, LAB_002F) |
+| `LAB_00CB` | `bg4.piv` | `LAB_01CE` | Crédit 0 (titre/logo Moonstone) |
+| `LAB_00CC` | `bg5a.piv` | `LAB_01CF` | Crédit 1 + plans 16-17 (LAB_002E) |
+| `LAB_00CD` | `bg3.piv` | `LAB_01D0` | Crédit 2 |
+| `LAB_00CE` | `bg2.piv` | `LAB_01D1` | Crédit 3 + plan 6 (LAB_001C) |
+| `LAB_00CF` | `bg2a.piv` | `LAB_01D2` | Crédit 4 + plans 10-12 (LAB_002D) |
+
+### 3.3 Écrans de crédits — `LAB_05A1` / `LAB_05B1`
+
+`LAB_05A1` ([program.asm#L10839](program.asm#L10839)) incrémente le compteur `LAB_05B0` (0→6)
+et affiche le nœud de texte indexé dans la table `LAB_05B1`. Au-delà de 6 appels,
+seul le fondu est effectué (aucun texte). Les textes sont rendus via `LAB_028F` sur le
+buffer secondaire `LAB_056C`.
 
 ```
-1.  Écran logo Mindscape         (LAB_0184 / "mindscape" PIV)
-2.  Écran intro : Stonehenge nuit (LAB_0506, fond LAB_00C9 = bg8.PIV)  ← fond 1
-3.  Scène bg1a (coucher de soleil)                                       ← fond 2
-4.  Scène bg1b (plaine medievale)  + palette LAB_01CE                    ← fond 3
-5.  Scène bg1c (forêt)             + palette LAB_01CF                    ← fond 4
-6.  Scène bg2  (ville Highwood)    + palette LAB_01D0                    ← fond 5
-7.  Scène bg2a (ville Waterdeep)   + palette LAB_01D1                    ← fond 6
-8.  Scène bg3  (sanctuaire)        + palette LAB_01D2                    ← fond 7
+Table LAB_05B1 :
+  index 0 : LAB_00FD  →  "created by"       / "Rob Anderson"
+  index 1 : LAB_00FF  →  "Programmed by"    / "Rob Anderson" / "Kevin Hoare"
+  index 2 : LAB_0102  →  "Artwork by"       / "Rob Anderson" / "Dennis Turner"
+  index 3 : LAB_0105  →  "Music and Sound by" / "Richard Joseph"
+  index 4 : LAB_010A  →  "Additional Art by" / "Steve Leney"
+  index 5 : LAB_0107  →  "Design by"        / "Rob Anderson" / "Todd Prescott"
 ```
 
-Pour chaque scène, la routine :
-1. Copie le buffer source via `LAB_026C` (`MOVEA.L src, D0; JSR LAB_026C`)
-2. Décompresse le PIV avec `LAB_0496` (LZSS) → `LAB_0491` (post-traitement)
-3. Copie la palette via `LAB_025B`
-4. Attend l'appui d'une touche ou un timeout (`LAB_05A1`) ; vérifie `LAB_05E7` pour un skip
-
-Chargement des sprites CEL (dans l'ordre où ils apparaissent dans `SECSTRT_8`) :
-
-| Label | Fichier | CEL index | Frames | Scène |
-|---|---|---|---|---|
-| `SECSTRT_8+0` | `au1.cel` | 0 | 92 | Intro (toutes scènes) |
-| `LAB_0163` | `li1.cel` | 1 | 30 | Scène bg1a |
-| `LAB_0164` | `da1.cel` | 2 | 52 | Scène bg1b |
-| `LAB_0165` | `dw1.cel` | 3 | 53 | Scène bg1c |
-| `LAB_0166` | `ha1.cel` | 4 | 22 | Scène bg2 |
-| `LAB_0167` | `bg1.cel` | 5 | — | Fond (décor) |
-| `LAB_0168` | `co1.cel` | 6 | 25 | Scène bg2a |
-| `LAB_0169` | `dg1.cel` | 7 | 55 | Scène bg3 |
-| `LAB_016A` | `Klift1.CEL` | 8 | 55 | Intro |
-
-Chargement musique : `LAB_0183+1` → `LAB_0390` (cache de fichiers) puis `LAB_03B2` + `LAB_03DA` → `LAB_0190` (décompresseur RNC1) pour charger `music.cmp`.
-
-### 3.3 Textes de l'introduction
-
-#### Écran de chargement — `LAB_00A2` ([program.asm#L1669](program.asm#L1669))
-
-Affiché par `LAB_0054` dans le mode 2 joueurs :
-
-```
-TextNode chain LAB_00A2 :
-  → LAB_00A6 : "The ceremony of the"   y=$4b (75px)
-  → LAB_00A7 : "Moonstone"             y=$5f (95px)
-  → LAB_00A8 : "is about to begin"     y=$73 (115px)
-  → LAB_00A9 : "Loading ..."           y=$b4 (180px) + fin (next=NULL)
-```
+Chaînes de texte embarquées (data section, label `LAB_010C`) :
+- `LAB_010C` : "MOONSTONE\0", "Mindscape\0", "presents\0"
+- `LAB_010D` : "created by\0"
+- `LAB_010E` : "Design by\0"
+- `LAB_010F` : "Artwork by\0"
+- `LAB_0110` : "Programmed by\0"
+- `LAB_0111` : "Music and Sound by\0"
+- `LAB_0112` : "Additional Art by\0"
+- `LAB_0113` : "Rob Anderson\0"
+- `LAB_0114` : "Todd Prescott\0"
+- `LAB_0115` : "Dennis Turner\0"
+- `LAB_0116` : "Richard Joseph\0"
+- `LAB_0117` : "Kevin Hoare\0"
+- `LAB_0118` : "Steve Leney\0"
 
 #### Texte d'introduction des druides — `LAB_00AA` ([program.asm#L1696](program.asm#L1696))
 
-Affiché à la fin de la séquence introductive (ligne 147-148) :
+Affiché via `LAB_0054` à la fin de la cinématique (plan 18) :
 
 ```
 TextNode chain LAB_00AA :
@@ -290,103 +338,382 @@ TextNode chain LAB_00AA :
   → LAB_00BA : "MOONSTONE"                      y=$af (175px) + fin
 ```
 
-### 3.4 Animation d'introduction des chevaliers — `LAB_00E3`
+#### Écran de chargement rapide (mode 2 joueurs) — `LAB_00A2` ([program.asm#L1669](program.asm#L1669))
 
-Spawné par `LAB_001A` ([program.asm#L305](program.asm#L305)) via `LAB_0015`.
+Affiché par `LAB_0054` en mode 2 joueurs uniquement :
 
-**Description :** 4 chevaliers (sprites index `$10` frame `$1b`) descendent depuis le haut de l'écran vers leur position finale.
+```
+TextNode chain LAB_00A2 :
+  → LAB_00A6 : "The ceremony of the"   y=$4b (75px)
+  → LAB_00A7 : "Moonstone"             y=$5f (95px)
+  → LAB_00A8 : "is about to begin"     y=$73 (115px)
+  → LAB_00A9 : "Loading ..."           y=$b4 (180px) + fin
+```
+
+### 3.4 Routines de transition et d'affichage spéciales
+
+#### `LAB_059E` — Initialisation du défilement 3 buffers
+
+Appelée après le chargement de `bg1a.piv`. Initialise le système de défilement vertical
+avec les trois buffers `LAB_00C8` (bg1a = ciel/crépuscule), `LAB_00C9` (bg1c = forêt nocturne),
+`LAB_00CA` (bg1b = plaine médiévale). Les pointeurs sont mémorisés dans `LAB_05D6..+8`.
+Paramètres initiaux : position = 0, vitesse = 8, affichage via `LAB_05BA` + `LAB_0263`.
+
+#### `LAB_059F` — Affichage de la lune
+
+Appelée après le chargement de `bg1c.piv`. Efface la palette (fond noir), bascule
+l'affichage sur le buffer secondaire `LAB_056C`, puis appelle `LAB_04B4` pour dessiner
+le sprite de la lune :
 
 ```asm
-; Bytecode LAB_00E3  [program.asm#L2351]
-; 25 positions, y allant de $ffe4 (=−28, hors écran haut) vers $03 (=3)
-; chaque instruction : opcode=$10 (CEL 4), frame=$1b, x_delta=$XX, flags=$00, y=$ffe4..$03
-
-  $10 $1b $5f $00 $fff4  ; CEL4 frame27, x=+95, y=-12
-  $10 $1b $59 $00 $fff4  ; ...
-  ...                    ; 25 frames de descente (pas de 5 pixels en Y)
-  $10 $1c $f1 $00 $fff4  ; transition vers frame suivante (accélération)
-  ...
-  $10 $1f $f0 $00 $ffe7  ; atterrissage
-  $10 $20 $f0 $00 $ffe5
-  ...
-  $88 $08                ; SET_SPEED = 8 ticks/frame (ralentit)
-  $10 $23 $f2 $00 $ffe4  ; position finale (boucle terminale)
-  $ff $ff                ; fin de séquence
+LEA  LAB_011A, A0
+MOVEA.L 16(A0), A0   ; données du sprite (zone LAB_011A[4])
+MOVE.L  #$49, D0     ; frame index = 0x49 = 73
+MOVE.W  #9,   D1     ; y = 9 px
+MOVE.W  #60,  D2     ; largeur = 60 px
+JSR LAB_04B4         ; rendu du sprite
 ```
 
-**Assets impliqués :**
-- CEL slot 4 dans la table d'assets (`$10` = N=4, soit index 4 × 4 = 16 → `0(A0,$10)`)
-- Utilisé sur le fond `bg3.PIV` (sanctuaire, palette `LAB_01CD`)
+Après 8 frames d'attente, `LAB_05A4` applique un dégradé de palette bleu nuit
+(valeurs 0xFED → 0x842) simulant le ciel nocturne autour de la lune.
 
-**Spawn depuis `LAB_001A` :**
+#### `LAB_05A0` — Flash blanc (transition)
+
+Appelée après le chargement de `bg1b.piv`. Applique toutes les entrées de palette à
+`0xFFF` (blanc pur) pendant 2 frames, puis fonde vers le noir. Ce flash sert de transition
+visuelle entre la scène de la lune et les écrans de crédits.
+
+#### `LAB_0174` — Transition de palettes entre crédits et cinématique
+
+Appelée entre `LAB_001C` et `LAB_001A` (entre plans 6 et 7). Transfère les données
+d'image et les palettes des buffers de crédits vers les buffers d'animation :
 
 ```asm
-LAB_001A:          ; combat_init_p1  [program.asm#L305]
-    JSR LAB_01E4   ; reset entity pool
-    JSR LAB_0258   ; stop music
-    JSR LAB_0262   ; clear screen
-    MOVE.L LAB_00CA, LAB_00C6   ; fond = bg3 (sanctuaire)
-    JSR LAB_0263   ; blitter le fond
-    MOVE.L #LAB_01CD, LAB_011D  ; palette active = sanctuaire
-    MOVE.W #$0004, LAB_011E     ; bitplane mode 4
-    BSR LAB_0030   ; spawn sprites de l'arène
-    BSR LAB_001F   ; lancer la boucle d'animation overworld
-    LEA  LAB_00E3, A0
-    BSR  LAB_0015  ; spawn animation LAB_00E3 (4 chevaliers descendent)
-    JSR  LAB_0007  ; boucle principale (attend la fin)
-    MOVE.L LAB_00C7, LAB_00C6
-    RTS
+LAB_0174:
+  copy_pixels LAB_00CB → LAB_00C8  ; bg4 (crédits) → bg1a (cinématique ciel)
+  blend_palette LAB_01CE → LAB_01CB
+  copy_pixels LAB_00CC → LAB_00C9  ; bg5a (crédits) → bg1c (cinématique forêt)
+  blend_palette LAB_01CF → LAB_01CC
+  copy_pixels LAB_00CD → LAB_00CA  ; bg3 (crédits) → bg1b (cinématique plaine)
+  blend_palette LAB_01D0 → LAB_01CD
 ```
 
-### 3.5 Ressources de la scène d'introduction
+#### `LAB_0040` + `LAB_0041` — Effet d'éclair (6 flashes)
 
-| Type | Fichier | Rôle |
-|---|---|---|
-| PIV fond | `bg1a.PIV` | Coucher de soleil / paysage |
-| PIV fond | `bg1b.PIV` | Plaine médiévale |
-| PIV fond | `bg1c.PIV` | Forêt nocturne |
-| PIV fond | `bg2.PIV` | Ville (Highwood) |
-| PIV fond | `bg2a.PIV` | Ville (Waterdeep) |
-| PIV fond | `bg3.PIV` | Sanctuaire des druides |
-| PIV fond | `bg4.PIV` | Scène intermédiaire |
-| PIV fond | `bg7.PIV` | Arène de combat (intro) |
-| PIV fond | `bg8.PIV` | Stonehenge nuit (intro) |
-| PIV logo | `mindscape` | Logo éditeur (écran splash) |
-| CEL sprite | `au1.cel` | Chevalier bleu (92 frames) |
-| CEL sprite | `li1.cel` | Chevalier vert (30 frames) |
-| CEL sprite | `da1.cel` | Démon / créature (52 frames) |
-| CEL sprite | `dw1.cel` | Nain / autre (53 frames) |
-| CEL sprite | `ha1.cel` | Healer / sorcier (22 frames) |
-| CEL sprite | `co1.cel` | Logo / titre (25 frames) |
-| CEL sprite | `dg1.cel` | Dragon (55 frames) |
-| CEL sprite | `Klift1.CEL` | Animation d'arrivée (55 frames) |
-| Tileset | `intro.stile` | Tuiles de décor intro |
-| Musique | `music.cmp` | Module ProTracker (RNC1) |
-| Police | `bold.f` | Police de texte |
+Utilisé dans le bytecode `LAB_00D6` (plan 12). Lance 6 flashs successifs :
 
-### 3.6 Schéma de la séquence d'introduction complète
+```asm
+LAB_0040:
+  attendre 20 frames
+  LAB_0041 (flash 1) : palette tout-0xFFF → attendre 2 frames → restaurer palette
+  attendre 2 frames
+  LAB_0041 (flash 2)
+  attendre 20 frames
+  LAB_0041 (flash 3)
+  ... (flashes 4, 5, 6 avec délais décroissants)
+  attendre 50 frames
+  RTS
+```
+
+`LAB_0042` contient la palette tout-blanc (16 × `0x0FFF`) utilisée par `LAB_0041`.
+
+#### `LAB_0032` — Flash unique
+
+Un seul flash blanc (appelle `LAB_0041` une fois). Utilisé dans les scripts
+`LAB_00E6` et `LAB_00D4` pour simuler des éclairs ponctuels.
+
+### 3.5 Plans cinématiques — détail des 19 scènes
+
+Après `LAB_0185`, SECSTRT_0 enchaîne les routines suivantes. Chaque routine met en
+place un fond, une palette et spawne les entités via `LAB_0015`/`LAB_0016`, puis appelle
+`LAB_0007` (boucle de jeu) jusqu'à la fin de l'animation (`LAB_0120 = 1`).
+
+#### Plan 5 — Déclenchement de la musique + défilement vers la forêt (`LAB_05A5` / `LAB_05A6`)
+
+```asm
+LAB_05A5:                            ; [program.asm#L10871]
+  JSR LAB_024B                       ; sauvegarde palette
+  LEA LAB_01CB, A0                   ; palette bg1a (ciel)
+  ; set couleurs ciel crépusculaire (0x0a00, 0x0600, 0x0300, 0x0fc6)
+  JSR LAB_0565                       ; applique palette
+  ; → LAB_05A6 : boucle de défilement
+
+LAB_05A6:                            ; animation scroll 0 → 1000
+  ; table vitesses LAB_05A9 : [0x000a, 0x0021, 0x0073, 0x00ae, 0x00eb, 0x013a]
+  ; vitesses correspondantes  : [1, 2, 5, 5, 3, 1]
+  CMPI.W #4, LAB_05B8+2
+  BNE.S  skip_music
+  JSR SECSTRT_1                      ; démarrer musique quand vitesse = 4
+skip_music:
+  ; avancer LAB_05B8 de (vitesse courante) par frame
+  ; jusqu'à LAB_05B8 = 0x3E8 (1000) → fin du défilement
+```
+
+Les 3 buffers défilent du haut vers le bas : **bg1a** (ciel/crépuscule) → **bg1c** (forêt
+nocturne) → **bg1b** (plaine médiévale). Le scroll s'accélère puis décélère pour un
+effet cinématique.
+
+#### Plan 5a — Continuation (`LAB_001B`) [program.asm#L326]
+
+Spawne 5 entités `LAB_00D8` (table `LAB_0024`) via `LAB_001D`, sans changement de fond.
+`LAB_002B+2 = 4` (paramètre de spawn), `ticks = 8`. Correspond à la transition entre
+le défilement panoramique et la première scène animée.
+
+#### Plan 6 — Druides marchant (`LAB_001C`) [program.asm#L337]
+
+```asm
+LAB_001C:
+  JSR LAB_0258                       ; stop musique temporaire
+  JSR LAB_01E4                       ; reset pool entités
+  copy_pixels LAB_00CE → LAB_00C6   ; fond = bg2.piv
+  JSR LAB_0263                       ; blitter fond
+  MOVE.L #LAB_01D1, LAB_011D         ; palette bg2
+  ; spawne 5 entités LAB_00D7 (table LAB_0025) via LAB_001D
+  ; LAB_002B+2 = 8, LAB_00D1 = 1
+  BSR LAB_001D
+  MOVE.L #6, LAB_00D0                ; ticks = 6
+  RTS
+```
+
+5 instances du script `LAB_00D7` (cycle de marche) sur le fond `bg2.piv`,
+palette `LAB_01D1`.
+
+#### Plan 7 — Druides vers Stonehenge (`LAB_001A`) [program.asm#L305]
+
+```asm
+LAB_001A:
+  JSR LAB_01E4 ; JSR LAB_0258 ; JSR LAB_0262
+  MOVE.L LAB_00CA, LAB_00C6          ; fond = bg1b.piv (plaine)
+  JSR LAB_0263
+  MOVE.L #LAB_01CD, LAB_011D         ; palette bg1b
+  MOVE.W #4, LAB_011E
+  BSR LAB_0030                       ; spawn entités de décor (voir §3.6)
+  BSR LAB_001F                       ; spawn entités symétriques via LAB_0023
+  LEA LAB_00E3, A0
+  BSR LAB_0015                       ; spawn animation LAB_00E3 (druide central)
+  JSR LAB_0007                       ; boucle principale
+  MOVE.L LAB_00C7, LAB_00C6
+  RTS
+```
+
+Fond `bg1b.piv`, palette `LAB_01CD`. `LAB_0030` spawne les entités `LAB_00DC`,
+`LAB_00DD`, `LAB_00DA` + leurs miroirs `LAB_00DC`, `LAB_00DD`, `LAB_00D9`.
+`LAB_001F` + table `LAB_0023` spawne `LAB_00DE × 2` + `LAB_00E0 × 2`.
+Puis `LAB_00E3` (druide/chevalier en approche).
+
+#### Plans 8-9 — Vue du dessus de Stonehenge + druides en cercle (`LAB_002C`) [program.asm#L446]
+
+**Phase 1 (plan 8)** — script `LAB_00D2` sur fond `bg1a.piv`, palette `LAB_01CB` :
+
+```asm
+JSR LAB_01E4 ; JSR LAB_0258 ; JSR LAB_0262
+MOVEA.L #LAB_00D2, A0 ; BSR LAB_0015   ; spawn LAB_00D2
+MOVE.L LAB_00C8, LAB_00C6              ; fond = bg1a.piv
+JSR LAB_0263
+MOVE.L #LAB_01CB, LAB_011D             ; palette bg1a
+MOVE.W #0, LAB_0120
+JSR LAB_0007
+```
+
+**Phase 2 (plan 9)** — script `LAB_00D4` sur fond `bg1c.piv`, palette `LAB_01CC` :
+
+```asm
+JSR LAB_0258 ; JSR LAB_01E4
+MOVEA.L #LAB_00D4, A0 ; BSR LAB_0015   ; spawn LAB_00D4
+MOVE.L LAB_00C9, LAB_00C6              ; fond = bg1c.piv
+JSR LAB_0263
+MOVE.L #LAB_01CC, LAB_011D             ; palette bg1c
+MOVE.W #4, LAB_011E
+JSR LAB_0007
+```
+
+#### Plans 10-12 — Plongée, contre-plongée, éclairs (`LAB_002D`) [program.asm#L472]
+
+```asm
+LAB_002D:
+  MOVE.W #1, LAB_00D1 ; MOVE.W #2, LAB_003E
+  JSR LAB_01E4 ; JSR LAB_0258
+  copy_pixels LAB_00CF → LAB_00C6   ; fond = bg2a.piv
+  JSR LAB_0263
+  MOVE.L #LAB_01D2, LAB_011D         ; palette bg2a
+  MOVEA.L #LAB_00D6, A0
+  JSR LAB_0015                       ; spawn LAB_00D6
+  JSR LAB_0007
+  MOVE.W #0, LAB_00D1 ; MOVE.W #0, LAB_003E
+  RTS
+```
+
+Fond `bg2a.piv`, palette `LAB_01D2`. Le script `LAB_00D6` dessine 2 sprites puis
+appelle `CALL_EXT LAB_0040` (6 flashes d'éclair — voir §3.4) pour simuler la foudre
+du plan 12.
+
+#### Plans 13-15 — Chevalier, main, entrée dans le cercle (`LAB_002F`) [program.asm#L506]
+
+```asm
+LAB_002F:
+  JSR LAB_01E4 ; JSR LAB_0258 ; JSR LAB_0262
+  MOVE.L LAB_00CA, LAB_00C6          ; fond = bg1b.piv (plaine/Stonehenge)
+  JSR LAB_0263
+  MOVE.L #LAB_01CD, LAB_011D         ; palette bg1b
+  MOVE.W #0, LAB_011F ; MOVE.W #4, LAB_011E
+  BSR LAB_0031                       ; spawn entités cérémonie complète (10 entités)
+  MOVEA.L #LAB_00E4, A0 ; JSR LAB_0015  ; animation idle
+  MOVEA.L #LAB_00E5, A0 ; JSR LAB_0015  ; animation en mouvement
+  MOVE.L #8, LAB_00D0
+  JSR LAB_0007
+  MOVE.L #6, LAB_00D0
+  MOVE.L LAB_00C7, LAB_00C6
+  RTS
+```
+
+Fond `bg1b.piv`, palette `LAB_01CD`. `LAB_0031` spawne le cercle complet de
+cérémonie : `LAB_00DC`, `LAB_00DD`, `LAB_00DB`, `LAB_00DF`, `LAB_00E1` + leurs 5 miroirs.
+`LAB_00E4` = animation idle des druides en cercle.
+`LAB_00E5` = animation du chevalier entrant dans le cercle.
+
+#### Plans 16-17 — Druide et chevalier agenouillé, imposition de la main (`LAB_002E`) [program.asm#L491]
+
+```asm
+LAB_002E:
+  JSR LAB_01E4 ; JSR LAB_0258
+  copy_pixels LAB_00CC → LAB_00C6   ; fond = bg5a.piv
+  JSR LAB_0263
+  MOVE.L #LAB_01CF, LAB_011D         ; palette bg5a
+  MOVEA.L #LAB_00D3, A0
+  JSR LAB_0015                       ; spawn script LAB_00D3
+  JSR LAB_0007
+  RTS
+```
+
+Fond `bg5a.piv`, palette `LAB_01CF`. Script `LAB_00D3` : animation du druide posant
+la main sur l'épaule du chevalier agenouillé.
+
+#### Plan 18 — Carton texte de la quête
+
+```asm
+; SECSTRT_0 [program.asm#L147]
+JSR LAB_025F          ; fondu au noir
+LEA LAB_00AA, A0
+JSR LAB_0054          ; affiche texte "The druids sent their best knights…"
+MOVE.L #$1A4, D0
+JSR LAB_054F          ; attente 420 frames (~8,4 s à 50 Hz)
+JSR LAB_025F          ; fondu au noir
+JSR LAB_005B          ; arrêt musique
+```
+
+`LAB_0054` ([program.asm#L1047](program.asm#L1047)) copie 0x10E6 octets depuis
+`LAB_011A[20]` vers `LAB_056C`, puis affiche la chaîne `LAB_00AA` via `LAB_028F`
+avec une palette sombre (0x0800 → 0x0000 dégradé).
+
+### 3.6 Routines de spawn de décor — `LAB_0030` et `LAB_0031`
+
+Ces deux routines spawne des groupes d'entités de décor. Elles sont utilisées dans
+différents contextes :
+
+**`LAB_0030`** ([program.asm#L526](program.asm#L526)) — Groupe réduit (6 entités) :
+
+```asm
+LAB_0030:
+  MOVEA.L #LAB_00DC, A0 ; JSR LAB_0015   ; entité DC (côté A)
+  MOVEA.L #LAB_00DD, A0 ; JSR LAB_0015   ; entité DD (côté A)
+  MOVEA.L #LAB_00DA, A0 ; JSR LAB_0015   ; entité DA (côté A)
+  MOVEA.L #LAB_00DC, A0 ; JSR LAB_0016   ; entité DC miroir (côté B)
+  MOVEA.L #LAB_00DD, A0 ; JSR LAB_0016   ; entité DD miroir (côté B)
+  MOVEA.L #LAB_00D9, A0 ; JSR LAB_0016   ; entité D9 miroir (côté B)
+  RTS
+```
+
+Utilisé dans :
+- **Plan 7 intro** (`LAB_001A`) : druides positionnés sur la plaine avant l'approche de Stonehenge
+- **Scènes de combat** (mog.asm) : construction des décors d'arène — **les mêmes entités
+  servent à décorer les arènes de combat**. Voir note dans `DOC_TECHNIQUE.md`.
+
+**`LAB_0031`** ([program.asm#L540](program.asm#L540)) — Groupe complet cérémonie (10 entités) :
+
+```asm
+LAB_0031:
+  MOVEA.L #LAB_00DC, A0 ; JSR LAB_0015
+  MOVEA.L #LAB_00DD, A0 ; JSR LAB_0015
+  MOVEA.L #LAB_00DB, A0 ; JSR LAB_0015
+  MOVEA.L #LAB_00DF, A0 ; JSR LAB_0015
+  MOVEA.L #LAB_00E1, A0 ; JSR LAB_0015
+  ; + 5 miroirs via LAB_0016 (DC, DD, DB, DF, E1)
+  RTS
+```
+
+Utilisé uniquement dans les plans 13-15 (`LAB_002F`) et en mode 2 joueurs (`LAB_0036`).
+Spawne le cercle complet de cérémonie autour de Stonehenge, incluant les entités
+spécifiques `LAB_00DB`, `LAB_00DF`, `LAB_00E1` non présentes dans `LAB_0030`.
+
+### 3.7 Ressources de la scène d'introduction
+
+| Type | Fichier | Buffer / Label | Rôle |
+|---|---|---|---|
+| PIV logo | `mindscape` | `SECSTRT_30` | Logo éditeur (plan 1) |
+| PIV fond | `bg1a.piv` | `LAB_00C8` | Ciel crépusculaire (scroll + plan 8) |
+| PIV fond | `bg1c.piv` | `LAB_00C9` | Forêt nocturne (lune + plan 9) |
+| PIV fond | `bg1b.piv` | `LAB_00CA` | Plaine médiévale (plans 7, 13-15) |
+| PIV fond | `bg4.piv` | `LAB_00CB` | Crédit 0 (logo/titre Moonstone ?) |
+| PIV fond | `bg5a.piv` | `LAB_00CC` | Crédit 1 + plans 16-17 |
+| PIV fond | `bg3.piv` | `LAB_00CD` | Crédit 2 |
+| PIV fond | `bg2.piv` | `LAB_00CE` | Crédit 3 + plan 6 (druides marchant) |
+| PIV fond | `bg2a.piv` | `LAB_00CF` | Crédit 4 + plans 10-12 (éclairs) |
+| CEL sprite | `au1.cel` | zone `LAB_00C2` | Chevalier / personnage principal |
+| CEL sprite | `li1.cel` | zone `LAB_00C2+` | Personnage secondaire |
+| CEL sprite | `da1.cel` | zone `LAB_00C2++` | Druide / personnage |
+| CEL sprite | `dw1.cel` | — | Personnage |
+| CEL sprite | `ha1.cel` | — | Personnage |
+| CEL sprite | `bg1.cel` | — | Décor (fond animé) |
+| Tileset | `intro.stile` | `SECSTRT_33` | Tuiles du défilement intro |
+| Musique | `music.cmp` | `LAB_0124` | Module ProTracker (RNC1) |
+| Police | `bold.f` | `LAB_00F8` | Police de texte (glyphes) |
+
+### 3.8 Schéma de la séquence d'introduction complète
 
 ```
-SECSTRT_0
+SECSTRT_0 [L108]
 │
-├── (1j) ──▶ LAB_0185  ────────────────────────────────────────────────────────────
-│           │ Écran Mindscape logo (LAB_0184 / "mindscape")                        │
-│           │ Écran bg8 nuit (LAB_0506/LAB_00C9)                                   │
-│           │ Scène bg1a  +  palette LAB_01CB  [↵ bouton ou timeout]               │
-│           │ Scène bg1b  +  palette LAB_01CE  [↵ bouton ou timeout]               │
-│           │ Scène bg1c  +  palette LAB_01CF  [↵ bouton ou timeout]               │
-│           │ Scène bg2   +  palette LAB_01D0  [↵ bouton ou timeout]               │
-│           │ Scène bg2a  +  palette LAB_01D1  [↵ bouton ou timeout]               │
-│           │ Scène bg3   +  palette LAB_01D2  [↵ bouton ou timeout]               │
-│           │ Chargement music.cmp (RNC1 → ProTracker)                             │
-│           └─ Fin → LAB_05A5 (init jeu) ──────────────────────────────────────────
+├── (1j) ──▶ LAB_025F ──▶ LAB_0185 [L3300]
+│                          ├─ SECSTRT_30 ← mindscape.piv   [plan 1 : logo Mindscape]
+│                          ├─ LAB_00C8  ← bg1a.piv + LAB_059E (init scroll)
+│                          ├─ LAB_00C9  ← bg1c.piv + LAB_059F [plan 2 : lune]
+│                          ├─ LAB_00CA  ← bg1b.piv + LAB_05A0 (flash blanc→noir)
+│                          ├─ LAB_00CB  ← bg4.piv  + crédit 0 [plans 3-4 : titre + crédits]
+│                          ├─ LAB_00CC  ← bg5a.piv + crédit 1
+│                          ├─ LAB_00CD  ← bg3.piv  + crédit 2
+│                          ├─ LAB_00CE  ← bg2.piv  + crédit 3
+│                          ├─ LAB_00CF  ← bg2a.piv + crédit 4
+│                          ├─ au1+li1+da1+dw1+ha1+bg1.cel chargés
+│                          └─ music.cmp → LAB_0190 (démarrage musique)
 │
-└── (2j) ──▶ LAB_0001  ──▶ LAB_0054 (texte "The ceremony of the Moonstone...")
-                       ──▶ LAB_018E  (chargement rapide : bg5+bg8 + palettes)
-                       ──▶ LAB_0036  (scène bg2, overworld intro)
-                       ──▶ LAB_0037  (scène overworld complète)
-                       ──▶ LAB_0039  (rounds de jeu)
-                       ──▶ LAB_003B  (cinématique de fin → §4)
+├── LAB_05A5 / LAB_05A6  [plan 5 : scroll ciel→forêt→plaine + déclenchement musique]
+├── LAB_001B             [plan 5a : continuation scroll, 5× LAB_00D8]
+├── LAB_001C             [plan 6 : druides marchant, fond bg2.piv, 5× LAB_00D7]
+├── LAB_0174             [transition palettes crédits→cinématique]
+├── LAB_001A             [plan 7 : druides vers Stonehenge, fond bg1b.piv]
+│                            LAB_0030 (6 entités décor) + LAB_001F (LAB_0023)
+│                            + LAB_00E3
+├── LAB_002C             [plans 8-9 : vue dessus Stonehenge]
+│                            Phase 1 : fond bg1a.piv, script LAB_00D2
+│                            Phase 2 : fond bg1c.piv, script LAB_00D4
+├── LAB_002D             [plans 10-12 : plongée + contre-plongée + éclairs]
+│                            fond bg2a.piv, script LAB_00D6 → LAB_0040 (6 éclairs)
+├── LAB_002F             [plans 13-15 : chevalier, main, entrée dans cercle]
+│                            fond bg1b.piv, LAB_0031 (10 entités) + LAB_00E4 + LAB_00E5
+├── LAB_002E             [plans 16-17 : druide + chevalier agenouillé]
+│                            fond bg5a.piv, script LAB_00D3
+├── LAB_025F             [fondu au noir]
+├── LAB_0054(LAB_00AA)   [plan 18 : carton texte "The druids sent their best knights…"]
+├── LAB_054F(420 frames) [attente ~8,4 s]
+├── LAB_025F             [fondu au noir]
+└── LAB_005B             [arrêt musique]
+    → SECSTRT_4 (menu de sélection)
+│
+└── (2j) ──▶ LAB_0001
+              LAB_0054(LAB_00A2)  →  "The ceremony of the Moonstone…"
+              LAB_018E            →  chargement rapide
+              LAB_0036 / 0037 / 0039 → scènes interactives
+              LAB_003B            →  cinématique de fin (§4)
 ```
 
 ---
@@ -712,33 +1039,46 @@ typedef struct {
 ### 6.1 Flux intro (mode 1 joueur)
 
 ```
-SECSTRT_0
+SECSTRT_0  [L108]
   ↓
-LAB_038F   (init cache fichiers)
-LAB_SECSTRT_29  (config hardware Amiga : bitplanes, copper, DMA)
-LAB_0006   (init renderer IMAGEXCEL)
-LAB_0044   (init audio)
-LAB_SECSTRT_10  (init opcode dispatch table LAB_0288)
-LAB_0051   (init entité 0 → script LAB_0014 = flag stop)
+LAB_038F        (init cache fichiers)
+SECSTRT_29      (config hardware Amiga : bitplanes, copper, DMA)
+LAB_0006        (init renderer IMAGEXCEL)
+LAB_0044        (init audio + allocation mémoire sprite)
+SECSTRT_10      (init table de dispatch opcodes LAB_0288)
+LAB_0051        (init entité 0 → script LAB_0014 = flag stop)
   ↓
-LAB_025F   (fade to black)
-LAB_0185   (intro complète)
+LAB_025F        (fondu au noir)
+LAB_0185        (chargement progressif + affichage intro)
   ↓
-  → pour chaque scène bg1..bg8 :
-       LAB_026C (load buffer source)
-       LAB_0402 (décompresser PIV → destination)
-       LAB_025B (copier palette)
-       LAB_05A1 (attendre bouton/timeout, skip possible via LAB_05E7)
-  → LAB_0390 (charger music.cmp)
-  → LAB_03B2 / LAB_03DA / LAB_0190 (décompresser RNC1 → ProTracker)
+  PLAN 1 : mindscape.piv → SECSTRT_30 ; palette LAB_0506 → logo Mindscape
+  bg1a.piv → LAB_00C8 ; LAB_059E (init défilement 3 buffers, pos=0)
+  PLAN 2 : bg1c.piv → LAB_00C9 ; LAB_059F (sprite lune, x=73 y=9)
+  bg1b.piv → LAB_00CA ; LAB_05A0 (flash blanc → noir)
+  PLANS 3-4 (crédits) :
+     bg4.piv  → LAB_00CB + LAB_05A1 → "created by / Rob Anderson"
+     bg5a.piv → LAB_00CC + LAB_05A1 → "Programmed by / Rob Anderson / Kevin Hoare"
+     bg3.piv  → LAB_00CD + LAB_05A1 → "Artwork by / Rob Anderson / Dennis Turner"
+     bg2.piv  → LAB_00CE + LAB_05A1 → "Music and Sound by / Richard Joseph"
+     bg2a.piv → LAB_00CF + LAB_05A1 → "Additional Art by / Steve Leney"
+     [charg. au1.cel] + LAB_05A1   → "Design by / Rob Anderson / Todd Prescott"
+  Chargement CEL : au1, li1, da1, dw1, ha1, bg1
+  music.cmp → LAB_0190 (décompression RNC1 → ProTracker ; démarrage musique)
   ↓
-LAB_05A5   (init état jeu)
-LAB_001B   (combat init p1)
-LAB_001C   (combat init p2)
-LAB_001A   (spawn chevaliers → LAB_00E3 : descente)
-              → LAB_0007 (boucle animation)
-LAB_002C / 002D / 002F / 002E  (boutiques, rencontres, sanctuaire)
-LAB_0054 (LAB_00AA) : texte "The druids sent their best knights..."
+PLAN 5  : LAB_05A5/05A6 (scroll ciel→forêt→plaine 0→1000 ; musique déclenchée)
+PLAN 5a : LAB_001B     (5× LAB_00D8, continuation)
+PLAN 6  : LAB_001C     (bg2.piv, 5× LAB_00D7 = druides marchant)
+          LAB_0174     (transition palettes crédits→cinématique)
+PLAN 7  : LAB_001A     (bg1b.piv, LAB_0030 + LAB_001F/LAB_0023 + LAB_00E3)
+PLAN 8  : LAB_002C ph1 (bg1a.piv, script LAB_00D2)
+PLAN 9  : LAB_002C ph2 (bg1c.piv, script LAB_00D4)
+PLANS 10-12 : LAB_002D (bg2a.piv, LAB_00D6 → LAB_0040 = 6 éclairs)
+PLANS 13-15 : LAB_002F (bg1b.piv, LAB_0031 + LAB_00E4 + LAB_00E5)
+PLANS 16-17 : LAB_002E (bg5a.piv, script LAB_00D3)
+PLAN 18 : LAB_025F → LAB_0054(LAB_00AA) : "The druids sent their best knights…"
+          LAB_054F(420 frames) → LAB_025F → LAB_005B (stop musique)
+  ↓
+→ SECSTRT_4 (menu de sélection)
 ```
 
 ### 6.2 Flux fin de partie
