@@ -78,8 +78,6 @@ typedef struct {
  * @name: filename relative to the asset directory (e.g. "au1.cel").
  * Returns a pointer to a newly allocated MoonCel, or NULL on error.
  * The returned object is owned by the caller; free with moon_cel_free().
- * Results are cached: calling with the same name returns the same pointer
- * (refcount incremented).
  */
 MoonCel *moon_cel_load(const char *name);
 
@@ -123,7 +121,7 @@ MoonPiv *moon_piv_load(const char *name);
  * @buf: pointer to raw file bytes.
  * @len: byte count.
  * Returns a newly allocated MoonPiv (caller must free with moon_piv_free()),
- * or NULL on error. This object is NOT cached.
+ * or NULL on error.
  */
 MoonPiv *moon_piv_load_from_buffer(const uint8_t *buf, size_t len);
 
