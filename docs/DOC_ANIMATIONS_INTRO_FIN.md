@@ -93,34 +93,63 @@ Offset 3 : flags de rendu (1 octet)
 Offsets 4-5 : y_pos signé (1 word)
 ```
 
-**Opcodes de contrôle** (bit7=1) :
+**Opcodes de contrôle** (bit7=1) — voir table complète en §7.1 :
 
 | Valeur hex | Nom | Description |
 |---|---|---|
-| `$FF` | `END_FRAME` | Fin du frame courant → attendre `speed` ticks |
+| `$FF` | `END_FRAME` / `END_ANIM` | Fin du frame courant (param $00) ou fin d'animation (param $FF) |
 | `$FE` | `LOOP_IDLE` | Retour à l'adresse idle `8(A5)` → boucle infinie |
 | `$FD` | `DEATH` | Saut à l'animation de mort `32(A5)` |
 | `$80` | `SET_DIR` | Changer le flag direction `22(A1)` |
 | `$84` | `COND_JUMP` | Saut conditionnel / changement d'animation |
-| `$88` | `SET_SPEED` | Régler le compteur vitesse `0(A5)` |
+| `$88` | `SET_SPEED` | Régler le compteur vitesse `0(A5)`, stocker loop_addr |
 | `$8C` | `SKIP_8` | Avancer le PC de 8 octets |
 | `$94` | `LOOP_INIT` | Init compteur boucle `6(A5)`, sauver adresse `8(A5)` |
 | `$A0` | `MOVE_DELTA` | Déplacer l'acteur (delta X/Y avec flags direction) |
-| `$A4` | `ADVANCE_4` | Avancer le PC de 4 octets (no-op 4 octets) |
-| `$B4` | `CALL_EXT` | Appel fonction externe (4 octets adresse après les 2 octets d'opcode) |
-| `$BC` | `SKIP_6_A` | Avancer PC de 6 octets (no-op) |
+| `$A4` | `ADVANCE_4` | Avancer le PC de 4 octets |
+| `$B4` | `CALL_EXT` | Appel fonction externe (6 octets total : op+param+4-byte addr) |
 | `$C0` | `KILL` | Désactiver l'entité (`0(A1)` = 0) |
 | `$C4` | `SET_ASSET_TABLE` | Changer la table d'assets `28(A1)` |
 | `$CC` | `BRANCH_IF_ZERO` | Branchement si variable nulle |
 | `$D0` | `BRANCH_IF_NONZERO` | Branchement si variable non nulle |
-| `$D4` | `RESET_FRAME_STATE` | Effacer toute la structure A5 (48 octets) |
 
 **Opcodes de dessin** (bit7=0, valeur = `N×4`) :
 
 Valeur `N×4` → `MOVEA.L 0(A0, N×4), A0` → pointeur vers le CEL N de l'entité.
 Valeurs valides : `$00, $04, $08, $0C, $10, $14, $18, $1C` = 8 CEL possibles.
 
-**Note :** l'opcode `$B4` (CALL_EXT) est spécial : il consomme 6 octets supplémentaires pour l'adresse de la fonction. La taille totale de l'instruction est donc **10 octets** (2 + 4 d'adresse + 4 de padding/données).
+**Note :** L'opcode `$B4` (CALL_EXT) fait exactement **6 octets** : `$B4 param [4 octets adresse]`. L'adresse de la fonction cible occupe les octets 2–5.
+
+**Table complète des opcodes de contrôle** (taille en octets = nombre d'octets consommés dans le PC) :
+
+| Valeur hex | Taille | Nom | Description détaillée |
+|---|---|---|---|
+| `$FF $00` | 2 | `END_FRAME` | Fin du frame courant ; attendre `speed` ticks VBL puis avancer PC+2 |
+| `$FF $FF` | 2 | `END_ANIM` | Désactiver l'entité (entity.running=0) |
+| `$FF $FE` | 2 | `END_FRAME/LOOP_BACK` | Décrémenter loop_count ; si >0 → PC=loop_addr ; sinon PC+2 |
+| `$FE xx` | 2 | `LOOP_IDLE` | PC = FrameState.loop_addr (saut immédiat, sans décompte) |
+| `$FD xx` | 2 | `DEATH` | PC = FrameState.death_addr |
+| `$80` | 2 | `SET_DIR` | entity.direction = param (ou EORI #2 si param=$FF) |
+| `$84` | 6 | `SET_NEXT_ANIM` | Si param=3 → PC=addr ; sinon FrameState.next_anim=addr, anim_changed=1 |
+| `$88` | 2 | `SET_SPEED` | FrameState.speed=param ; FrameState.loop_addr=PC+2 ; active=1 |
+| `$8C` | 8 | `SKIP_8` | PC += 8 (saute 8 octets) |
+| `$94` | 2 | `LOOP_INIT` | FrameState.loop_count=param ; FrameState.looping=1 ; loop_addr=PC+2 |
+| `$98` | 2 | `NOP_98` | No-op (placeholder, ne modifie pas PC → ne pas utiliser) |
+| `$9C` | 2 | `NOP_9C` | No-op (idem) |
+| `$A0` | 8 | `MOVE_DELTA` | Modifier base_x/base_y/vel_y selon flags et deltas (Δx, Δy, Δv) |
+| `$A4` | 4 | `ADVANCE_4` | PC += 4 (paramètre ignoré) |
+| `$A8` | 6 | `UNK_A8` | Handler LAB_0241 (non documenté) |
+| `$AC` | 2 | `NOP_AC` | No-op |
+| `$B0` | 2 | `NOP_B0` | No-op |
+| `$B4` | 6 | `CALL_EXT` | Appeler fonction à addr(bytes 2–5). Si param=0 : appel direct avec registres entité |
+| `$B8` | 6 | `SKIP_6A` | PC += 6 |
+| `$BC` | 6 | `SKIP_6B` | PC += 6 |
+| `$C0` | 2 | `KILL` | entity.active=0 (cache sans désactiver) |
+| `$C4` | 2 | `SET_ASSET_TABLE` | entity.asset_table = LAB_0281[param-1] |
+| `$C8` | 6 | `SKIP_6C` | PC += 6 |
+| `$CC` | 8 | `BRANCH_IF_ZERO` | Si *(entity_id + offset) == 0 → PC=addr ; sinon PC+=8 |
+| `$D0` | 8 | `BRANCH_IF_NONZERO` | Si *(entity_id + offset) != 0 → PC=addr ; sinon PC+=8 |
+| `$D4` | 6 | `UNK_D4` | Handler LAB_023F (non documenté) |
 
 ### 2.4 Boucle principale de rendu — `LAB_0007`
 
@@ -594,13 +623,12 @@ typedef struct {
     uint8_t  data[4];      /* données additionnelles (selon opcode) */
 } CtrlInstr;               /* 6 octets */
 
-/* Opcode CALL_EXT ($B4) — consomme 10 octets au total */
+/* Opcode CALL_EXT ($B4) — 6 octets total */
 typedef struct {
     uint8_t  opcode;       /* $B4 */
-    uint8_t  param;        /* $00 */
+    uint8_t  param;        /* $00 = appel direct avec registres entité */
     void     (*fn)(void);  /* pointeur de fonction (4 octets, big-endian) */
-    uint8_t  _pad[4];      /* suite de la prochaine instruction */
-} CallExtInstr;            /* 10 octets (chevauchement avec l'instruction suivante) */
+} CallExtInstr;            /* 6 octets */
 ```
 
 ### 5.2 Entité d'animation
@@ -743,6 +771,482 @@ Attente 90 frames
   ↓
 RTS → retour au menu principal (LAB_0000 → SECSTRT_4)
 ```
+
+---
+
+---
+
+## 7. Interprétation détaillée du bytecode par scène
+
+Ce chapitre fournit, pour chaque animation identifiée, la décomposition complète frame par frame telle que l'interpréteur `LAB_01F1` la parcourt. Les coordonnées écran sont calculées d'après les paramètres de l'entité au moment du spawn.
+
+### 7.1 Formules générales de conversion
+
+Les entités spawned par `LAB_0015` reçoivent :
+- `base_x = 160` ($A0), `base_y = 0`, `vel_y = 100 + LAB_00EF` (LAB_00EF = 0 pour toutes les scènes couvertes ici), `dir = 1`
+
+Formules de l'interpréteur (`LAB_01F7`) :
+```
+screen_x = instruction.y_pos_word  + entity.base_x
+screen_y = instruction.x_delta_s8  + entity.base_y + entity.vel_y
+```
+
+Les entités spawned par `LAB_0016` reçoivent `base_x = 120`, `vel_y = 100 + LAB_00F0`, `dir = 3` (miroir), et la formule pour screen_x est symétrique :
+```
+screen_x = entity.base_x - instruction.y_pos_word - entity.sprite_w
+```
+
+Constantes pour les animations de ce chapitre : `base_x=160`, `base_y=0`, `vel_y=100`.
+
+---
+
+### 7.2 `LAB_00E3` — Entrée du chevalier vers le sanctuaire (pré-combat)
+
+**Contexte :** Spawné par `LAB_001A` ([program.asm#L305](program.asm#L305)) via `LAB_0015`.
+Fond actif : `bg3.PIV` (sanctuaire des druides, palette `LAB_01CD`).
+Entités de décor déjà présentes via `LAB_0030` (torches, colonnes).
+
+**Paramètres d'entité :** base_x=160, vel_y=100, dir=1 (face droite).
+
+**Slot CEL utilisé :** slot 4 (`opcode $10` → `(0x10 & 0x1F)/4 = 4`).
+
+**Interprétation visuelle :** Le chevalier part du bas de l'écran (y≈195, quasi hors écran) et glisse vers le haut jusqu'à sa position finale (y≈86, centre-haut), en conservant x≈132. Après 22 frames d'approche en frame 27 (pose debout), il effectue une transition de 8 frames vers la pose de combat (frames 28→35), puis SET_SPEED 8 établit l'animation lente finale.
+
+**Tableau frame par frame** (256 octets bruts, ~31 frames) :
+
+| Frame | Sprite(s) | CEL fr | screen_x | screen_y | Flags | Notes |
+|---|---|---|---|---|---|---|
+| 1 | unique | 27 | 132 | 195 | — | Entrée depuis le bas |
+| 2 | unique | 27 | 132 | 189 | — | |
+| 3 | unique | 27 | 132 | 184 | — | |
+| 4 | unique | 27 | 132 | 179 | — | |
+| 5 | unique | 27 | 132 | 174 | — | |
+| 6 | unique | 27 | 132 | 169 | — | |
+| 7 | unique | 27 | 132 | 164 | — | |
+| 8 | unique | 27 | 132 | 159 | — | |
+| 9 | unique | 27 | 132 | 154 | — | |
+| 10 | unique | 27 | 132 | 149 | — | |
+| 11 | unique | 27 | 132 | 144 | — | |
+| 12 | unique | 27 | 132 | 139 | — | |
+| 13 | unique | 27 | 132 | 134 | — | |
+| 14 | ×2 | 27 | 132 | 129 | — | Double draw (même frame, même pos) |
+| 15 | unique | 27 | 132 | 124 | — | |
+| 16 | unique | 27 | 132 | 119 | — | |
+| 17 | unique | 27 | 132 | 114 | — | |
+| 18 | unique | 27 | 132 | 109 | — | |
+| 19 | unique | 27 | 132 | 104 | — | |
+| 20 | unique | 27 | 132 | 99 | — | |
+| 21 | unique | 27 | 132 | 96 | — | |
+| 22 | unique | 27 | 132 | 91 | — | |
+| 23 | unique | 27 | 132 | 86 | — | |
+| 24 | unique | 28 | 131 | 87 | — | Début transition combat |
+| 25 | unique | 29 | 133 | 87 | — | |
+| 26 | unique | 30 | 130 | 84 | — | |
+| 27 | unique | 31 | 130 | 75 | — | |
+| 28 | unique | 32 | 131 | 84 | — | |
+| 29 | unique | 33 | 131 | 85 | — | |
+| 30 | unique | 34 | 131 | 86 | — | |
+| — | SET_SPEED=8 | — | — | — | — | Ralentissement |
+| 31 | unique | 35 | 132 | 86 | — | Pose finale (lente) |
+| — | END_ANIM | — | — | — | — | Termine l'entité |
+
+**Ce qu'il faut implémenter :**
+1. Parcourir chaque frame : lire 1 draw instruction 6-octets (slot=4, frame=N, x_delta, flags, y_pos).
+2. Calculer screen_x = y_pos + 160, screen_y = x_delta + 100.
+3. Blitter le sprite CEL[4][frame] à (screen_x, screen_y) — sans masque.
+4. À `SET_SPEED 8` (opcode $88 $08) : stocker speed=8 dans FrameState.speed ; placer PC actuel dans FrameState.loop_addr ; activer FrameState.active=1.
+5. `END_ANIM` ($FF $FF) : désactiver l'entité (entity.running=0).
+
+---
+
+### 7.3 `LAB_00E4` — Idole du sanctuaire (boucle statique)
+
+**Contexte :** Spawné par `LAB_002F` ([program.asm#L506](program.asm#L506)) via `LAB_0015`.
+Fond actif : sanctuaire (palette `LAB_01CD`). Spawné en parallèle avec `LAB_00E5`.
+
+**Paramètres d'entité :** base_x=160, vel_y=100, dir=1.
+
+**Slot CEL :** slot 4.
+
+**Interprétation visuelle :** Affichage statique d'un seul sprite (frame 35, pose "au repos" du chevalier ou objet décoratif) à la position fixe (132, 86). Le `SET_NEXT_ANIM` en tête de script pointe vers `LAB_00E4` lui-même (adresse résolue à la liaison), formant une boucle infinie sur un seul frame.
+
+**Bytecode complet** (14 octets) :
+
+```
+Offset +0000  SET_NEXT_ANIM  param=0  addr=<LAB_00E4>    ; boucle sur soi-même
+Offset +0006  DRAW  slot=4  frame=35  x_delta=-14  y_pos=-28  flags=0
+              → screen_x=132  screen_y=86  (aucun masque)
+Offset +000C  END_ANIM ($FF $FF)
+```
+
+**Ce qu'il faut implémenter :**
+1. `SET_NEXT_ANIM` ($84, param=0, addr=ptr) avec param=0 et addr=ptr_vers_LAB_00E4 : stocker addr dans FrameState.next_anim ; activer FrameState.anim_changed=1. PC avance de 6.
+2. DRAW : blit CEL[4][35] à (132, 86).
+3. `END_ANIM` : si FrameState.anim_changed : script_pc = FrameState.next_anim ; sinon désactiver.
+
+> **Note :** Dans le jeu original, `SET_NEXT_ANIM` avec param=0 et addr pointant vers le script courant équivaut à une boucle infinie 1-frame. L'entité reste visible jusqu'à destruction explicite du pool.
+
+---
+
+### 7.4 `LAB_00E5` — Deux chevaliers entrant dans le sanctuaire (marche)
+
+**Contexte :** Spawné par `LAB_002F` ([program.asm#L519](program.asm#L519)) via `LAB_0015`.
+Spawné juste après `LAB_00E4`. Les sprites de décor (`LAB_0031`) sont déjà à l'écran.
+
+**Paramètres d'entité :** base_x=160, vel_y=100, dir=1.
+
+**Slot CEL :** slot 4. Frames 0, 1, 2 = cycle de marche (3 phases : talon posé / jambe levée / pas complet).
+
+**Interprétation visuelle :** Le chevalier marche de droite à gauche en 14 frames (speed=8 : ~6 frames/s PAL), traversant l'écran de y≈193 (bas) vers y≈104 (centre), x constant 132. Le cycle de marche alterne frames 0→2→1 (pas droite/gauche). La dernière frame utilise le flag `DBL_BUF` (bit4) pour s'assurer que le sprite est copié dans les deux buffers graphiques lors de la transition de scène.
+
+**Tableau frame par frame** (150 octets, 15 draws + END_ANIM) :
+
+| Frame | CEL fr | screen_x | screen_y | Flags |
+|---|---|---|---|---|
+| Speed=8 (SET_SPEED) | — | — | — | — |
+| 1 | 2 | 132 | 193 | — |
+| 2 | 1 | 132 | 187 | — |
+| 3 | 2 | 132 | 185 | — |
+| 4 | 0 | 132 | 178 | — |
+| 5 | 2 | 132 | 174 | — |
+| 6 | 1 | 132 | 166 | — |
+| 7 | 2 | 132 | 161 | — |
+| 8 | 0 | 132 | 153 | — |
+| 9 | 2 | 132 | 148 | — |
+| 10 | 1 | 132 | 139 | — |
+| 11 | 2 | 132 | 134 | — |
+| 12 | 0 | 132 | 125 | — |
+| 13 | 2 | 132 | 118 | — |
+| 14 | 1 | 132 | 110 | — |
+| Speed=10 | — | — | — | — |
+| 15 | 2 | 132 | 104 | DBL_BUF |
+| END_ANIM | — | — | — | — |
+
+**Ce qu'il faut implémenter :**
+1. `SET_SPEED 8` : speed=8 dans FrameState, loop_addr = PC+2, active=1.
+2. Chaque frame : attendre `speed` ticks VBL avant d'avancer.
+3. DRAW : blit CEL[4][frame] à (screen_x, screen_y).
+4. `SET_SPEED 10` : mettre à jour speed=10, loop_addr = PC suivant.
+5. Frame 15 avec flag `DBL_BUF` (bit4) : dessiner le sprite sur les deux buffers graphiques (avant et arrière).
+6. `END_ANIM` : désactiver l'entité.
+
+---
+
+### 7.5 `LAB_00EB` — Animation de combat (round 2, scène confrontation)
+
+**Contexte :** Spawné par `LAB_0039` ([program.asm#L717](program.asm#L717)) via `LAB_0015`.
+Scène : fond de rencontre battle (palette `LAB_01CE`), avec `LAB_00E9` déjà spawné.
+
+**Paramètres d'entité :** base_x=160, vel_y=100, dir=1.
+
+**Slot CEL :** slot 5 (`opcode $14` → `(0x14 & 0x1F)/4 = 5`).
+
+**Flag MASK (bit5=1) :** actif sur TOUS les draws → les sprites utilisent le canal alpha/masque pour se superposer au fond sans contour carré.
+
+**Interprétation visuelle :** Séquence de combat à 14 frames principal + 1 frame finale. Chaque frame composite **plusieurs sprites du même slot** (corps, bras, tête séparés ou deux personnages simultanés) qui composent la scène de bataille. Les frames 1–8 montrent le duel (frames CEL 1, 6, 28–37), les frames 9–14 montrent le dénouement avec les combattants se déplaçant vers la droite (frames 38–39 apparaissent).
+
+**Tableau frame par frame** (342 octets, flags MASK omis par souci de lisibilité) :
+
+| Frame | # sprites | Sprite | CEL fr | screen_x | screen_y |
+|---|---|---|---|---|---|
+| 1 | 2 | A | 1 | 140 | 86 |
+| | | B | 6 | 143 | 60 |
+| 2 | 5 | A | 30 | 134 | 25 |
+| | | B | 29 | 141 | 12 |
+| | | C | 28 | 145 | 0 |
+| | | D | 36 | 143 | 73 |
+| | | E | 37 | 139 | 107 |
+| 3 | 4 | A | 32 | 139 | 55 |
+| | | B | 31 | 134 | 0 |
+| | | C | 36 | 143 | 73 |
+| | | D | 37 | 139 | 107 |
+| 4 | 5 | A | 35 | 141 | 45 |
+| | | B | 34 | 124 | 24 |
+| | | C | 33 | 134 | 6 |
+| | | D | 36 | 143 | 73 |
+| | | E | 37 | 139 | 107 |
+| 5 | 4 | A | 32 | 139 | 55 |
+| | | B | 31 | 134 | 0 |
+| | | C | 36 | 143 | 73 |
+| | | D | 37 | 139 | 107 |
+| 6 | 5 | A | 30 | 134 | 25 |
+| | | B | 29 | 141 | 12 |
+| | | C | 28 | 145 | 0 |
+| | | D | 36 | 143 | 73 |
+| | | E | 37 | 139 | 107 |
+| 7 | 4 | A | 35 | 141 | 45 |
+| | | B | 34 | 124 | 24 |
+| | | C | 36 | 143 | 73 |
+| | | D | 37 | 139 | 107 |
+| 8 | 4 | A | 32 | 139 | 55 |
+| | | B | 31 | 134 | 0 |
+| | | C | 36 | 143 | 73 |
+| | | D | 37 | 139 | 107 |
+| 9 | 3 | A | 38 | 158 | 98 |
+| | | B | 36 | 125 | 65 |
+| | | C | 39 | 109 | 49 |
+| 10 | 3 | A | 38 | 154 | 94 |
+| | | B | 36 | 121 | 61 |
+| | | C | 39 | 105 | 45 |
+| 11 | 3 | A | 38 | 146 | 86 |
+| | | B | 36 | 113 | 53 |
+| | | C | 39 | 97 | 37 |
+| 12 | 3 | A | 38 | 130 | 70 |
+| | | B | 36 | 97 | 37 |
+| | | C | 39 | 81 | 21 |
+| 13 | 3 | A | 38 | 114 | 54 |
+| | | B | 36 | 60 | 0 |
+| | | — | (B2 off-screen) | — | — |
+| 14 | 2 | A | 38 | 93 | 33 |
+| | | B | 36 | 60 | 0 |
+| END_ANIM | 1 | A | 38 | 60 | 0 |
+
+**Ce qu'il faut implémenter :**
+1. Par frame : dessiner chaque sprite dans l'ordre du tableau (sprites postérieurs en premier).
+2. Flag MASK (bit5) sur tous les draws : appliquer le canal alpha/masque du CEL lors du blitting. Ne pas écraser les pixels transparents du fond.
+3. Chaque DRAW consomme 6 octets ; `END_FRAME` ($FF $00) signale la fin du frame courant.
+4. `END_ANIM` ($FF $FF) à la fin de la frame 14 : désactiver l'entité.
+5. Les frames CEL 28–39 (slot 5) représentent des poses de combat enchaînées (coup porté, esquive, impact, chute).
+
+---
+
+### 7.6 `LAB_00EC` — Fin de combat (résultat du duel)
+
+**Contexte :** Spawné par `LAB_0039` ([program.asm#L730](program.asm#L730)) via `LAB_0015`.
+Troisième et dernière sous-scène de `LAB_0039`. Fond : overworld (palette `LAB_01CF`).
+
+**Paramètres d'entité :** base_x=160, vel_y=100, dir=1.
+
+**Slot CEL :** slot 5. **Flag MASK** sur tous les draws.
+
+**Interprétation visuelle :** Séquence linéaire de 14 frames en un seul sprite par frame, utilisant les frames 40–54 (suite directe de LAB_00EB). Le sprite commence en position centrale (screen_x≈147, screen_y≈87) et descend progressivement vers (screen_x≈110, screen_y≈90) tout en avançant vers la droite — effet de personnage tombant/reculant après le combat.
+
+**Tableau frame par frame** (118 octets) :
+
+| Frame | CEL fr | screen_x | screen_y | Nb sprites |
+|---|---|---|---|---|
+| 1 | 41+40 | 147/162 | 87/75 | 2 |
+| 2 | 42 | 129 | 69 | 1 |
+| 3 | 43 | 125 | 65 | 1 |
+| 4 | 44 | 123 | 62 | 1 |
+| 5 | 45 | 122 | 60 | 1 |
+| 6 | 46 | 120 | 60 | 1 |
+| 7 | 47 | 118 | 58 | 1 |
+| 8 | 48 | 116 | 56 | 1 |
+| 9 | 49 | 114 | 54 | 1 |
+| 10 | 50 | 114 | 54 | 1 |
+| 11 | 51 | 113 | 53 | 1 |
+| 12 | 52 | 113 | 53 | 1 |
+| 13 | 53 | 112 | 52 | 1 |
+| END_ANIM | 54 | 110 | 90 | 1 |
+
+> **Note :** La frame 1 contient deux DRAW : CEL fr=41 (screen_x=147, screen_y=87) et CEL fr=40 (screen_x=162, screen_y=75). C'est la seule frame multi-sprites de `LAB_00EC`.
+
+**Ce qu'il faut implémenter :**
+1. Frame 1 : deux draws avec flag MASK.
+2. Frames 2–14 : un seul draw par frame, frames CEL 42–54, tous avec flag MASK.
+3. `END_ANIM` ($FF $FF) à la fin de la frame 13 (offset +0074).
+
+---
+
+### 7.7 `LAB_00ED` — Entrée du chevalier + décor overworld (pré-combat 2)
+
+**Contexte :** Spawné par `LAB_0036` ([program.asm#L629](program.asm#L629)) via `LAB_0015`.
+Fond : overworld battle (palette `LAB_01D0`). Les 8 entités du décor `LAB_0031` sont déjà actives.
+
+**Paramètres d'entité :** base_x=160, vel_y=100, dir=1.
+
+**Slot CEL :** slot 4.
+
+**Interprétation visuelle :** Animation d'entrée similaire à `LAB_00E5` mais étendue : pendant les 4 premières frames, un second sprite (frame 35, statique) est affiché simultanément à la même position finale (x=132, y=86) — probablement l'autel/objet du sanctuaire en arrière-plan. Les frames 1–17 montrent la marche d'approche (frames 0/1/2 alternés), frames 18–25 la transition vers la pose de combat (frames 3–10), et enfin `SET_SPEED 15` + frame 10 comme pose finale.
+
+**Tableau frame par frame** (240 octets, 26 frames) :
+
+| Frame | Sprite A | CEL fr A | screen_x A | screen_y A | Sprite B | CEL fr B | screen_x B | screen_y B | Flags |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | walk | 2 | 132 | 193 | décor | 35 | 132 | 86 | B=DBL_BUF |
+| 2 | walk | 1 | 132 | 187 | décor | 35 | 132 | 86 | B=DBL_BUF |
+| 3 | walk | 2 | 132 | 185 | décor | 35 | 132 | 86 | — |
+| 4 | walk | 0 | 132 | 178 | décor | 35 | 132 | 86 | — |
+| 5 | walk | 2 | 132 | 174 | — | — | — | — | — |
+| 6 | walk | 1 | 132 | 166 | — | — | — | — | — |
+| 7 | walk | 2 | 132 | 161 | décor | 35 | 132 | 86 | — |
+| 8 | walk | 0 | 132 | 153 | — | — | — | — | — |
+| 9 | walk | 2 | 132 | 148 | — | — | — | — | — |
+| 10 | walk | 1 | 132 | 139 | — | — | — | — | — |
+| 11 | walk | 2 | 132 | 134 | — | — | — | — | — |
+| 12 | walk | 0 | 132 | 125 | — | — | — | — | — |
+| 13 | walk | 2 | 132 | 118 | — | — | — | — | — |
+| 14 | walk | 1 | 132 | 110 | — | — | — | — | — |
+| 15 | walk | 2 | 132 | 104 | — | — | — | — | — |
+| 16 | walk | 0 | 132 | 96 | — | — | — | — | — |
+| 17 | walk | 2 | 132 | 91 | — | — | — | — | — |
+| 18 | walk | 2 | 132 | 87 | — | — | — | — | — |
+| 19 | transition | 3 | 132 | 86 | — | — | — | — | — |
+| 20 | transition | 4 | 133 | 87 | — | — | — | — | — |
+| 21 | transition | 5 | 130 | 84 | — | — | — | — | — |
+| 22 | transition | 6 | 131 | 76 | — | — | — | — | — |
+| 23 | transition | 7 | 133 | 85 | — | — | — | — | — |
+| 24 | transition | 8 | 133 | 86 | — | — | — | — | — |
+| 25 | transition | 9 | 132 | 86 | — | — | — | — | — |
+| — | SET_SPEED=15 | — | — | — | — | — | — | — | — |
+| 26 | final | 10 | 132 | 88 | — | — | — | — | — |
+| END_ANIM | — | — | — | — | — | — | — | — | — |
+
+**Ce qu'il faut implémenter :**
+1. Frames 1–4 : deux draws par frame (sprite A = marcheur, sprite B = décor statique à (132,86)). Frame 1–2 : sprite B avec flag DBL_BUF.
+2. Frames 5–18 : un seul draw par frame (certaines frames intercalent un décor frame 35, cf. frames 7).
+3. Frames 19–25 : transition — frames CEL 3–9 (arrêt de marche, pose d'attaque).
+4. `SET_SPEED 15` : speed=15 ticks/frame (≈3.3 frames/s) — pause dramatique.
+5. Frame finale : CEL fr=10, pos (132, 88).
+6. `END_ANIM` → désactiver.
+
+---
+
+### 7.8 `LAB_00EE` — Stonehenge — Cinématique de fin (9 phases)
+
+**Contexte :** Spawné par `LAB_003B` ([program.asm#L763](program.asm#L763)) via `LAB_0015`.
+Fond : overworld final + buffers sauvegardés via `LAB_05AB`. Palette `LAB_01CB`.
+
+**Paramètres d'entité :** base_x=160, vel_y=100, dir=1.
+
+**Slot CEL :** slot 2 (`opcode $08` → `(0x08 & 0x1F)/4 = 2`).
+
+**Mécanisme de phases :** Chaque phase commence par `CALL_EXT LAB_05AF` qui décrémente `LAB_05B8+2` (compteur phases, initialisé à 9). Le moteur overworld (`LAB_05B7`) redessine l'overworld au fil des phases. La dernière instruction (`CALL_EXT LAB_05AE`) positionne `LAB_05E6=1` (signal de fin) et change speed à 5.
+
+**Interprétation visuelle :** Construction progressive du cercle de pierres de Stonehenge. Chaque phase ajoute des menhirs jusqu'à la formation complète (15 pierres), puis un effet de pulsation lente (speed=40), et enfin la dissolution de la formation (frames 16–24 = animation d'explosion/glow).
+
+**Tableau des phases — sprites par phase** (760 octets bruts, ~10 frames actives) :
+
+#### Phase 1 — 1 pierre
+
+`CALL_EXT LAB_05AF` → décrémente phases.
+
+| Sprite | CEL fr | screen_x | screen_y |
+|---|---|---|---|
+| pierre A | 0 | 143 | 129 |
+
+#### Phase 2 — 4 pierres
+
+`CALL_EXT LAB_05AF`
+
+| Sprite | CEL fr | screen_x | screen_y |
+|---|---|---|---|
+| A | 4 | 142 | 125 |
+| B | 2 | 166 | 106 |
+| C | 1 | 155 | 95 |
+| D | 3 | 173 | 202 |
+
+#### Phase 3 — 4 pierres
+
+`CALL_EXT LAB_05AF`
+
+| Sprite | CEL fr | screen_x | screen_y |
+|---|---|---|---|
+| A | 7 | 151 | 84 |
+| B | 6 | 151 | 66 |
+| C | 5 | 139 | 71 |
+| D | 8 | 184 | 76 |
+
+#### Phase 4 — 5 pierres
+
+`CALL_EXT LAB_05AF`
+
+| Sprite | CEL fr | screen_x | screen_y |
+|---|---|---|---|
+| A | 12 | 171 | 111 |
+| B | 11 | 192 | 87 |
+| C | 10 | 149 | 62 |
+| D | 9 | 122 | 62 |
+| E | 14 | 174 | 214 |
+
+#### Phase 5 — 15 pierres (formation complète)
+
+`CALL_EXT LAB_05AF`
+
+Toutes les 15 pierres utilisent la frame 15 (pierre générique / pierre illuminée). Positions (screen_x, screen_y) :
+
+| # | screen_x | screen_y |
+|---|---|---|
+| 1 | 210 | 150 |
+| 2 | 104 | 62 |
+| 3 | 117 | 79 |
+| 4 | 136 | 49 |
+| 5 | 132 | 71 |
+| 6 | 122 | 90 |
+| 7 | 128 | 101 |
+| 8 | 135 | 115 |
+| 9 | 156 | 113 |
+| 10 | 165 | 98 |
+| 11 | 163 | 90 |
+| 12 | 165 | 82 |
+| 13 | 190 | 95 |
+| 14 | 188 | 107 |
+| 15 | 212 | 65 |
+
+#### Phases 6, 7, 8 — Pulsation (mêmes 15 pierres, positions légèrement décalées)
+
+`CALL_EXT LAB_05AF` pour chaque phase. Structure identique à la phase 5 mais positions légèrement décalées de ±2px en x et y, créant un effet de vibration/glow du cercle.
+
+Variations de position par rapport à la phase 5 :
+- Phase 6 : décalage moyen ≈ (−2, 0)
+- Phase 7 : décalage moyen ≈ (−4, 0)
+- Phase 8 : décalage moyen ≈ (−6, 0)
+
+(Voir bytecode aux offsets $0074–$01FA pour les valeurs exactes.)
+
+#### Phase 9 — Formation complète au ralenti
+
+`SET_SPEED 40` (≈1.25 frames/s) + mêmes 15 pierres que la phase 5 (positions identiques).
+
+#### Phase 10 — Épilogue et dissolution
+
+`CALL_EXT LAB_05AE` (positionne LAB_05E6=1, fin cinématique) + `SET_SPEED 5`.
+
+Puis 9 frames de dissolution avec frames CEL 16–24 (animation d'explosion/disparition des pierres) :
+
+| Frame | CEL fr | screen_x | screen_y |
+|---|---|---|---|
+| 1 | 16 | 74 | 68 |
+| 2 | 17 | 106 | 46 |
+| 3 | 18 | 94 | 55 |
+| 4 | 19 | 100 | 68 |
+| 5 | 20 | 130 | 112 |
+| 6 | 21 | 150 | 61 |
+| 7 | 22 | 183 | 54 |
+| 8 | 23 | 206 | 48 |
+| 9 | 24 | 206 | 127 |
+| END_ANIM | — | — | — |
+
+**Ce qu'il faut implémenter :**
+
+1. **CALL_EXT ($B4 $00 + 4-byte addr)** : appeler la fonction à l'adresse donnée. Pour `LAB_05AF` : décrémenter `LAB_05B8+2` (phases restantes) et mettre à jour l'affichage overworld. Pour `LAB_05AE` : positionner `LAB_05E6=1`. L'instruction fait 6 octets total.
+
+2. **Par phase** : dessiner tous les sprites de la phase en une seule frame (pas d'`END_FRAME` intermédiaire), avec les coordonnées du tableau. Attendre `speed` ticks VBL entre phases.
+
+3. **SET_SPEED 40** (phase 9) : chaque frame affichée pendant 40 ticks VBL ≈ 800ms — effet de "marteau" solennel.
+
+4. **Frames CEL 0–14** (slot 2) : pierre dans une pose spécifique (menhir debout, linteau, etc.).
+
+5. **Frame CEL 15** : pierre générique ou pierre illuminée (utilisée pour la formation complète).
+
+6. **Frames CEL 16–24** : animation de dissolution / explosion de Stonehenge (9 poses successives).
+
+7. **END_ANIM** ($FF $FF) : désactiver l'entité ; `LAB_05AC` sort de sa boucle car `LAB_05E6=1`.
+
+---
+
+### 7.9 Résumé des implémentations par scène
+
+| Animation | Scène | Slot CEL | Nb frames | Nb sprites/frame | Flags | Opcode spéciaux |
+|---|---|---|---|---|---|---|
+| `LAB_00E3` | Pré-combat sanctuaire | 4 | 31 | 1 (×2 frame 14) | — | SET_SPEED 8 |
+| `LAB_00E4` | Sanctuaire statique | 4 | 1 | 1 | — | SET_NEXT_ANIM (boucle) |
+| `LAB_00E5` | Entrée sanctuaire (marche) | 4 | 15 | 1 | DBL_BUF dernier | SET_SPEED 8→10 |
+| `LAB_00EB` | Duel de combat (round 2) | 5 | 14 | 2–5 | MASK | — |
+| `LAB_00EC` | Résultat combat | 5 | 14 | 1–2 | MASK | — |
+| `LAB_00ED` | Entrée overworld + décor | 4 | 26 | 1–2 | DBL_BUF | SET_SPEED 15 |
+| `LAB_00EE` | Stonehenge fin | 2 | 10 phases | 1–15 | — | CALL_EXT (×9+1), SET_SPEED 40→5 |
 
 ---
 
