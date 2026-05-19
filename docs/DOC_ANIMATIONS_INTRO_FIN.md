@@ -690,6 +690,129 @@ LAB_005B             [arrêt musique]
   → SECSTRT_4 (menu de sélection)
 ```
 
+### 3.9 Opcodes bytecode par plan cinématique
+
+**Réponse : oui.** Tous les plans cinématiques de l'introduction utilisent intégralement
+le langage bytecode documenté au §2.3. L'interpréteur `LAB_01F1` parcourt les mêmes
+instructions 6 octets pour les scripts d'intro que pour toute autre entité du jeu — il
+n'existe pas de chemin spécial pour la cinématique.
+
+Le tableau ci-dessous liste les opcodes effectivement présents dans chaque script
+d'animation, vérifiés sur le bytecode brut de `program.asm`.
+
+---
+
+#### Plan 5a — `LAB_00D8` (5 instances, druides en marche — début)
+
+| Opcode | Mnémonique | Paramètres notables |
+|---|---|---|
+| `$0C` | DRAW CEL3 | flags `$20` (MASK) systématique ; sub-frames `$00`–`$0C` |
+| `$10` | DRAW CEL4 | flags `$20` (MASK) ; sub-frames `$0B`–`$2A` (phase d'approche) |
+| `$FF $00` | END_FRAME | — |
+| `$FF $FF` | END_ANIM | fin de la séquence principale |
+
+#### Plan 6 — `LAB_00D7` (5 instances, cycle de marche complet)
+
+| Opcode | Mnémonique | Paramètres notables |
+|---|---|---|
+| `$0C` | DRAW CEL3 | flags `$20` (MASK) systématique ; sub-frames `$00`–`$34` (27 poses) |
+| `$FF $00` | END_FRAME | 27 appels (une pause par pose d'animation) |
+| `$FF $FF` | END_ANIM | fin de cycle |
+
+> Aucun `SET_SPEED` ni `CALL_EXT` dans `LAB_00D7` : la vitesse est fixée par
+> `LAB_00D0` (valeur 6) avant le spawn.
+
+#### Plan 7 — scripts CEL4 multiples (`LAB_00D9`…`LAB_00E3`)
+
+Scripts présents : `LAB_00D9`/`LAB_00DA` (longue marche vers Stonehenge),
+`LAB_00DB`, `LAB_00DC`, `LAB_00DD` (druides de côté),
+`LAB_00DE`, `LAB_00DF` (variantes),
+`LAB_00E0`, `LAB_00E1`, `LAB_00E2` (idem, côté miroir),
+`LAB_00E3` (chevalier/druide central en approche).
+
+| Opcode | Mnémonique | Scripts concernés | Paramètres notables |
+|---|---|---|---|
+| `$10` | DRAW CEL4 | tous | flags `$00` en règle générale ; flags `$10` (DBL_BUF) dans `LAB_00DC` |
+| `$88` | SET_SPEED | `LAB_00DB`–`LAB_00E3` | `$02` (2 ticks), `$08` (8 ticks dans `LAB_00E3`) |
+| `$84` | SET_NEXT_ANIM | `LAB_00DB`, `LAB_00DC`, `LAB_00DD`, `LAB_00DF`, `LAB_00E1`, `LAB_00E2` | self-loop (idle perpetuel) |
+| `$FF $00` | END_FRAME | tous | — |
+| `$FF $FF` | END_ANIM | tous | — |
+
+#### Plan 8 — `LAB_00D2` (vue aérienne de Stonehenge)
+
+| Opcode | Mnémonique | Paramètres notables |
+|---|---|---|
+| `$00` | DRAW CEL0 | flags `$00` ; sub-frames `$00`–`$3F` (64 poses, panorama 360°) |
+| `$88` | SET_SPEED | `$01`, `$02`, `$08`, `$0A` (1, 2, 8, 10 ticks) — vitesse variable selon la phase |
+| `$FF $00` | END_FRAME | — |
+| `$FF $FF` | END_ANIM | — |
+
+#### Plan 9 — `LAB_00D4` (druides en cercle, fond forêt)
+
+| Opcode | Mnémonique | Paramètres notables |
+|---|---|---|
+| `$04` | DRAW CEL1 | flags `$00` ; sub-frames `$00`–`$16` |
+| `$88` | SET_SPEED | `$04` (4 ticks), `$0F` (15 ticks) |
+| `$B4` | CALL_EXT | → `LAB_003F` (rotation palette / effet lumineux) ; 3× par cycle |
+| `$FF $00` | END_FRAME | — |
+| `$FF $FF` | END_ANIM | — |
+
+#### Plans 10-12 — `LAB_00D6` (plongée, contre-plongée, éclairs)
+
+| Opcode | Mnémonique | Paramètres notables |
+|---|---|---|
+| `$08` | DRAW CEL2 | flags `$00` ; sub-frames `$00`–`$06` |
+| `$88` | SET_SPEED | `$02` (2 ticks), `$04` (4 ticks), `$14` (20 ticks) |
+| `$B4` | CALL_EXT | → `LAB_0040` (déclenchement des 6 flashs d'éclair) ; en tête du script |
+| `$FF $00` | END_FRAME | — |
+| `$FF $FF` | END_ANIM | — |
+
+#### Plans 13-15 — Cérémonie + chevalier entrant (`LAB_002F`)
+
+Scripts du cercle (`LAB_00DB`, `LAB_00DC`, `LAB_00DD`, `LAB_00DF`, `LAB_00E1`
++ 5 miroirs) : **mêmes opcodes que le Plan 7** (voir tableau ci-dessus).
+
+Script idle `LAB_00E4` :
+
+| Opcode | Mnémonique | Paramètres notables |
+|---|---|---|
+| `$84` | SET_NEXT_ANIM | self-loop → `LAB_00E4` (idle perpetuel tant que le chevalier n'entre pas) |
+| `$10` | DRAW CEL4 | sub-frame `$23` (pose statique) |
+| `$FF $FF` | END_ANIM | — |
+
+Script mouvement `LAB_00E5` (chevalier entrant dans le cercle) :
+
+| Opcode | Mnémonique | Paramètres notables |
+|---|---|---|
+| `$88` | SET_SPEED | `$08` (8 ticks) au début ; `$0A` (10 ticks) sur la frame de transition |
+| `$10` | DRAW CEL4 | sub-frames `$00`–`$02` ; dernière frame flags `$10` (DBL_BUF) |
+| `$00` | DRAW CEL0 | sub-frames `$00`–`$03` (décor de fond, section post-`$FF $FF`) |
+| `$FF $00` | END_FRAME | — |
+| `$FF $FF` | END_ANIM | — |
+
+#### Plans 16-17 — `LAB_00D3` (druide imposant la main + chevalier agenouillé)
+
+| Opcode | Mnémonique | Paramètres notables |
+|---|---|---|
+| `$00` | DRAW CEL0 | flags `$00` ; sub-frames `$40`–`$57` (druide principal, 24 poses) |
+| `$04` | DRAW CEL1 | flags `$00` ; sub-frames `$00`–`$0A` (chevalier agenouillé, 11 poses) |
+| `$88` | SET_SPEED | `$06` (6 ticks) au début ; `$0A` (10 ticks) sur les poses finales |
+| `$B4` | CALL_EXT | → `LAB_003F` (effet palette / glow) ; 3× par cycle complet |
+| `$FF $00` | END_FRAME | — |
+| `$FF $FF` | END_ANIM | — |
+
+---
+
+**Récapitulatif des slots CEL utilisés dans l'introduction :**
+
+| Slot CEL | Opcode | Scripts | Contenu |
+|---|---|---|---|
+| CEL0 (`$00`) | `$00` | `LAB_00D2`, `LAB_00D3`, `LAB_00E5` | Vue aérienne (D2), druide (D3), décor fond (E5) |
+| CEL1 (`$04`) | `$04` | `LAB_00D3`, `LAB_00D4` | Chevalier agenouillé (D3), druides cercle (D4) |
+| CEL2 (`$08`) | `$08` | `LAB_00D6` | Pierres/éclairs (D6) |
+| CEL3 (`$0C`) | `$0C` | `LAB_00D7`, `LAB_00D8` | Druides marchant (D7/D8) |
+| CEL4 (`$10`) | `$10` | `LAB_00D8`–`LAB_00E5` | Druides cérémonie, chevalier, Stonehenge |
+
 ---
 
 ## 4. Scène de fin (`LAB_003B`)
