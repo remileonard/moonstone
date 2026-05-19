@@ -25,23 +25,67 @@ Les fichiers `.PIV` sont dans le format propriétaire Mindscape :
 - 32 mots de palette Amiga 12-bit (`$0RGB`)
 - Body : stream **LZSS** (même algorithme que les sprites `.CEL`)
 
-### 1.2 Sprites (CEL)
+### 1.2 Fichiers CEL et OB — inventaire overworld
 
-Tous les sprites de la carte utilisent le **slot CEL `$14`** (20e asset dans
-la table `LAB_0276`). Les sous-frames (`sub_frame`) sélectionnent la frame
-à afficher.
+#### Table d'assets `LAB_0276` — chargée par la boucle de jeu overworld
 
-| Label      | Nom inféré                  | Contenu CEL                          | Usage overworld                                      |
-|------------|-----------------------------|--------------------------------------|------------------------------------------------------|
-| `LAB_00E7` | `map_all_node_positions`    | ~145 entrées × 6 octets              | Table complète des positions des nœuds/icônes de la carte |
-| `LAB_00E8` | `anim_map_selected_node`    | CEL `$14 01..06` (clignotants)       | Animation du nœud de destination sélectionné         |
-| `LAB_00E9` | `anim_map_ui_frame`         | CEL `$14 07..18` (18 sprites)        | Cadre UI permanent de la carte, affiché en fond       |
-| `LAB_00EA` | `anim_map_idle_overlay`     | CEL `$14 01/02/00`                   | Overlay idle : icône du chevalier courant              |
-| `LAB_00E6` | `anim_overworld_hud`        | 12 icônes + barres de score          | HUD overworld (barres HP/XP/reliques)                 |
-| `LAB_00D7` | `anim_map_knight_walk_r`    | CEL `$0C` sub_frames `0x10..0x20`    | Animation de marche droite du chevalier sur la carte  |
-| `LAB_00D8` | `anim_map_knight_walk_l`    | CEL `$0C`                            | Animation de marche gauche sur la carte               |
-| `LAB_00D9` | `anim_map_knight_walk_r2`   | CEL `$0C`                            | Suite du parcours de chemin (segment suivant)          |
-| `LAB_00DA` | `anim_map_knight_path_cont` | CEL `$0C`                            | Continuation de déplacement sur un chemin             |
+La table `LAB_0276` (10 pointeurs longs) est peuplée en mémoire au
+chargement. Le second chargement (contexte mog / overworld interactif,
+`program.asm#L3544-L3620`) place les fichiers suivants :
+
+| Slot (offset) | Fichier     | Frames | Rôle                                                       |
+|---------------|-------------|--------|------------------------------------------------------------|
+| `[0]`         | `dg1.cel`   | 55     | **Dragon volant sur la carte** — toutes les frames de vol du dragon overworld |
+| `[4]`         | `li1.cel`   | 30     | Sprites icônes des lieux (villages, temples, châteaux)     |
+| `[8]`         | `ha1.cel`   | 22     | Sprites de type Hawk / décoration de carte                 |
+| `[12]`        | `co1.cel`   | 25     | Sprites icônes complémentaires (co-icônes, repères)        |
+| `[16]`        | `da1.cel`   | 52     | Sprites de dégâts / décoration animée                      |
+| `[20]`        | `ov1.cel`   | 4      | **Icônes de nœuds de la carte** (overworld node icons)     |
+
+> **Note :** le fichier `ov1.cel` (label `LAB_016A`, préfixe ASCII `0x6F 0x76` = `'ov'`)
+> ne contient que 4 frames ; il représente les icônes statiques des nœuds
+> interactifs de la carte. `dg1.cel` (55 frames) fournit l'animation complète
+> du dragon en vol.
+
+#### Fichiers `.ob` — sprites des chevaliers (carte et combat)
+
+| Fichier   | Label      | Joueur          | Rôle                                  |
+|-----------|------------|-----------------|---------------------------------------|
+| `kn1.ob`  | `LAB_076F` | SIR RICHARD (bleu)  | Sprite chevalier sur la carte     |
+| `kn2.ob`  | `LAB_0770` | SIR GODBER (rouge)  | Sprite chevalier sur la carte     |
+| `kn3.ob`  | `LAB_0771` | SIR JEFFREY (vert)  | Sprite chevalier sur la carte     |
+| `kn4.ob`  | `LAB_0772` | SIR EDWARD (jaune)  | Sprite chevalier sur la carte     |
+| `Kn5.ob`  | `LAB_0773` | Chevalier Noir IA   | Sprite chevalier ennemi sur carte |
+
+Format `.ob` = identique à `.cel` : en-tête 10 octets + table frames +
+corps LZSS (`LAB_049C`).
+
+#### Fichiers CEL de combat du Dragon — chargés par `LAB_0121`
+
+Ces fichiers sont chargés **uniquement** lors du déclenchement d'un combat
+contre le dragon (appel `JSR LAB_0121`, `mog.asm#L3969`) :
+
+| Fichier        | Label      | Frames | Rôle                                     |
+|----------------|------------|--------|------------------------------------------|
+| `Dragon1.cel`  | `LAB_0780` | —      | Sprites d'attaque / phase de combat dragon (animation 1) |
+| `Dragon2.cel`  | `LAB_0781` | —      | Sprites d'attaque / phase de combat dragon (animation 2) |
+
+Ces deux fichiers sont distincts de `dg1.cel` : ils ne servent que pour
+la scène de combat, pas pour le vol du dragon sur la carte.
+
+#### Scripts d'animation de la carte (bytecode)
+
+| Label      | Nom inféré                  | Fichier CEL source | Usage overworld                                      |
+|------------|-----------------------------|---------------------|------------------------------------------------------|
+| `LAB_00E7` | `map_all_node_positions`    | ~145 entrées × 6 octets | Table complète des positions des nœuds/icônes |
+| `LAB_00E8` | `anim_map_selected_node`    | `ov1.cel` frames 1..6   | Animation du nœud de destination sélectionné  |
+| `LAB_00E9` | `anim_map_ui_frame`         | `ov1.cel` frames 7..18  | Cadre UI permanent de la carte, affiché en fond |
+| `LAB_00EA` | `anim_map_idle_overlay`     | `ov1.cel` frames 0/1/2  | Overlay idle : icône du chevalier courant       |
+| `LAB_00E6` | `anim_overworld_hud`        | 12 icônes + barres      | HUD overworld (barres HP/XP/reliques)           |
+| `LAB_00D7` | `anim_map_knight_walk_r`    | `kn*.ob` sub_frames `0x10..0x20` | Animation de marche droite du chevalier |
+| `LAB_00D8` | `anim_map_knight_walk_l`    | `kn*.ob`                | Animation de marche gauche sur la carte         |
+| `LAB_00D9` | `anim_map_knight_walk_r2`   | `kn*.ob`                | Suite du parcours de chemin (segment suivant)   |
+| `LAB_00DA` | `anim_map_knight_path_cont` | `kn*.ob`                | Continuation de déplacement sur un chemin       |
 
 #### Format d'une entrée de `LAB_00E7` (6 octets)
 
@@ -288,77 +332,212 @@ Après le traitement de l'événement, le retour s'effectue toujours vers
 | `0x19`    | Ville : arène / achat / sorcier / armurier       | Non (menu ville)|
 | `0x1a`    | Ville : arène / achat / sorcier / taverne        | Non (menu ville)|
 | `0x1b`    | Sorcier Mythral → échange moonstones / skill     | Non (menu)      |
-| `0x1c`    | **Antre du Dragon** (voir §4)                    | Oui (combat boss)|
+| `0x1c`    | **Antre du Dragon** — lair accessible sous conditions (Moonstone + reliques) | Non (menu)      |
 | `0x1e`    | Temple de guérison → restaure HP                 | Non (menu)      |
 
 ---
 
 ## 4. Événement du Dragon
 
-### 4.1 Nœud de l'Antre du Dragon (type `0x1c`)
+Le dragon n'est **pas** un boss final accessible via un nœud de la carte.
+C'est une entité autonome qui **vole en permanence sur la carte overworld**
+pendant toute la partie. Si le dragon entre en collision avec l'un des
+joueurs, un combat contre le dragon est immédiatement déclenché.
+Un joueur peut de plus rediriger le dragon vers un autre joueur en utilisant
+le **Parchemin du Wyrm** (`item_scroll_wyrm`).
 
-Le nœud de type `0x1c` déclenche le gestionnaire `LAB_009D`. C'est le seul
-nœud de la carte qui ouvre l'accès au **combat contre le Dragon Noir**.
+### 4.1 Initialisation du dragon — `LAB_0DCB`
 
-### 4.2 Condition d'accès
-
-```text
-Condition : inventaire[20] == 0x0f
-            ↔ le chevalier possède la "Dragon Key" (quatrième relique)
-```
-
-Les quatre reliques sont obtenues en visitant les quatre sanctuaires de
-chevaliers (nœuds `0x15..0x18`) et en battant les créatures qui les gardent.
-Les reliques sont représentées par les sprites CEL `$14 24/25/26/27`.
-
-### 4.3 Flux complet de l'événement
+Le dragon est créé en mémoire après que la partie a progressé d'au moins
+**2 rounds** (`LAB_06C0 >= 2`). La fonction `LAB_0DCB` :
 
 ```text
-1. Chevalier arrive sur le nœud 0x1c
-   ↓
-2. LAB_009D vérifie inventaire[20]
-   │
-   ├─ inventaire[20] ≠ 0x0f (relique absente)
-   │    → Perte de 2 niveaux de skill (sans descendre sous 0)
-   │    → Redirection vers état 9 (temple de guérison)
-   │
-   └─ inventaire[20] == 0x0f (relique présente)
-        ↓
-3. Déclenchement de l'état 10 (combat Dragon)
-   LAB_068F = 10
-   LAB_068B = chevalier joueur (attaquant)
-   LAB_068D = LAB_0617 (struct du Dragon / Chevalier Noir IA)
-   Fond : LAB_0694 + LAB_0698
-        ↓
-4. Combat en temps réel (boucle LAB_04D0 de mog.asm)
-        ↓
-5. Résolution
-   │
-   ├─ Victoire (joueur survit) :
-   │    78(knight)  += 3  (compteur de combats gagnés)
-   │    inventaire[20] = 0  (relique effacée)
-   │    → LAB_0DCA  (séquence de fin de partie)
-   │
-   └─ Défaite (joueur meurt) :
-        → Perte de 2 niveaux de skill
-        → Retour à état 9 (temple de guérison)
-        → HP restaurés au max, skill -= 2
+LAB_0DCB [mog.asm#L25049] :
+  1. Vérifie LAB_06C0 >= 2 (seuil de ronde d'apparition)
+  2. Vérifie 73(LAB_0617) >= 0 (dragon non mort)
+  3. Appelle LAB_0305 (initialisation d'entité dragon)
+  4. Installe LAB_0DCF comme handler de mouvement : LAB_08C7.move = LAB_0DCF
+  5. Initialise la position de départ dans LAB_0671 (5 longs)
+  6. Remplit la struct dragon (LAB_0617) :
+       4(dragon)  = 0x000A  (X initial)
+       6(dragon)  = 0x0000  (X velocity high byte)
+       8(dragon)  = 0x0064  (Y initial = 100)
+      10(dragon)  = 0x03    (state = 3 = vol)
+      38(dragon)  = LAB_0671 (pointeur buffer de rendu)
+      77(dragon)  = 0x28    (animation frame stride)
+      12(dragon)  = 0x00    (frame counter = 0)
+      46(dragon)  = LAB_08FC (table d'animation = 16 frames × 2 entrées)
+  7. Lance le premier draw via LAB_0310 (initialise le sprite dragon)
+  8. Initialise LAB_0DDC = 2 (vitesse X = +2 pixels/tick)
+  9. LAB_0666 = 100 (countdown avant activation complète)
+ 10. LAB_0667 = 1 (flag dragon actif)
+ 11. Choisit aléatoirement un joueur cible parmi les joueurs actifs (non IA)
+     → stocké dans 100(LAB_0617)
 ```
 
-### 4.4 Structure du Dragon (Chevalier Noir boss)
+### 4.2 Vol du dragon sur la carte — `LAB_0DCF`
 
-Le Dragon / boss final utilise la même structure `KnightStruct` que les
-joueurs (132 octets, 33 longs), stockée en `LAB_0617` :
+`LAB_0DCF` est le handler de mouvement appelé à chaque frame de la carte
+(`JMP LAB_02BA` en fin de handler = retour au renderer). Il gère le vol
+en deux phases :
 
-| Champ             | Valeur initiale | Description                        |
-|-------------------|-----------------|------------------------------------|
-| `Force`           | 5               | Dommage max (valeur boss)          |
-| `Constitution`    | 5               | Résistance / HP bonus              |
-| `Endurance`       | 5               | Défense                            |
-| `skill_level`     | 5               | Niveau de compétence maximum       |
-| `hp_current`      | var.            | Points de vie courants             |
-| `enemy_flag`      | `0xFF`          | Marqué comme IA ennemie            |
-| `ai_data`         | `LAB_08C0`      | Données comportement IA            |
+#### Phase d'approche (LAB_0666 > 60 = décrémente de 100 à 61)
+
+```text
+LAB_0DCF → LAB_0DD0 :
+  Décrémenter LAB_0666
+  if (LAB_0666 <= 60) → basculer en phase de poursuite
+
+  Pendant l'approche :
+    X += LAB_0DDC (vitesse X courante)
+    → appel LAB_02BA (rendu)
+```
+
+#### Phase de poursuite active (LAB_0666 <= 60)
+
+```text
+LAB_0DCF → LAB_0DD1 :
+  X += LAB_0DDC                    ; déplacement horizontal
+  D5 = LAB_0DDC+2                  ; composante verticale (signe = direction)
+  A1 = 100(LAB_0617)               ; cible = joueur visé
+  D0 = 128(A1) - 8(dragon)        ; écart Y entre dragon et joueur cible
+  if D0 > 0 → dragon monte (Y += |D5|)
+  if D0 < 0 → dragon descend (Y -= |D5|)
+  if D0 == 0 → Y inchangé
+
+  Rebonds sur les bords :
+    if 4(dragon) > 0x015E (=350) → X = 0x0159, inverser LAB_0DDC (flipX)
+    if 4(dragon) < 0xFFEC (=-20) → X = 0xFFF6, inverser LAB_0DDC (flipX)
+    if 8(dragon) > 0x00C8 (=200) → Y = 0
+    if 8(dragon) < 0          → Y = 200
+
+  Animation cycling :
+    12(dragon) = (12(dragon) + 1) & 0x0F   ; cycle 0..15
+    LAB_061D = LAB_08FC[12(dragon)]        ; sélectionner la frame dg1.cel
+```
+
+#### Table d'animation du dragon `LAB_08FC`
+
+```text
+LAB_08FC: 16 paires d'entrées (32 pointeurs) = frames 0..15 × 2
+
+LAB_08FD : $0022 FB 00 $FFEF FFFF  → frame dg1.cel #0x22 (34), Y-offset $FB
+LAB_08FE : $0023 F8 00 $FFEF FFFF  → frame dg1.cel #0x23 (35)
+LAB_08FF : $0024 F6 00 $FFEF FFFF  → frame dg1.cel #0x24 (36)
+LAB_0900 : $0025 F7 00 $FFEF FFFF  → frame dg1.cel #0x25 (37)
+LAB_0901 : $0026 FA 00 $FFEF FFFF  → frame dg1.cel #0x26 (38)
+LAB_0902 : $0027 FA 00 $FFEF FFFF  → frame dg1.cel #0x27 (39)
+LAB_0903 : $0028 FB 00 $FFEF FFFF  → frame dg1.cel #0x28 (40)
+LAB_0904 : $0029 FC 00 $FFEF FFFF  → frame dg1.cel #0x29 (41)
+(frames 8..15 répètent les mêmes 8 entrées → animation en boucle)
+```
+
+Le dragon utilise donc les **frames 34 à 41** du fichier `dg1.cel`
+(sur 55 frames totales) pour son animation de vol sur la carte.
+
+### 4.3 Détection de collision — `LAB_0DD8`
+
+À chaque frame, `LAB_0DD8` teste si le dragon touche l'un des joueurs.
+Il consulte la table `LAB_08FA` (octets de masque de collision) :
+
+```text
+LAB_0DD8 [mog.asm#L25163] :
+  Initialise flag collision = 0
+  if LAB_065E != 0 → RTS (combat en cours, skip)
+  if LAB_065C != 0 → RTS (transition, skip)
+  BSR LAB_0E20   ; obtenir l'index du joueur courant en D1
+  A0 = LAB_08FA  ; table de masques (bytes par joueur)
+  D7 = LAB_08FA[D1] ; masque pour ce joueur
+  if D7 == 0 → pas de collision possible → RTS
+  EXT.W D7
+  LAB_0DDA++
+  D6 = LAB_0DDA & D7
+  if D6 == 0 → RTS (pas de collision ce tick)
+  else → LAB_0DDA+2 = 1 (flag collision = VRAI)
+```
+
+Quand `LAB_0DDA+2 = 1` (collision confirmée) :
+- La boucle principale (`LAB_0DB0`) déclenche le combat contre le dragon
+- `LAB_0E27` : appelle `LAB_001C` (handler de mort du joueur / début combat)
+
+### 4.4 Parchemin du Wyrm — redirection du dragon
+
+L'item **« Parchemin du Wyrm »** (`item_scroll_wyrm`, offset 18 dans la
+struct inventaire du chevalier) permet à un joueur de rediriger le dragon
+vers un **autre** joueur de son choix.
+
+#### Mécanisme
+
+Depuis le menu d'inventaire de la carte, l'option
+**« Cast scroll of the Wyrm »** (`LAB_0992`) est disponible si le joueur
+possède au moins un parchemin. Quand il l'utilise :
+
+1. Le joueur sélectionne une cible parmi les joueurs actifs sur la carte
+   via un mini-menu de sélection.
+2. La cible choisie est stockée dans `100(current_player)` (pointeur vers
+   la struct du joueur cible).
+3. À chaque frame, `LAB_0E26` surveille ce pointeur :
+
+```text
+LAB_0E26 [mog.asm#L25617] :
+  A0 = LAB_0633 (joueur courant)
+  if 100(A0) == 0 → RTS (pas de cible choisie)
+  A1 = 96(A0) (struct inventaire du joueur)
+  if 16(A1) == 0 → RTS (pas de scroll actif)
+  A2 = LAB_0617 (struct dragon)
+  100(A2) = 100(A0)        ; dragon.target = knight.chosen_target
+  16(A1) -= 1              ; consommer le scroll
+  100(A0) = 0              ; effacer la cible du joueur
+  JSR LAB_05A1             ; effet sonore
+  JSR LAB_0DCB             ; recalcul du dragon (reset timer, re-init)
+```
+
+La **cible du dragon** (`100(LAB_0617)`) est ainsi changée instantanément.
+Le dragon change de trajectoire à la frame suivante.
+
+#### Talisman du Wyrm
+
+L'item **« Talisman du Wyrm »** (`item_talisman_wyrm`, offset 10 dans
+l'inventaire, label `LAB_098E`) est une version plus puissante : il
+redirige le dragon de façon permanente jusqu'à ce que la cible meure.
+Sa gestion suit le même pipeline mais avec `14(A1)` au lieu de `16(A1)`.
+
+### 4.5 Variables de contrôle du dragon
+
+| Variable       | Rôle                                                          |
+|----------------|---------------------------------------------------------------|
+| `LAB_0617`     | Struct dragon (même format `KnightStruct` 132 octets)         |
+| `LAB_08C7`     | Entité dragon dans le pool d'entités ; `.move = LAB_0DCF`     |
+| `LAB_0666`     | Countdown dragon (100 → 0 = phase approche puis poursuite)    |
+| `LAB_0667`     | Flag dragon actif (1 = actif, 0 = inactif)                    |
+| `LAB_0DDC`     | Vitesse X du dragon (`+2` ou `-2`), inversée aux rebonds      |
+| `LAB_0DDC+2`   | Vitesse Y courante (signée)                                   |
+| `LAB_0DDA`     | Compteur de frames depuis dernière collision                  |
+| `LAB_0DDA+2`   | Flag collision active (0 = non, 1 = oui)                      |
+| `LAB_08FA`     | Table de masques de collision par joueur (80 octets)          |
+| `LAB_08FC`     | Table d'animation dragon (16 entrées × 2 ptrs)                |
+| `LAB_06C0`     | Compteur de rounds global (dragon apparaît quand >= 2)        |
+
+### 4.6 Structure de la struct dragon `LAB_0617`
+
+Le dragon utilise la même structure que les chevaliers (`KnightStruct`,
+132 octets), avec les valeurs initiales suivantes :
+
+| Champ (offset) | Valeur init | Description                                    |
+|----------------|-------------|------------------------------------------------|
+| `4(dragon)`    | `0x000A`    | Position X courante (pixels)                   |
+| `6(dragon)`    | `0x0000`    | High-word X velocity                           |
+| `8(dragon)`    | `0x0064`    | Position Y courante (pixels)                   |
+| `10(dragon)`   | `0x03`      | State = 3 (vol actif)                          |
+| `12(dragon)`   | `0x00`      | Frame counter animation (0..15, cycle)         |
+| `38(dragon)`   | `LAB_0671`  | Pointeur buffer de rendu (5 longs)             |
+| `46(dragon)`   | `LAB_08FC`  | Table d'animation (frames `dg1.cel` 34..41)    |
+| `54(dragon)`   | `4`         | knight_id = 4 (dragon = IA faction 4)          |
+| `73(dragon)`   | `≥ 0`       | Vie (< 0 = mort, dragon inactif)               |
+| `77(dragon)`   | `0x28`      | Stride animation                               |
+| `100(dragon)`  | ptr joueur  | **Joueur cible** (vers qui le dragon vole)     |
+
+
 
 ---
 
