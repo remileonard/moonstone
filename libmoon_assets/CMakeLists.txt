@@ -20,6 +20,11 @@ endif()
 # ---------------------------------------------------------------
 add_library(moon_assets STATIC
     src/moon_assets.c
+    src/cel.c
+    src/piv.c
+    src/stile.c
+    src/mod.c
+    src/ob.c
     src/rnc1.c
     src/lzss_cel.c
     src/rle_stile.c

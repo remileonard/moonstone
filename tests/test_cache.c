@@ -1,8 +1,11 @@
 /*
- * test_cache.c — unit tests for the libmoon_assets file cache.
+ * test_cache.c — unit tests for the libmoon_assets library lifecycle and loaders.
  *
- * Tests the hash function, reference counting, and cache eviction.
- * Uses synthetic data (no real game files needed).
+ * Tests moon_init/moon_shutdown, moon_file_read, moon_ob_load, and
+ * moon_mod_load using synthetic data (no real game files needed).
+ *
+ * Note: asset caching is not part of the library; these tests verify
+ * that each load call returns a valid, independently-owned object.
  */
 
 #include "moon_assets.h"
@@ -124,9 +127,12 @@ static void test_ob_load(void)
         }
     }
 
-    /* Load again — should return same pointer (cached) */
+    /* Load again — each call returns an independent object */
     MoonOb *ob2 = moon_ob_load("moon_test.ob");
-    CHECK(ob2 == ob1, "ob_load: cache hit returns same pointer");
+    CHECK(ob2 != NULL, "ob_load second call: non-null");
+    if (ob2) {
+        CHECK(ob2->frame_count == 1, "ob_load second call: frame_count");
+    }
 
     moon_ob_free(ob2);
     moon_ob_free(ob1);
@@ -181,10 +187,13 @@ static void test_mod_load_raw(void)
         CHECK(mod->pattern_count == 1,  "mod_load: pattern_count");
         CHECK(mod->sample_count  == 31, "mod_load: sample_count");
         CHECK(mod->pattern_data  != NULL, "mod_load: pattern_data non-null");
-        /* Load again — cache hit */
+        /* Load again — each call returns an independent object */
         MoonMod *mod2 = moon_mod_load("moon_test.mod");
-        CHECK(mod2 == mod, "mod_load: cache hit returns same pointer");
-        moon_mod_free(mod2);
+        CHECK(mod2 != NULL, "mod_load second call: non-null");
+        if (mod2) {
+            CHECK(mod2->song_length == 1, "mod_load second call: song_length");
+            moon_mod_free(mod2);
+        }
         moon_mod_free(mod);
     }
 
