@@ -194,6 +194,19 @@ void render_cel_frame(const MoonCelFrame *frame,
     }
 }
 
+void render_cel(const MoonCel  *cel,
+                int             frame_idx,
+                const uint32_t *palette,
+                uint32_t       *fb,
+                int dst_x, int dst_y,
+                int flags)
+{
+    if (!cel || cel->frame_count == 0) return;
+    if (frame_idx < 0)                  frame_idx = 0;
+    if (frame_idx >= cel->frame_count)  frame_idx = cel->frame_count - 1;
+    render_cel_frame(&cel->frames[frame_idx], palette, fb, dst_x, dst_y, flags);
+}
+
 /* ------------------------------------------------------------------ */
 /* Built-in 8×8 bitmap font (ASCII 32–127)                            */
 /* ------------------------------------------------------------------ */

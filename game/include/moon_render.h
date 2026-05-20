@@ -126,6 +126,25 @@ void render_cel_frame(const MoonCelFrame *frame,
                       int dst_x, int dst_y,
                       int flags);
 
+/**
+ * render_cel — convenience wrapper: pick frame @frame_idx from a MoonCel
+ * and blit it using render_cel_frame().
+ *
+ * @cel       : loaded CEL (or OB) sprite sheet; if NULL the call is a no-op.
+ * @frame_idx : animation frame to render (clamped to [0, frame_count-1]).
+ * @palette   : ARGB8888 palette (32 entries).
+ * @fb        : destination framebuffer.
+ * @dst_x     : left pixel position.
+ * @dst_y     : top pixel position.
+ * @flags     : combination of BLIT_* flags.
+ */
+void render_cel(const MoonCel  *cel,
+                int             frame_idx,
+                const uint32_t *palette,
+                uint32_t       *fb,
+                int dst_x, int dst_y,
+                int flags);
+
 /* ------------------------------------------------------------------ */
 /* Text rendering (built-in 8×8 font fallback)                        */
 /* ------------------------------------------------------------------ */

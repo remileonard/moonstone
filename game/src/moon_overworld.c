@@ -10,6 +10,15 @@
  * triggered.
  *
  * All node coordinates taken from DOC_MODE_OVERWORLD.md §1.6.
+ *
+ * Sprite assets (DOC_MODE_OVERWORLD.md §1.2):
+ *   ov1.cel  — 4 frames — overworld node icons
+ *   li1.cel  — 30 frames — location/place icons
+ *   dg1.cel  — 55 frames — dragon flying on map
+ *   ha1.cel  — 22 frames — hawk / map decoration
+ *   co1.cel  — 25 frames — complementary icons
+ *   da1.cel  — 52 frames — damage/animated decoration
+ *   kn1..4.ob — knight sprites per faction (kn1.ob is a stub)
  */
 
 #include "moon_overworld.h"
@@ -66,6 +75,34 @@ static const int s_start_x[MAX_PLAYERS] = { 18, 286,   0, 303 };
 static const int s_start_y[MAX_PLAYERS] = { 11,  11, 187, 192 };
 
 /* ------------------------------------------------------------------ */
+/* CEL / OB sprite assets                                              */
+/* ------------------------------------------------------------------ */
+
+/* Map of filenames tried for each knight faction (kn1.ob is a stub) */
+static const char *s_knight_ob_names[MAX_PLAYERS] = {
+    "kn1.ob", "kn2.ob", "kn3.ob", "kn4.ob"
+};
+
+/* Loaded CEL/OB pointers — NULL if file unavailable */
+static MoonCel *s_ov_cel   = NULL; /* ov1.cel  — node icons (4 frames)  */
+static MoonCel *s_li_cel   = NULL; /* li1.cel  — location icons         */
+static MoonCel *s_dg_cel   = NULL; /* dg1.cel  — dragon (55 frames)     */
+static MoonCel *s_ha_cel   = NULL; /* ha1.cel  — hawk / decoration      */
+static MoonCel *s_kn_ob[MAX_PLAYERS]; /* kn1..4.ob — per-knight sprites  */
+
+/* PIV palette shared by all sprites (converted to ARGB8888) */
+static uint32_t s_ov_palette[MAX_PALETTE];
+
+/* Animation tick counters */
+static int s_dg_frame  = 0;   /* current dragon animation frame */
+static int s_dg_tick   = 0;   /* ticks since last dragon frame  */
+#define DG_ANIM_SPEED  4      /* advance dragon frame every N ticks */
+
+static int s_kn_frame  = 0;   /* overworld knight walk frame    */
+static int s_kn_tick   = 0;
+#define KN_ANIM_SPEED  6
+
+/* ------------------------------------------------------------------ */
 /* Rendering                                                           */
 /* ------------------------------------------------------------------ */
 
@@ -75,15 +112,24 @@ static int      s_map_loaded = 0;
 static void load_map_background(void)
 {
     if (s_map_loaded) return;
+
+    /* ---- Background PIV ---- */
     MoonPiv *piv = moon_piv_load("dw1.PIV");
     if (!piv) piv = moon_piv_load("dw1.piv");
     if (piv) {
         render_piv_full(piv, s_map_bg);
+        /* Extract palette for sprite rendering */
+        int pal_size = 1 << piv->planes;
+        if (pal_size > MAX_PALETTE) pal_size = MAX_PALETTE;
+        render_build_palette(piv->palette, pal_size, s_ov_palette);
         moon_piv_free(piv);
     } else {
         /* Fallback: dark green background */
         for (int i = 0; i < GAME_W * GAME_H; i++)
             s_map_bg[i] = 0xFF082808u;
+        /* Neutral grey placeholder palette */
+        for (int i = 0; i < MAX_PALETTE; i++)
+            s_ov_palette[i] = 0xFF808080u | (0xFF000000u);
         /* Draw placeholder node markers */
         for (int n = 0; n < NUM_NODES; n++) {
             int x = s_nodes[n].x;
@@ -91,7 +137,78 @@ static void load_map_background(void)
             render_fill_rect(s_map_bg, x - 3, y - 3, 7, 7, 0xFF888888u);
         }
     }
+
+    /* ---- CEL sprite assets ---- */
+
+    /* ov1.cel — 4 node icons */
+    s_ov_cel = moon_cel_load("ov1.cel");
+    if (!s_ov_cel) s_ov_cel = moon_cel_load("ov1.CEL");
+
+    /* li1.cel — location icons (30 frames) */
+    s_li_cel = moon_cel_load("li1.cel");
+    if (!s_li_cel) s_li_cel = moon_cel_load("li1.CEL");
+
+    /* dg1.cel — dragon flying on map (55 frames) */
+    s_dg_cel = moon_cel_load("dg1.cel");
+    if (!s_dg_cel) s_dg_cel = moon_cel_load("dg1.CEL");
+
+    /* ha1.cel — hawk / map decoration (22 frames) */
+    s_ha_cel = moon_cel_load("ha1.cel");
+    if (!s_ha_cel) s_ha_cel = moon_cel_load("ha1.CEL");
+
+    /* kn*.ob — per-faction knight sprites */
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        s_kn_ob[i] = NULL;
+        /* moon_ob_load uses the same decoder as moon_cel_load */
+        MoonOb *ob = moon_ob_load(s_knight_ob_names[i]);
+        if (ob && ob->frame_count > 0) {
+            /* Cast MoonOb* to MoonCel* — they share the same layout */
+            s_kn_ob[i] = (MoonCel *)ob;
+        } else {
+            moon_ob_free(ob);
+        }
+    }
+
     s_map_loaded = 1;
+}
+
+/*
+ * Node type → ov1.cel frame mapping.
+ *
+ * ov1.cel has 4 frames. Based on DOC_MODE_OVERWORLD.md §1.2 and §1.3:
+ *   frame 0: generic / default node icon
+ *   frame 1: selected / active node icon
+ *   frame 2: town / city icon
+ *   frame 3: special site icon (Stonehenge, Valley of Gods, Wizard)
+ *
+ * li1.cel (30 frames) is used for village/location icons when available.
+ */
+static int node_icon_frame(int node_type)
+{
+    switch (node_type) {
+    case 0x15: case 0x16: case 0x17: case 0x18: return 0; /* village */
+    case 0x19: case 0x1a:                        return 2; /* city    */
+    case 0x1b: case 0x1c:                        return 3; /* special */
+    case 0x1e:                                   return 3; /* wizard  */
+    default:                                     return 0;
+    }
+}
+
+/* li1.cel frame for a given node type (30 frames available) */
+static int node_li_frame(int node_type)
+{
+    switch (node_type) {
+    case 0x15: return  0; /* village Richard */
+    case 0x16: return  4; /* village Godber  */
+    case 0x17: return  8; /* village Jeffrey */
+    case 0x18: return 12; /* village Edward  */
+    case 0x19: return 16; /* Highwood         */
+    case 0x1a: return 20; /* Waterdeep        */
+    case 0x1b: return 24; /* Stonehenge       */
+    case 0x1c: return 28; /* Valley of Gods   */
+    case 0x1e: return  2; /* Wizard           */
+    default:   return  0;
+    }
 }
 
 static void draw_overworld(GameCtx *ctx)
@@ -99,22 +216,77 @@ static void draw_overworld(GameCtx *ctx)
     /* Copy background */
     memcpy(ctx->fb, s_map_bg, sizeof(s_map_bg));
 
-    /* Draw node markers */
+    /* ---- Advance dragon animation ---- */
+    s_dg_tick++;
+    if (s_dg_tick >= DG_ANIM_SPEED) {
+        s_dg_tick = 0;
+        s_dg_frame++;
+        if (s_dg_cel && s_dg_frame >= s_dg_cel->frame_count)
+            s_dg_frame = 0;
+    }
+
+    /* ---- Advance knight walk animation ---- */
+    s_kn_tick++;
+    if (s_kn_tick >= KN_ANIM_SPEED) {
+        s_kn_tick  = 0;
+        s_kn_frame = (s_kn_frame + 1) & 7; /* 8-frame walk cycle */
+    }
+
+    /* ---- Draw dragon on the map ---- */
+    if (s_dg_cel && s_dg_cel->frame_count > 0) {
+        /* Dragon roams near the centre of the map */
+        int dg_x = GAME_W / 2 - (int)s_dg_cel->frames[s_dg_frame].width  / 2;
+        int dg_y = GAME_H / 3 - (int)s_dg_cel->frames[s_dg_frame].height / 2;
+        render_cel(s_dg_cel, s_dg_frame, s_ov_palette, ctx->fb,
+                   dg_x, dg_y, BLIT_MASK);
+    }
+
+    /* ---- Draw node icons ---- */
     for (int n = 0; n < NUM_NODES; n++) {
         int nx = s_nodes[n].x;
         int ny = s_nodes[n].y;
-        render_fill_rect(ctx->fb, nx - 2, ny - 2, 5, 5, 0xFF888844u);
+        int type = s_nodes[n].type;
+
+        /* Prefer li1.cel for location flavour; fall back to ov1.cel */
+        if (s_li_cel && s_li_cel->frame_count > 0) {
+            int fr = node_li_frame(type);
+            if (fr >= s_li_cel->frame_count) fr = 0;
+            int icon_w = (int)s_li_cel->frames[fr].width;
+            int icon_h = (int)s_li_cel->frames[fr].height;
+            render_cel(s_li_cel, fr, s_ov_palette, ctx->fb,
+                       nx - icon_w / 2, ny - icon_h / 2, BLIT_MASK);
+        } else if (s_ov_cel && s_ov_cel->frame_count > 0) {
+            int fr = node_icon_frame(type);
+            if (fr >= s_ov_cel->frame_count) fr = 0;
+            int icon_w = (int)s_ov_cel->frames[fr].width;
+            int icon_h = (int)s_ov_cel->frames[fr].height;
+            render_cel(s_ov_cel, fr, s_ov_palette, ctx->fb,
+                       nx - icon_w / 2, ny - icon_h / 2, BLIT_MASK);
+        } else {
+            /* Fallback placeholder */
+            render_fill_rect(ctx->fb, nx - 2, ny - 2, 5, 5, 0xFF888844u);
+        }
     }
 
-    /* Draw active knights */
+    /* ---- Draw active knights ---- */
     for (int i = 0; i < MAX_PLAYERS; i++) {
         if (!ctx->knights[i].active || ctx->knights[i].dead) continue;
         int kx = ctx->knights[i].map_x;
         int ky = ctx->knights[i].map_y;
-        uint32_t col = s_knight_dot_colors[i];
 
-        /* 4×4 dot */
-        render_fill_rect(ctx->fb, kx - 2, ky - 2, 5, 5, col);
+        if (s_kn_ob[i] && s_kn_ob[i]->frame_count > 0) {
+            /* Use walk animation frames (8-frame cycle) */
+            int fr = s_kn_frame % s_kn_ob[i]->frame_count;
+            int flip = (ctx->knights[i].map_x < GAME_W / 2) ? 0 : BLIT_FLIP_X;
+            int icon_w = (int)s_kn_ob[i]->frames[fr].width;
+            int icon_h = (int)s_kn_ob[i]->frames[fr].height;
+            render_cel(s_kn_ob[i], fr, s_ov_palette, ctx->fb,
+                       kx - icon_w / 2, ky - icon_h, flip | BLIT_MASK);
+        } else {
+            /* Fallback: 5×5 coloured dot */
+            uint32_t col = s_knight_dot_colors[i];
+            render_fill_rect(ctx->fb, kx - 2, ky - 2, 5, 5, col);
+        }
     }
 
     /* HUD: show current knight info */
@@ -255,7 +427,7 @@ void game_run_overworld(GameCtx *ctx)
     }
 
     load_map_background();
-    s_map_loaded = 1; /* mark loaded after calling load */
+    /* s_map_loaded is set inside load_map_background() */
 
     /* Start overworld music (vmusic.cmp or music.cmp) */
     {
