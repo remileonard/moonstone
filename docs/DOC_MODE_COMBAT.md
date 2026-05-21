@@ -296,16 +296,15 @@ LAB_01A3:
 |------------------------|------------|-----------------------------------------|------------------------------------------------|
 | `0x00`                 | `LAB_0188` | Chevalier ennemi (Hefalump)             | `He1.ob`, `He2.ob`, `He3.ob` (`LAB_0123`)     |
 | `0x04`                 | `LAB_019A` | Mudmen                                  | `Mudmen1.cel`, `Mudmen2.cel` (`LAB_011E`)      |
-| `0x08`                 | `LAB_01A0` | Balok (grande créature / boss)          | `Balok1.cel`, `Balok2.cel`, `Balok3.cel` (`LAB_011F`) |
+| `0x08`                 | `LAB_01A0` | Démon / Gardien                         | `Demon1.cel`…`Demon4.cel` (`LAB_0125` → `LAB_07B0..B3`) |
 | `0x0c`                 | `LAB_0164` | Créature générique (Ratmen/TroggAxe)    | `Ratmen1.cel`, `Ratmen2.cel` (via `LAB_0116`) |
-| `0x14`                 | `LAB_0168` | TroggAxe                                | `TroggAxe1.cel`, `TroggAxe2.cel` (`LAB_011A`) |
-| `0x1c`                 | `LAB_016A` | TroggSpear                              | `TroggSpear1.cel`, `TroggSpear2.cel` (`LAB_011A`) |
-| `0x20`                 | `LAB_0175` | Démons                                  | `Demon1.cel`…`Demon4.cel`                      |
-| `0x24`                 | `LAB_018C` | Ratmen (variante)                       | `Ratmen1.cel`, `Ratmen2.cel` (`LAB_011C`)     |
-| `0x30`                 | `LAB_0196` | Troll                                   | `Troll1.cel`, `Troll2.cel` (`LAB_011F`)        |
-| `0x40`                 | `LAB_019E` | Démon/Sélène                            | `Sel.cel`, `Demon4.cel` (`LAB_0126`)           |
-| `0x09`                 | `LAB_019A` | Mudmen (variante `LAB_08C4=8`)         | `Mudmen1.cel`, `Mudmen2.cel`                   |
-| `0x04` (LSB)           | `LAB_0192` | Dragon                                  | `Dragon1.cel`, `Dragon2.cel` (`LAB_0121`)      |
+| `0x14`                 | `LAB_0192` | Dragon                                  | `Dragon1.cel`, `Dragon2.cel` (`LAB_0121` → `LAB_0780`) |
+| `0x18`                 | `LAB_0168` | TroggAxe                                | `TroggAxe1.cel`, `TroggAxe2.cel` (`LAB_011A` → `LAB_0778`) |
+| `0x1c`                 | `LAB_016A` | TroggAxe variante (même sprites, frames différentes) | `TroggAxe1.cel`, `TroggAxe2.cel` (`LAB_011A` → `LAB_0778`) |
+| `0x20`                 | `LAB_0175` | TroggSpear                              | `TroggSpear1.cel`, `TroggSpear2.cel` (`LAB_0118` → `LAB_077A`) |
+| `0x24`                 | `LAB_018C` | Ratmen                                  | `Ratmen1.cel`, `Ratmen2.cel` (`LAB_011C` → `LAB_077C`) |
+| `0x30`                 | `LAB_0196` | Balok                                   | `Balok1.cel`, `Balok2.cel`, `Balok3.cel` (`LAB_011F` → `LAB_0785`) |
+| `0x40`                 | `LAB_019E` | Troll                                   | `Troll1.cel`, `Troll2.cel` (`LAB_0126` → `LAB_07B4`) |
 
 ### 3.4 Initialisation du chevalier joueur : `LAB_01A4`
 

@@ -95,18 +95,19 @@ typedef struct {
  *   DC.L $TTTTDDDD  where TTTT = high word (type/handler offset),
  *                         DDDD = low  word (defence value)
  *
- * creature_type values (LAB_08C8 offsets, confirmed by LAB_01AE fill loop):
- *   0x00 = He   (enemy knight, He1.ob)
+ * creature_type values (LAB_08C8 offsets, confirmed by tracing each handler
+ * in LAB_08C8 to its sprite-loading routine and the DC.B filename strings):
+ *   0x00 = He    (enemy knight, He1.ob)
  *   0x04 = Mudmen (Mudmen1.cel)
- *   0x08 = Balok  (Balok1.cel)
+ *   0x08 = Demon  (Demon/Gardien — Demon1-4.cel — Valley of Gods only)
  *   0x0c = Ratmen generic (Ratmen1.cel)
  *   0x14 = Dragon (Dragon1.cel)
- *   0x18 = TroggAxe  (TroggAxe1.cel)
- *   0x1c = TroggSpear (TroggSpear1.cel)
- *   0x20 = Demon (Demon1.cel)
- *   0x24 = Ratmen variant (Ratmen1.cel)
- *   0x30 = Troll (Troll1.cel)
- *   0x40 = Demon/Selene (Sel.cel)
+ *   0x18 = TroggAxe  (TroggAxe1.cel, LAB_011A → LAB_0778)
+ *   0x1c = TroggAxe variant (TroggAxe1.cel, LAB_011A → same sprites, diff frames)
+ *   0x20 = TroggSpear (TroggSpear1.cel, LAB_0118 → LAB_077A)
+ *   0x24 = Ratmen (Ratmen1.cel, LAB_011C → LAB_077C)
+ *   0x30 = Balok  (Balok1.cel, LAB_011F → LAB_0785)
+ *   0x40 = Troll  (Troll1.cel, LAB_0126 → LAB_07B4)
  *
  * Groups (per LAB_07C0 sound table): fol=0-5, wal=6-11, swl=12-17, gll=18-23.
  */
@@ -120,23 +121,23 @@ static PveNode s_pve_nodes[] = {
     {  24, 160, -1, 1, "RATMEN",        0x24, 0x0e, 0 }, /* $001800a0 */
     {  48, 136, -1, 1, "TROGGAXE",      0x18, 0x0d, 0 }, /* $00300088 */
     /* Entries 6-11 : "wal" group (north/northeast region) */
-    { 296,  32, -1, 1, "TROLL",         0x30, 0x04, 1 }, /* $01280020 */
-    { 232,  16, -1, 1, "TROLL",         0x30, 0x03, 1 }, /* $00e80010 */
-    { 176,  48, -1, 1, "TROLL",         0x30, 0x05, 1 }, /* $00b00030 */
-    { 240,  48, -1, 1, "TROGGSPEAR",    0x1c, 0x0a, 1 }, /* $00f00030 */
-    { 216,  72, -1, 1, "TROGGSPEAR",    0x1c, 0x0a, 1 }, /* $00d80048 */
-    { 272,  80, -1, 1, "TROGGSPEAR",    0x1c, 0x0a, 1 }, /* $01100050 */
+    { 296,  32, -1, 1, "BALOK",         0x30, 0x04, 1 }, /* $01280020 */
+    { 232,  16, -1, 1, "BALOK",         0x30, 0x03, 1 }, /* $00e80010 */
+    { 176,  48, -1, 1, "BALOK",         0x30, 0x05, 1 }, /* $00b00030 */
+    { 240,  48, -1, 1, "TROGGAXE",      0x1c, 0x0a, 1 }, /* $00f00030 */
+    { 216,  72, -1, 1, "TROGGAXE",      0x1c, 0x0a, 1 }, /* $00d80048 */
+    { 272,  80, -1, 1, "TROGGAXE",      0x1c, 0x0a, 1 }, /* $01100050 */
     /* Entries 12-17: "swl" group (central/eastern region) */
     { 208, 104, -1, 1, "MUDMEN",        0x04, 0x05, 2 }, /* $00d00068 */
     { 248, 120, -1, 1, "MUDMEN",        0x04, 0x05, 2 }, /* $00f80078 */
     { 168, 136, -1, 1, "MUDMEN",        0x04, 0x05, 2 }, /* $00a80088 */
-    { 152, 176, -1, 1, "DEMON",         0x40, 0x07, 2 }, /* $009800b0 */
+    { 152, 176, -1, 1, "TROLL",         0x40, 0x07, 2 }, /* $009800b0 */
     { 232, 176, -1, 1, "MUDMEN",        0x04, 0x06, 2 }, /* $00e800b0 */
-    { 288, 176, -1, 1, "DEMON",         0x40, 0x06, 2 }, /* $012000b0 */
+    { 288, 176, -1, 1, "TROLL",         0x40, 0x06, 2 }, /* $012000b0 */
     /* Entries 18-23: "gll" group (northwest/north-central region) */
     {  24,  24, -1, 1, "ENEMY KNIGHT",  0x00, 0x08, 3 }, /* $00180018 */
-    {  96,  16, -1, 1, "DEMON",         0x20, 0x05, 3 }, /* $00600010 */
-    { 136,  40, -1, 1, "DEMON",         0x20, 0x04, 3 }, /* $00880028 */
+    {  96,  16, -1, 1, "TROGGSPEAR",    0x20, 0x05, 3 }, /* $00600010 */
+    { 136,  40, -1, 1, "TROGGSPEAR",    0x20, 0x04, 3 }, /* $00880028 */
     {  32,  64, -1, 1, "ENEMY KNIGHT",  0x00, 0x08, 3 }, /* $00200040 */
     {  80,  64, -1, 1, "TROGGAXE",      0x18, 0x0d, 3 }, /* $00500040 */
     {  96,  88, -1, 1, "ENEMY KNIGHT",  0x00, 0x08, 3 }, /* $00600058 */

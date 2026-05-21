@@ -175,54 +175,55 @@ static const char *combat_bg_for_node(int node_type)
  * creature_cel_for_type — primary CEL/OB filename for the given
  * creature type index (= byte offset into LAB_08C8 handler table).
  *
- * Sources confirmed from mog.asm labels LAB_0775..LAB_07B5 and handler
- * code LAB_0116..LAB_0127:
- *   0x00 → He1.ob        (enemy knight,  LAB_0123)
- *   0x04 → Mudmen1.cel   (Mudmen,        LAB_011E)
- *   0x08 → Balok1.cel    (Balok,         LAB_011F)
- *   0x0c → Ratmen1.cel   (generic,       LAB_0116)
- *   0x10 → Ratmen1.cel   (generic alt,   LAB_0116)
- *   0x14 → Dragon1.cel   (Dragon,        LAB_0121)
- *   0x18 → TroggAxe1.cel (TroggAxe,      LAB_011A)
- *   0x1c → TroggSpear1.cel(TroggSpear,   LAB_011A)
- *   0x20 → Demon1.cel    (Demon,         LAB_0118)
- *   0x24 → Ratmen1.cel   (Ratmen variant,LAB_011C)
- *   0x30 → Troll1.cel    (Troll,         LAB_011F-ish / LAB_07B4)
- *   0x38 → Ratmen1.cel   (generic,       LAB_0164)
- *   0x40 → Sel.cel       (Demon/Selene,  LAB_0126)
+ * Mapping confirmed by tracing each handler in LAB_08C8 to its sprite
+ * loading routine and the filename DC.B strings (LAB_0778..LAB_07B5):
+ *
+ *   0x00 → He1.ob         (enemy knight,  LAB_08C8+0  → LAB_0188 → LAB_0123)
+ *   0x04 → Mudmen1.cel    (Mudmen,        LAB_08C8+4  → LAB_019A → LAB_011E → LAB_0782)
+ *   0x08 → Demon1.cel     (Demon/Gardien, LAB_08C8+8  → LAB_01A0 → LAB_0125 → LAB_07B0)
+ *   0x0c → Ratmen1.cel    (generic,       LAB_08C8+12 → LAB_0164 → LAB_0116)
+ *   0x10 → Ratmen1.cel    (generic alt,   LAB_08C8+16 → LAB_0164 → LAB_0116)
+ *   0x14 → Dragon1.cel    (Dragon,        LAB_08C8+20 → LAB_0192 → LAB_0121 → LAB_0780)
+ *   0x18 → TroggAxe1.cel  (TroggAxe,     LAB_08C8+24 → LAB_0168 → LAB_011A → LAB_0778)
+ *   0x1c → TroggAxe1.cel  (TroggAxe var, LAB_08C8+28 → LAB_016A → LAB_011A → LAB_0778)
+ *   0x20 → TroggSpear1.cel(TroggSpear,   LAB_08C8+32 → LAB_0175 → LAB_0118 → LAB_077A)
+ *   0x24 → Ratmen1.cel    (Ratmen,       LAB_08C8+36 → LAB_018C → LAB_011C → LAB_077C)
+ *   0x30 → Balok1.cel     (Balok,        LAB_08C8+48 → LAB_0196 → LAB_011F → LAB_0785)
+ *   0x38 → Ratmen1.cel    (generic,      LAB_08C8+56 → LAB_0164)
+ *   0x40 → Troll1.cel     (Troll,        LAB_08C8+64 → LAB_019E → LAB_0126 → LAB_07B4)
  */
 static const char *creature_cel_for_type(int ctype)
 {
     switch (ctype) {
     case 0x00: return "He1.ob";
     case 0x04: return "Mudmen1.cel";
-    case 0x08: return "Balok1.cel";
+    case 0x08: return "Demon1.cel";
     case 0x14: return "Dragon1.cel";
     case 0x18: return "TroggAxe1.cel";
-    case 0x1c: return "TroggSpear1.cel";
-    case 0x20: return "Demon1.cel";
-    case 0x40: return "Sel.cel";
-    case 0x30: return "Troll1.cel";
-    default:   return "Ratmen1.cel";   /* 0x0c, 0x10, 0x24, 0x38 */
+    case 0x1c: return "TroggAxe1.cel";  /* variant: same sprites, different frames */
+    case 0x20: return "TroggSpear1.cel";
+    case 0x30: return "Balok1.cel";
+    case 0x40: return "Troll1.cel";
+    default:   return "Ratmen1.cel";    /* 0x0c, 0x10, 0x24, 0x38 */
     }
 }
 
 /*
  * creature_name_for_type — display name matching the creature type,
- * aligned with the PveNode name strings set from LAB_07BD.
+ * aligned with the PveNode name strings in moon_overworld.c.
  */
 static const char *creature_name_for_type(int ctype)
 {
     switch (ctype) {
     case 0x00: return "ENEMY KNIGHT";
     case 0x04: return "MUDMEN";
-    case 0x08: return "BALOK";
+    case 0x08: return "DEMON";
     case 0x14: return "DRAGON";
     case 0x18: return "TROGGAXE";
-    case 0x1c: return "TROGGSPEAR";
-    case 0x20: return "DEMON";
-    case 0x30: return "TROLL";
-    case 0x40: return "SELENE";
+    case 0x1c: return "TROGGAXE";
+    case 0x20: return "TROGGSPEAR";
+    case 0x30: return "BALOK";
+    case 0x40: return "TROLL";
     default:   return "RATMEN";
     }
 }
