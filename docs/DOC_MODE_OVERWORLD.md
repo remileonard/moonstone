@@ -678,9 +678,24 @@ LAB_0015:                          ; spawn joueur 1
 
 `LAB_0016` fait de même pour le joueur 2 avec `LAB_00F0`.
 
+#### Implémentation C (`game_run_overworld`)
+
+Dans le portage C, les chevaliers (humains **et** chevaliers noirs) sont
+tous stockés dans `ctx->knights[0..3]`. L'initialisation s'effectue une
+seule fois (`overworld_initialised`) au premier appel :
+
+```c
+/* Positions et stats de départ pour les chevaliers humains */
+k->map_x = s_start_x[i];  k->map_y = s_start_y[i];
+k->endurance = DEFAULT_ENDURANCE;  /* 2 */
+
+/* Chevaliers noirs : slots knights[] non pris par un humain */
+black_knight_init(ctx);   /* active=1, human=0, is_black_knight=1 */
+```
+
 ### 3.2 Déplacement du joueur
 
-#### Lecture du joystick (`LAB_0049`)
+#### Lecture du joystick (`LAB_0049`) — ASM
 
 | Port         | Registre hardware  | Joueur |
 |--------------|--------------------|--------|
@@ -701,7 +716,7 @@ Résultats stockés dans `LAB_00C0` (joueur 1) et `LAB_00C1` (joueur 2) :
 > (lecture via la table de scancodes `LAB_036C`, 128 octets, section S_17)
 > ou par un partage de joystick selon la configuration.
 
-#### Déplacement libre sur la carte
+#### Déplacement libre sur la carte — ASM
 
 Le mouvement sur la carte overworld est **continu et libre** (pas de
 graphe d'arêtes). L'algorithme de déplacement (`LAB_0E0C`) est :
@@ -724,11 +739,33 @@ graphe d'arêtes). L'algorithme de déplacement (`LAB_0E0C`) est :
 **scripts de rendu du fond de carte** (positions d'icônes), non les
 chemins navigables. Il n'existe pas de liste d'adjacence.
 
+#### Déplacement — implémentation C
+
+Le portage C conserve le mouvement libre pixel par pixel, mais abandonne le
+système de scripts d'animation de l'Amiga :
+
+- **Input** : lu via SDL2 (`hal_poll`) → `ctx->input.joy[0]` + scancodes clavier.
+- **Vitesse** : 2 pixels/tick (variable `spd`).
+- **Budget de déplacement** : `steps_remaining = endurance × 20` (défaut : 40 pixels/tour).
+  Chaque tick de mouvement consomme `spd` steps. Quand le budget est épuisé,
+  le joueur ne peut plus se déplacer jusqu'à la fin de son tour.
+- **Animations** : non implémentées — le chevalier est représenté par le
+  sprite de son fichier `.ob` sans interpolation de frame de marche (un
+  cycle de 8 frames commun à tous les chevaliers via `s_kn_frame`).
+- **Interaction** : touche FIRE / Entrée → `check_static_node` + `check_pve_node`
+  (test de proximité dans un rayon `NODE_PROXIMITY = 16 px`).
+- **Fin de tour** : SPACE → `k->turn_done = 1` ; ou automatique quand
+  `steps_remaining <= 0`.
+
 #### Durée d'un déplacement
 
-Chaque tour de jeu autorise **40 frames** de déplacement (`LAB_0038` =
+**ASM** : Chaque tour de jeu autorise **40 frames** de déplacement (`LAB_0038` =
 `overworld_frame_loop`). Après ces 40 frames, si le joueur est sur un nœud,
 l'événement est déclenché ; sinon, la carte repasse au joueur suivant.
+
+**C** : Le budget est exprimé en **pixels** (`endurance × 20`, soit 40 px
+par défaut), pas en frames. Il n'y a pas de limite de frames par tour ;
+le joueur joue jusqu'à épuisement du budget ou action volontaire (SPACE).
 
 ### 3.3 Actions du joueur sur la carte
 
@@ -736,7 +773,7 @@ Quand un chevalier arrive sur un nœud interactif, le dispatcher `LAB_0E45`
 est appelé avec le type du nœud :
 
 ```text
-LAB_0E45 (dispatcher de nœuds) :
+LAB_0E45 (dispatcher de nœuds — ASM) :
   type 0x01 / 0x21 → LAB_004F  : Rencontre avec un autre chevalier (duel PvP)
   type 0x02        → LAB_005B  : Rencontre créature (combat PvE aléatoire)
   autres types     → LAB_007B  : Switch étendu (châteaux, villes, dragon…)
@@ -745,19 +782,30 @@ LAB_0E45 (dispatcher de nœuds) :
 Après le traitement de l'événement, le retour s'effectue toujours vers
 `LAB_00B2` → `SECSTRT_36` (restauration du hardware) → reprise de la carte.
 
+**C** : le dispatch est inline dans `game_run_overworld` via
+`handle_static_node(ctx, node_idx)` → bascule `ctx->state` vers le state
+approprié, puis `return` pour sortir de la boucle. Le retour sur la carte
+se fait par le re-entry dans `game_run_overworld` au tour suivant.
+
+> **Note Vallée des Dieux** : le nœud `0x1c` n'est **pas** délégué à
+> `STATE_STONEHENGE`. Il dispose de son propre état `STATE_VALLEY` géré
+> par `moon_valley.c`, qui implémente fidèlement `LAB_009D` : vérification
+> des 4 clefs, intro, déclenchement du combat final, puis résolution
+> victoire/défaite.
+
 #### Résumé des actions déclenchables sur la carte
 
-| Type nœud | Nom UI                          | Action                                                | Handler       |
-|-----------|---------------------------------|-------------------------------------------------------|---------------|
-| `0x01`    | —                               | Duel PvP (combat immédiat)                            | `LAB_004F`    |
-| `0x02`    | —                               | Combat contre une créature **prédéfinie** (position fixe, peut porter une Clef de la Vallée) | `LAB_005B`    |
-| `0x15..0x18` | "Enter Village"              | Village natal → skill +1 (max 3 via village)          | `LAB_00B0`    |
-| `0x19`    | "Enter the city of Highwood"    | Cité de Highwood : arène / achat / sorcier / forge    | `LAB_0093`    |
-| `0x1a`    | "Enter the city of Waterdeep"   | Cité de Waterdeep : arène / achat / taverne           | `LAB_008A`    |
-| `0x1b`    | "Enter Stonehenge"              | Stonehenge — Mythral : offrande → skill +1 (max 5)   | `LAB_00A1`    |
-| `0x1c`    | "Enter Valley of the Gods"      | **Vallée des Dieux** : objectif final, requiert 4 clefs | `LAB_009D`  |
-| `0x1e`    | "Visit Math the Wizard"         | Math le Sorcier : restaure HP, augmente skill         | `LAB_007C`    |
-| `0x21`    | "Pillage knight's grave"        | Pillage d'une tombe : récupérer l'équipement du mort  | `LAB_004F`    |
+| Type nœud    | Nom UI                          | Action                                                      | ASM handler  | C (état cible)        |
+|--------------|---------------------------------|-------------------------------------------------------------|--------------|-----------------------|
+| `0x01`       | —                               | Duel PvP (combat immédiat)                                  | `LAB_004F`   | `STATE_COMBAT`        |
+| `0x02`       | —                               | Combat créature prédéfinie (peut porter une Clef de la Vallée) | `LAB_005B` | `STATE_COMBAT`       |
+| `0x15..0x18` | "Enter Village"                 | Village natal → `STATE_VILLAGE`                             | `LAB_00B0`   | `STATE_VILLAGE`       |
+| `0x19`       | "Enter the city of Highwood"    | Cité de Highwood                                            | `LAB_0093`   | `STATE_TOWN`          |
+| `0x1a`       | "Enter the city of Waterdeep"   | Cité de Waterdeep                                           | `LAB_008A`   | `STATE_TOWN`          |
+| `0x1b`       | "Enter Stonehenge"              | Stonehenge                                                  | `LAB_00A1`   | `STATE_STONEHENGE`    |
+| `0x1c`       | "Enter Valley of the Gods"      | **Vallée des Dieux** : requiert 4 clefs                     | `LAB_009D`   | `STATE_VALLEY`        |
+| `0x1e`       | "Visit Math the Wizard"         | Math le Sorcier                                             | `LAB_007C`   | `STATE_WIZARD`        |
+| `0x21`       | "Pillage knight's grave"        | Pillage d'une tombe *(non implémenté en C)*                 | `LAB_004F`   | *(absent)*            |
 
 ---
 
@@ -770,9 +818,9 @@ joueurs, un combat contre le dragon est immédiatement déclenché.
 Un joueur peut de plus rediriger le dragon vers un autre joueur en utilisant
 le **Parchemin du Wyrm** (`item_scroll_wyrm`).
 
-### 4.1 Initialisation du dragon — `LAB_0DCB`
+### 4.1 Initialisation du dragon — `LAB_0DCB` (ASM) / `dragon_init` (C)
 
-Le dragon est créé en mémoire après que la partie a progressé d'au moins
+**ASM** — Le dragon est créé en mémoire après que la partie a progressé d'au moins
 **2 rounds** (`LAB_06C0 >= 2`). La fonction `LAB_0DCB` :
 
 ```text
@@ -799,7 +847,22 @@ LAB_0DCB [mog.asm#L25049] :
      → stocké dans 100(LAB_0617)
 ```
 
-### 4.2 Vol du dragon sur la carte — `LAB_0DCF`
+**C** (`dragon_init`) — Initialise les champs de `GameCtx` :
+
+```c
+ctx->dragon_active    = 1;
+ctx->dragon_x         = 10;   ctx->dragon_y         = 100;
+ctx->dragon_vx        = DG_SPEED_X;   /* +2 */
+ctx->dragon_countdown = DG_COUNTDOWN_INIT;  /* 100 */
+ctx->dragon_frame     = 0;    ctx->dragon_tick      = 0;
+/* Choisit le premier joueur actif comme cible initiale */
+```
+
+Différences : pas de pool d'entités ni de handler de mouvement Amiga ;
+le dragon est géré par `dragon_update()` appelé à chaque tick de la boucle
+principale, hors tour de joueur.
+
+### 4.2 Vol du dragon sur la carte — `LAB_0DCF` (ASM) / `dragon_update` (C)
 
 `LAB_0DCF` est le handler de mouvement appelé à chaque frame de la carte
 (`JMP LAB_02BA` en fin de handler = retour au renderer). Il gère le vol
@@ -840,6 +903,17 @@ LAB_0DCF → LAB_0DD1 :
     LAB_061D = LAB_08FC[12(dragon)]        ; sélectionner la frame dg1.cel
 ```
 
+**C** (`dragon_update`) — Logique équivalente :
+
+- `dragon_countdown` décrément de 100 à 0 (même seuil 60 pour la poursuite).
+- `dragon_x += dragon_vx` (+2 ou −2) ; rebond aux bords (±350/−20, wrap Y).
+- Poursuite verticale (phase 2) : `dragon_y` ± `DG_SPEED_Y` (1 px/tick).
+- Animation : cycle `dragon_frame` 0..7 toutes les `DG_ANIM_SPEED` (4) ticks
+  → frame `dg1.cel` = `DG_FRAME_BASE + dragon_frame` = 34..41.
+- Collision : cercle de rayon `DG_PROXIMITY = 18 px` autour de chaque chevalier.
+- Le dragon est mis à jour **chaque tick** de la boucle principale,
+  indépendamment du tour en cours (humain ou chevalier noir).
+
 #### Table d'animation du dragon `LAB_08FC`
 
 ```text
@@ -859,10 +933,9 @@ LAB_0904 : $0029 FC 00 $FFEF FFFF  → frame dg1.cel #0x29 (41)
 Le dragon utilise donc les **frames 34 à 41** du fichier `dg1.cel`
 (sur 55 frames totales) pour son animation de vol sur la carte.
 
-### 4.3 Détection de collision — `LAB_0DD8`
+### 4.3 Détection de collision — `LAB_0DD8` (ASM) / `dragon_update` (C)
 
-À chaque frame, `LAB_0DD8` teste si le dragon touche l'un des joueurs.
-Il consulte la table `LAB_08FA` (octets de masque de collision) :
+**ASM** :
 
 ```text
 LAB_0DD8 [mog.asm#L25163] :
@@ -880,9 +953,20 @@ LAB_0DD8 [mog.asm#L25163] :
   else → LAB_0DDA+2 = 1 (flag collision = VRAI)
 ```
 
-Quand `LAB_0DDA+2 = 1` (collision confirmée) :
-- La boucle principale (`LAB_0DB0`) déclenche le combat contre le dragon
-- `LAB_0E27` : appelle `LAB_001C` (handler de mort du joueur / début combat)
+**C** : la détection est un simple test de distance euclidienne sur tous
+les chevaliers actifs à chaque tick. Pas de masques de collision ni de
+table par joueur :
+
+```c
+for (int i = 0; i < MAX_PLAYERS; i++) {
+    int dx = dragon_x - k->map_x, dy = dragon_y - k->map_y;
+    if (dx*dx + dy*dy <= DG_PROXIMITY * DG_PROXIMITY) return i;
+}
+```
+
+Quand `dragon_update` retourne `hit >= 0` :
+- `node_type = 0x02` (PVE), `current_knight = hit`, `state = STATE_COMBAT`.
+- Le dragon est réinitialisé (`dragon_init`) après le combat.
 
 ### 4.4 Parchemin du Wyrm — redirection du dragon
 
@@ -919,6 +1003,9 @@ LAB_0E26 [mog.asm#L25617] :
 La **cible du dragon** (`100(LAB_0617)`) est ainsi changée instantanément.
 Le dragon change de trajectoire à la frame suivante.
 
+> **Non implémenté en C :** le Parchemin du Wyrm et le Talisman du Wyrm ne
+> sont pas encore disponibles dans le portage C (pas d'écran d'inventaire).
+
 #### Talisman du Wyrm
 
 L'item **« Talisman du Wyrm »** (`item_talisman_wyrm`, offset 10 dans
@@ -928,19 +1015,16 @@ Sa gestion suit le même pipeline mais avec `14(A1)` au lieu de `16(A1)`.
 
 ### 4.5 Variables de contrôle du dragon
 
-| Variable       | Rôle                                                          |
-|----------------|---------------------------------------------------------------|
-| `LAB_0617`     | Struct dragon (même format `KnightStruct` 132 octets)         |
-| `LAB_08C7`     | Entité dragon dans le pool d'entités ; `.move = LAB_0DCF`     |
-| `LAB_0666`     | Countdown dragon (100 → 0 = phase approche puis poursuite)    |
-| `LAB_0667`     | Flag dragon actif (1 = actif, 0 = inactif)                    |
-| `LAB_0DDC`     | Vitesse X du dragon (`+2` ou `-2`), inversée aux rebonds      |
-| `LAB_0DDC+2`   | Vitesse Y courante (signée)                                   |
-| `LAB_0DDA`     | Compteur de frames depuis dernière collision                  |
-| `LAB_0DDA+2`   | Flag collision active (0 = non, 1 = oui)                      |
-| `LAB_08FA`     | Table de masques de collision par joueur (80 octets)          |
-| `LAB_08FC`     | Table d'animation dragon (16 entrées × 2 ptrs)                |
-| `LAB_06C0`     | Compteur de rounds global (dragon apparaît quand >= 2)        |
+| Variable       | ASM                                                           | C (`GameCtx`)                    |
+|----------------|---------------------------------------------------------------|----------------------------------|
+| Position X     | `4(LAB_0617)`                                                 | `dragon_x`                       |
+| Position Y     | `8(LAB_0617)`                                                 | `dragon_y`                       |
+| Vitesse X      | `LAB_0DDC` (+2 ou −2)                                         | `dragon_vx`                      |
+| Countdown      | `LAB_0666` (100 → 0)                                          | `dragon_countdown`               |
+| Flag actif     | `LAB_0667`                                                    | `dragon_active`                  |
+| Frame anim     | `12(LAB_0617)` cycle 0..15                                    | `dragon_frame` cycle 0..7        |
+| Cible          | `100(LAB_0617)` (ptr knight)                                  | `dragon_target` (index knights[]) |
+| Seuil collision| Table `LAB_08FA` (masques/joueur)                             | `DG_PROXIMITY = 18 px` (rayon)   |
 
 ### 4.6 Structure de la struct dragon `LAB_0617`
 
@@ -971,9 +1055,9 @@ Le dragon utilise la même structure que les chevaliers (`KnightStruct`,
 
 Les **Chevaliers Noirs** sont les adversaires IA qui patrouillent la carte
 overworld. Ils correspondent aux chevaliers avec `enemy_flag = 0xFF` et
-`knight_id = 4` ou `5` dans la structure `KnightStruct`.
+`knight_id = 4` ou `5` dans la structure `KnightStruct` (ASM).
 
-Valeurs initiales d'un Chevalier Noir (`LAB_01C6`) :
+**ASM** — Valeurs initiales d'un Chevalier Noir (`LAB_01C6`) :
 
 | Champ          | Valeur | Description                            |
 |----------------|--------|----------------------------------------|
@@ -989,10 +1073,24 @@ Valeurs initiales d'un Chevalier Noir (`LAB_01C6`) :
 | `enemy_flag`   | `0xFF` | Marqueur IA ennemie                    |
 | `ai_data`      | `LAB_08C0` | Pointeur vers les données IA       |
 
-### 5.2 Tour IA : `ai_turn_encounter()` = `LAB_0036`
+**C** (`black_knight_init`) — Les chevaliers noirs occupent les slots
+`knights[]` non pris par des joueurs humains (`is_black_knight=1, human=0`).
+Leurs statistiques au démarrage :
 
-Après que tous les joueurs humains ont joué leur tour, la boucle principale
-appelle `LAB_0036` pour faire jouer chaque Chevalier Noir :
+| Champ C           | Valeur             |
+|-------------------|--------------------|
+| `endurance`       | `DEFAULT_ENDURANCE` (2)  |
+| `strength`        | 2                  |
+| `constitution`    | 2                  |
+| `max_hp` / `hp`   | 30                 |
+| `steps_remaining` | 0 (réinitialisé au début de chaque tour) |
+
+Le nombre de chevaliers noirs est `bk_count = 4 − human_count`.
+
+### 5.2 Tour IA : `ai_turn_encounter()` = `LAB_0036` (ASM) — vs intégration tour (C)
+
+**ASM** — Après que tous les joueurs humains ont joué leur tour, la boucle
+principale appelle `LAB_0036` pour faire jouer chaque Chevalier Noir :
 
 ```text
 LAB_0036 [program.asm] :
@@ -1004,10 +1102,24 @@ LAB_0036 [program.asm] :
     → Détecter collisions sur les nœuds (même pipeline que les joueurs)
 ```
 
+**C** — Il n'y a **pas** de phase IA séparée. Les chevaliers noirs participent
+au **même cycle de tours** que les joueurs humains via `ctx->current_knight`.
+La boucle de tour dans `game_run_overworld` itère sur `knights[0..3]` sans
+distinction : quand `current_knight` pointe sur un BK, la branche
+`is_black_knight` de l'IA est exécutée à la place de l'input humain.
+
+```
+Ordre de jeu (C) :
+  knights[0] (humain)          → tour joueur 1
+  knights[1] (humain ou BK)    → tour joueur 2 / BK
+  knights[2] (humain ou BK)    → tour joueur 3 / BK
+  knights[3] (humain ou BK)    → tour joueur 4 / BK
+  → tous turn_done = 1 → nouveau round (ctx->round++)
+```
+
 ### 5.3 Algorithme de déplacement IA
 
-Le Chevalier Noir se déplace sur le graphe de nœuds de `LAB_069F` en
-utilisant les données de l'IA stockées dans `LAB_08C0` :
+**ASM** — Le Chevalier Noir se déplace sur le graphe de nœuds de `LAB_069F` :
 
 1. **Sélection du prochain nœud cible** : l'IA consulte le graphe de nœuds
    et sélectionne un nœud adjacent selon une heuristique de poursuite
@@ -1020,9 +1132,24 @@ utilisant les données de l'IA stockées dans `LAB_08C0` :
    la position d'un joueur (type `0x01` ou `0x21`), un duel PvP est
    immédiatement déclenché.
 
+**C** (`bk_turn_step`) — Algorithme miroir de `LAB_0DAD` / `LAB_0DE0` :
+
+1. **Cible créature** : si aucune cible PVE, appel `bk_pick_creature_target`
+   (tri-bulles des 24 nœuds par distance Manhattan, cible aléatoire parmi
+   les rangs 1-3, miroir de `LAB_0DE0` / `LAB_0DEB`).
+2. **Attaque joueur** : `BK_ATTACK_CHANCE = 25 %` de chance par step de
+   basculer sur le joueur humain le plus proche (vs 20 % en ASM, `LAB_0DF8`).
+3. **Mouvement** : un pixel par step en Bresenham simplifié (`LAB_0E0C`).
+4. **Budget** : `steps_remaining` est décrémenté à chaque step ;
+   `turn_done = 1` quand épuisé (budget = `endurance × 20 = 40 steps`).
+5. **Déclenchement combat** : si à `BK_PROXIMITY = 14 px` du joueur cible →
+   `bk->dead = 1` (le BK quitte la carte), `state = STATE_COMBAT`.
+6. **Re-ciblage créature** : si le BK atteint son nœud créature, la cible
+   est réinitialisée à −1 (forçant un nouveau choix au step suivant).
+
 ### 5.4 Rencontre Chevalier Noir ↔ joueur
 
-Lorsque le Chevalier Noir arrive sur le même nœud qu'un joueur :
+**ASM** :
 
 ```text
 type nœud = 0x01 ou 0x21
@@ -1037,9 +1164,20 @@ Après le combat :
 - **Défaite joueur** → `LAB_000E` : respawn du joueur (HP max restauré, skill -1)
   Le Chevalier Noir reprend sa patrouille.
 
+**C** : quand `bk_turn_step` retourne `hit >= 0` :
+
+```c
+ctx->node_type      = 0x01;   /* PvP */
+ctx->current_knight = hit;    /* l'index du joueur attaqué */
+ctx->state          = STATE_COMBAT;
+```
+
+Le chevalier noir est marqué `dead = 1` (il disparaît de la carte). La
+récompense (clef) est gérée par `overworld_pve_take_key` après le combat.
+
 ### 5.5 Rencontres avec des créatures (type `0x02`)
 
-En plus des Chevaliers Noirs, des créatures aléatoires sont disposées sur
+**ASM** — En plus des Chevaliers Noirs, des créatures aléatoires sont disposées sur
 la carte. Leur gestion est assurée par `LAB_005B` (handler type `0x02`) :
 
 - La créature est sélectionnée depuis `LAB_08C6` (table de structures créatures).
@@ -1047,9 +1185,17 @@ la carte. Leur gestion est assurée par `LAB_005B` (handler type `0x02`) :
 - Quand `20(creature) == 3` : le cycle global `LAB_06C1` avance de 1 (mod 8),
   provoquant l'apparition de la créature suivante dans la table.
 
+**C** — Les 24 nœuds PVE (`s_pve_nodes[]`) sont à positions fixes. Un BK
+se dirige vers un nœud PVE comme cible principale (via `bk_pick_creature_target`).
+Il n'y a pas de combat BK-créature : le BK atteint le nœud, puis en choisit
+un nouveau. Seul un joueur humain (ou le dragon) peut déclencher un combat
+sur un nœud PVE.
+
 ---
 
 ## 6. Ordre de jeu multi-joueurs (résumé)
+
+### 6.1 ASM (original)
 
 ```text
 DÉBUT DU TOUR :
@@ -1057,7 +1203,7 @@ DÉBUT DU TOUR :
    ├─ Joueur 2 (si humain) : déplacement + événement éventuel
    ├─ Joueur 3 (si humain) : déplacement + événement éventuel
    ├─ Joueur 4 (si humain) : déplacement + événement éventuel
-   └─ IA (Chevaliers Noirs) : tour automatique via LAB_0036
+   └─ IA (Chevaliers Noirs) : tour automatique via LAB_0036 (phase séparée)
 
 FIN DU TOUR :
    → Tous les rounds joués OU un joueur obtient la Moonstone
@@ -1067,6 +1213,40 @@ FIN DU TOUR :
 En mode 1 joueur, les 3 autres chevaliers (SIR GODBER, SIR JEFFREY,
 SIR EDWARD) sont contrôlés par l'IA et se comportent comme des Chevaliers
 Noirs supplémentaires avec leurs statistiques initiales de joueur.
+
+### 6.2 Implémentation C
+
+```text
+DÉBUT D'UN ROUND (game_run_overworld) :
+   → reset turn_done=0 et steps_remaining pour tous les knights[] actifs
+
+BOUCLE DE TOUR (par tick) :
+   current_knight pointe sur knights[0..3] dans l'ordre :
+
+   knights[i].human == 1 :
+     → Input SDL2 : déplace le sprite (2 px/tick, budget endurance×20)
+     → FIRE → check_static_node / check_pve_node → STATE_COMBAT ou
+               STATE_VILLAGE/TOWN/WIZARD/STONEHENGE
+     → SPACE → turn_done = 1
+
+   knights[i].is_black_knight == 1 :
+     → bk_turn_step() : 1 px vers cible créature ou joueur par tick
+     → si atteint joueur humain → STATE_COMBAT
+     → turn_done = 1 quand steps_remaining == 0
+
+   → Avancer current_knight au suivant non turn_done
+
+   Quand tous turn_done → ctx->round++ → retour pour nouveau round
+
+Dragon (indépendant du tour) :
+   → dragon_update() appelé à chaque tick
+   → collision → STATE_COMBAT (prioritaire sur tout)
+```
+
+La différence clé avec l'ASM : les Chevaliers Noirs jouent **dans le même
+cycle** que les humains, pas dans une phase séparée. Le tour ne progresse
+au round suivant que quand **tous** les `knights[]` (humains + BK) ont
+`turn_done = 1`.
 
 ---
 
@@ -1096,3 +1276,42 @@ Noirs supplémentaires avec leurs statistiques initiales de joueur.
 | `LAB_00CB`       | `program.asm`          | Pointeur vers `dw1.PIV` (fond de la carte)     |
 | `LAB_009D`       | `mog.asm`              | Gestionnaire nœud Dragon (type `0x1c`)         |
 | `LAB_0DCA`       | `mog.asm`              | Séquence de fin de partie (victoire dragon)    |
+
+---
+
+## 8. Tableau de synthèse : ASM original vs portage C
+
+Ce tableau récapitule les différences entre le comportement original de
+l'Amiga (ASM) et l'implémentation actuelle en C (`moon_overworld.c`).
+
+| Fonctionnalité                      | ASM (Amiga)                                          | C (portage SDL2)                                      | Statut  |
+|-------------------------------------|------------------------------------------------------|-------------------------------------------------------|---------|
+| **Fond de carte**                   | `dw1.PIV` double-buffer 5 plans                      | `dw1.PIV` décodé → `uint32_t[GAME_W*GAME_H]`         | ✅ Équivalent |
+| **Nœuds statiques**                 | `LAB_069F` : table triplets `(type,x,y)` + `$FFFF`  | `s_nodes[]` : 9 entrées identiques                   | ✅ Équivalent |
+| **Nœuds PVE créatures**             | `LAB_05C6` : 24 entrées × 20 octets, stride dynamique | `s_pve_nodes[]` : 24 entrées, positions fixes        | ✅ Équivalent |
+| **Mouvement joueur**                | Joystick libre, déplacement pixel par pixel, `LAB_0E0C` | SDL2, 2 px/tick, `steps_remaining` (endurance×20)  | ✅ Équivalent (budget en px vs frames) |
+| **Animations de marche**            | Scripts `LAB_00D7/D8/D9/DA`, frames `.ob` interpolées | Cycle simple 8 frames `s_kn_frame`, pas d'interpolation | ⚠️ Partiel |
+| **Budget de déplacement**           | 40 frames par tour (`LAB_0038`)                      | `endurance × 20` pixels par tour                     | ✅ Équivalent (sémantique différente) |
+| **Fin de tour joueur**              | Après 40 frames ou arrivée sur un nœud               | SPACE / FIRE / steps_remaining = 0                   | ✅ Équivalent |
+| **Interaction nœud**                | `LAB_006B` + `LAB_0067` + `LAB_0E45` dispatcher      | `check_static_node` + `check_pve_node` inline        | ✅ Équivalent |
+| **HUD overworld**                   | `LAB_00E6` : barres HP/XP/reliques, 12 icônes        | Texte simple `render_text` (nom, HP, or, steps)      | ⚠️ Simplifié |
+| **Dragon — apparition**             | Round ≥ 2, `LAB_0DCB`, pool d'entités Amiga          | Round ≥ 2, `dragon_init`, champs `GameCtx`           | ✅ Équivalent |
+| **Dragon — vol**                    | `LAB_0DCF` handler/frame, 2 phases, table `LAB_08FC` | `dragon_update()` par tick, même logique 2 phases    | ✅ Équivalent |
+| **Dragon — collision**              | Masques `LAB_08FA` par joueur                        | Cercle `DG_PROXIMITY = 18 px` sur tous les knights[] | ✅ Équivalent |
+| **Parchemin du Wyrm**               | `LAB_0992` / `LAB_0E26` : redirige dragon            | Non implémenté (pas d'inventaire interactif)         | ❌ Absent |
+| **Talisman du Wyrm**                | `LAB_098E`                                           | Non implémenté                                       | ❌ Absent |
+| **Chevaliers noirs — init**         | `LAB_01C6` : structs séparés, `enemy_flag=0xFF`      | `black_knight_init` : slots `knights[]` libres       | ✅ Équivalent |
+| **Chevaliers noirs — phase de jeu** | `LAB_0036` : phase IA séparée après tous les humains | Intégrés dans le même cycle de tours (`knights[]`)   | ✅ Équivalent (implémentation différente) |
+| **Chevaliers noirs — déplacement**  | Graphe de nœuds `LAB_069F`, `LAB_0DE0` tri créatures | `bk_turn_step` : Bresenham, tri-bulles, budget steps | ✅ Équivalent |
+| **Chevaliers noirs — attaque**      | `LAB_0DF8` : 20 % chance de poursuivre un joueur     | `BK_ATTACK_CHANCE = 25 %` (légère différence)        | ✅ Approximatif |
+| **Chevaliers noirs — stats**        | skill=5, hp=20, épée longue, armure rembourrée        | strength=2, constitution=2, hp=30 (valeurs différentes) | ⚠️ Différent |
+| **Combat BK ↔ joueur**              | `LAB_004F`, transfert items après victoire           | `STATE_COMBAT`, `node_type=0x01`                     | ✅ Équivalent |
+| **Combat joueur ↔ créature**        | `LAB_005B`, pillage multi-items, cycle créatures     | `STATE_COMBAT`, `node_type=0x02`, clef unique         | ⚠️ Simplifié |
+| **Pillage tombe (`0x21`)**          | `LAB_004F` : récupère l'équipement du mort           | Non implémenté                                       | ❌ Absent |
+| **Village natal**                   | `LAB_00B0` : skill +1 si bonne faction               | `STATE_VILLAGE`                                      | ✅ Délégué à moon_village.c |
+| **Cités (Highwood, Waterdeep)**     | Menus 5 options (arène, achat, sorcier, forge/taverne) | `STATE_TOWN`                                       | ✅ Délégué à moon_town.c |
+| **Stonehenge**                      | `LAB_00A1` : offrande → skill +1                     | `STATE_STONEHENGE`                                   | ✅ Délégué à moon_stonehenge.c |
+| **Vallée des Dieux**                | `LAB_009D` : requiert 4 clefs, combat final          | `STATE_VALLEY` → `moon_valley.c`                             | ✅ Implémenté |
+| **Math le Sorcier**                 | `LAB_007C` : restaure HP, skill payant               | `STATE_WIZARD`                                       | ✅ Délégué à moon_wizard.c |
+| **Musique**                         | `vmusic.cmp` / `music.cmp` RNC1 → MOD SoundTracker  | Même décompression RNC1, lecture via `hal_music_play_raw` | ✅ Équivalent |
+| **Double-buffer Amiga**             | 2 buffers bitmap 5 plans, flip VBL                   | Framebuffer `uint32_t` unique, `hal_present`          | ✅ Équivalent (SDL2 gère le flip) |

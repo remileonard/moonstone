@@ -1,11 +1,11 @@
 /*
- * moon_stonehenge.c — Stonehenge and Valley of Gods for Moonstone
+ * moon_stonehenge.c — Stonehenge (node 0x1b) for Moonstone
  *
- * Stonehenge (node 0x1b): to claim the Moonstone, the knight must
- *   enter with all relics (or after defeating the Valley Gods).
+ * Stonehenge (node 0x1b): the knight may offer a magic item to Danu
+ *   in exchange for a longer life (skill +1, LAB_00A1).
  *
- * Valley of Gods (node 0x1c): final boss battle — triggers the ending
- *   sequence on victory.
+ * The Valley of the Gods (node 0x1c) is handled separately in
+ * moon_valley.c (LAB_009D).
  */
 
 #include "moon_stonehenge.h"
@@ -54,25 +54,6 @@ static void wait_for_fire(GameCtx *ctx)
 void game_run_stonehenge(GameCtx *ctx)
 {
     Knight *k = &ctx->knights[ctx->current_knight];
-
-    if (ctx->node_type == 0x1c) {
-        /* Valley of Gods — final boss combat */
-        const char *pre_lines[] = {
-            "VALLEY OF THE GODS",
-            "",
-            "The gods await...",
-            "Only the strongest knight",
-            "may claim the Moonstone."
-        };
-        draw_stonehenge_screen(ctx, pre_lines, 5, 0xFFFFCC44u);
-        hal_present(ctx->fb);
-        wait_for_fire(ctx);
-
-        /* Trigger final boss combat */
-        ctx->node_type = 0x1c;
-        ctx->state = STATE_COMBAT;
-        return;
-    }
 
     /* Stonehenge (0x1b) */
     if (k->has_moonstone) {

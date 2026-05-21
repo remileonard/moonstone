@@ -3,7 +3,7 @@
  *
  * Manages the overall flow of Moonstone:
  *   INTRO → MENU → OVERWORLD → (COMBAT | TOWN | SHOP | WIZARD |
- *   VILLAGE | STONEHENGE) → ENDING
+ *   VILLAGE | STONEHENGE | VALLEY) → ENDING
  */
 
 #ifndef MOON_GAME_H
@@ -32,7 +32,8 @@ typedef enum {
     STATE_VILLAGE     = 7,
     STATE_STONEHENGE  = 8,
     STATE_ENDING      = 9,
-    STATE_QUIT        = 10
+    STATE_QUIT        = 10,
+    STATE_VALLEY      = 11   /* Valley of the Gods (node 0x1c, LAB_009D) */
 } GameState;
 
 /* ------------------------------------------------------------------ */
@@ -64,6 +65,33 @@ typedef struct {
     int      dead;         /* 1 = eliminated                          */
     /* Inventory: simple bitmask of collected items */
     uint32_t items;
+
+    /* Combat stats (mog.asm KnightStruct offsets 70,71,72) */
+    int      strength;     /* Force      (1–5)                        */
+    int      constitution; /* Constitution (1–5)                      */
+    int      endurance;    /* Endurance  (1–5) — governs move range   */
+
+    /* Valley of Gods keys: bitmask of 4 keys (bits 0–3).
+     * Equivalent to inventaire[20] in the assembler (LAB_069F §1.7) */
+    uint8_t  keys;         /* 0x0f = all 4 keys collected             */
+
+    /* Wizard tower visit counter (83(knight) in KnightStruct).
+     * 0 = never visited; set to 70 after first visit so subsequent
+     * visits are more likely to yield a malus (frog). */
+    uint8_t  wizard_visited;
+
+    /* Turn-based movement budget (steps_remaining decrements as the
+     * knight moves; when 0 the player must act or pass their turn). */
+    int      steps_remaining;
+
+    /* Flag: this knight has ended their overworld turn this round. */
+    int      turn_done;
+
+    /* Is this knight currently transformed into a frog? */
+    int      is_frog;
+
+    /* Black-knight flag: 1 = this slot is an AI enemy black knight */
+    int      is_black_knight;
 } Knight;
 
 /* ------------------------------------------------------------------ */
@@ -87,6 +115,31 @@ typedef struct {
     /* current active node type for combat/town/etc. triggers */
     int        node_type;
     int        node_target_knight; /* opponent index for PvP          */
+
+    /* ------------------------------------------------------------------ */
+    /* Dragon state (LAB_0617 / LAB_0DCB — mog.asm §4)                    */
+    /* The dragon appears after round >= 2, flies autonomously and         */
+    /* triggers combat when it collides with a knight.                     */
+    /* ------------------------------------------------------------------ */
+    int        dragon_active;     /* 1 = dragon is flying on the map       */
+    int        dragon_x;          /* current X position (pixels)           */
+    int        dragon_y;          /* current Y position (pixels)           */
+    int        dragon_vx;         /* X velocity (+2 or -2, inverted at edges) */
+    int        dragon_countdown;  /* 100→0: approach phase then pursuit    */
+    int        dragon_target;     /* index of target knight (–1 = none)    */
+    int        dragon_frame;      /* animation frame (0–15, dg1.cel 34–41) */
+    int        dragon_tick;       /* tick counter for frame advance        */
+
+    /* ------------------------------------------------------------------ */
+    /* Black knights (IA enemies, LAB_01AE — mog.asm §5)                  */
+    /* Count = 4 − num_human_players.  Black knights occupy the unused     */
+    /* knights[] slots (is_black_knight=1, human=0).  Their positions and  */
+    /* dead/alive state are stored in knights[].map_x/y/dead like any      */
+    /* other knight; they participate in the normal turn sequence.         */
+    /* ------------------------------------------------------------------ */
+    int        bk_count;           /* 4 − num_human_players (0..4)        */
+    int        black_knight_target[4]; /* PVE creature-node target, indexed
+                                         by knights[] slot (0..3)         */
 
     /* framebuffer — ARGB8888, GAME_W × GAME_H */
     uint32_t   fb[GAME_W * GAME_H];
@@ -137,6 +190,7 @@ void game_run_shop       (GameCtx *ctx);
 void game_run_wizard     (GameCtx *ctx);
 void game_run_village    (GameCtx *ctx);
 void game_run_stonehenge (GameCtx *ctx);
+void game_run_valley     (GameCtx *ctx);
 void game_run_ending     (GameCtx *ctx);
 
 /* Palette fade helpers used by multiple states */

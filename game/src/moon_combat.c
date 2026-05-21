@@ -538,9 +538,36 @@ void game_run_combat(GameCtx *ctx)
                 pk->hp = player.hp;
                 pk->gold += 20;
                 pk->xp   += 50;
+
+                /* PVE victory: award Valley key if the creature had one
+                 * (node_target_knight stores the PVE node index when
+                 *  node_type == 0x02 and it was a creature combat).    */
+                if (ctx->node_type == 0x02) {
+                    extern int g_pve_node_hit; /* set in moon_overworld.c */
+                    (void)g_pve_node_hit;
+                    /* Award key via node_target_knight if in range */
+                    int pve_idx = ctx->node_target_knight;
+                    if (pve_idx >= 0 && pve_idx < 8) {
+                        /* Resolve key award — the PVE table is in
+                         * moon_overworld.c; we read it through the
+                         * exported helper. */
+                        extern int overworld_pve_take_key(int node_idx, Knight *k);
+                        overworld_pve_take_key(pve_idx, pk);
+                    }
+                }
             }
 
-            ctx->state = STATE_OVERWORLD;
+            /* Determine return state.
+             * Valley of Gods (0x1c): return to STATE_VALLEY so
+             * game_run_valley can resolve the outcome (victory or
+             * defeat).  node_target_knight carries the result flag:
+             *   0 = player won, 1 = player lost. */
+            if (ctx->node_type == 0x1c) {
+                ctx->node_target_knight = (player.state == CSTATE_DEAD) ? 1 : 0;
+                ctx->state = STATE_VALLEY;
+            } else {
+                ctx->state = STATE_OVERWORLD;
+            }
             /* Free loaded sprites before returning */
             moon_cel_free(knight_cel);
             /* Only free enemy_cel if it's different from knight_cel */
