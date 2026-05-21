@@ -176,13 +176,20 @@ static uint32_t s_ov_palette[MAX_PALETTE];
 #define DG_COUNTDOWN_INIT 100
 
 /* Black knight constants */
-#define BK_COUNT          2
-#define BK_SPEED          1   /* pixels per tick */
-#define BK_PROXIMITY     14   /* combat trigger radius */
-#define BK_START_X0     155
-#define BK_START_Y0      55
-#define BK_START_X1     160
-#define BK_START_Y1     140
+#define BK_MAX            4   /* absolute maximum (4 - 0 human players)   */
+#define BK_SPEED          1   /* pixels per tick                           */
+#define BK_PROXIMITY     14   /* combat trigger radius (pixels)            */
+#define BK_ATTACK_CHANCE 25   /* % chance to pick a knight target per turn */
+
+/*
+ * Fixed starting positions for the 4 BK slots (LAB_01AE, mog.asm):
+ *   LAB_0613: x=0x000f=15,  y=0x0064=100
+ *   LAB_0614: x=0x012c=300, y=0x0064=100
+ *   LAB_0615: x=0x00a0=160, y=0x0014=20
+ *   LAB_0616: x=0x00a0=160, y=0x00b4=180
+ */
+static const int s_bk_start_x[BK_MAX] = { 15, 300, 160, 160 };
+static const int s_bk_start_y[BK_MAX] = { 100, 100,  20, 180 };
 
 /* Walk animation */
 static int s_kn_frame  = 0;
@@ -359,50 +366,161 @@ static int dragon_update(GameCtx *ctx)
 /* Black knight AI movement (§5)                                      */
 /* ------------------------------------------------------------------ */
 
+/*
+ * black_knight_init — set up BK slots according to the assembly logic
+ * (LAB_01AE, LAB_00E5).
+ *
+ * The assembly initialises 4 knight structs with faction=4 (black
+ * knight).  During character selection each human player overwrites
+ * one slot with their chosen faction (0-3).  The remaining slots keep
+ * faction=4 and become the active black knights.
+ *
+ * Here we count how many human players there are and spawn (4 - count)
+ * black knights at their fixed starting positions.
+ */
 static void black_knight_init(GameCtx *ctx)
 {
-    ctx->black_knight_x[0] = BK_START_X0;
-    ctx->black_knight_y[0] = BK_START_Y0;
-    ctx->black_knight_active[0] = 1;
+    int human_count = 0;
+    for (int i = 0; i < MAX_PLAYERS; i++)
+        if (ctx->knights[i].active && ctx->knights[i].human)
+            human_count++;
 
-    ctx->black_knight_x[1] = BK_START_X1;
-    ctx->black_knight_y[1] = BK_START_Y1;
-    ctx->black_knight_active[1] = 1;
+    ctx->bk_count = 4 - human_count;
+    if (ctx->bk_count < 0) ctx->bk_count = 0;
+    if (ctx->bk_count > BK_MAX) ctx->bk_count = BK_MAX;
+
+    for (int b = 0; b < ctx->bk_count; b++) {
+        ctx->black_knight_x[b]      = s_bk_start_x[b];
+        ctx->black_knight_y[b]      = s_bk_start_y[b];
+        ctx->black_knight_active[b] = 1;
+        ctx->black_knight_target[b] = -1; /* no creature target yet */
+    }
 }
 
 /*
- * black_knight_update — move each black knight one step toward the
- * nearest active human knight. Returns index of player knight
- * collided with, or –1.
+ * bk_pick_creature_target — pick a creature-node target for black
+ * knight b.  Mirrors LAB_0DEB / LAB_0DE0 (mog.asm):
+ *
+ * 1. Sort all 24 alive creature nodes by Manhattan distance from the BK
+ *    (LAB_0DE0–0DE9: bubble sort, 0xffff for dead nodes).
+ * 2. Pick uniformly from ranks 1, 2 or 3 (not rank 0 = closest).
+ *    The assembly uses: ANDI #3, rand; BEQ retry → result ∈ {1,2,3}.
+ *
+ * Returns a PVE node index, or -1 if no nodes are alive.
+ */
+static int bk_pick_creature_target(int bx, int by)
+{
+    /* Build (distance, index) array */
+    int dist[NUM_PVE_NODES];
+    int idx[NUM_PVE_NODES];
+    int alive_count = 0;
+
+    for (int n = 0; n < NUM_PVE_NODES; n++) {
+        if (!s_pve_nodes[n].alive) {
+            dist[n] = 0x7fff;
+        } else {
+            int dx = s_pve_nodes[n].x - bx;
+            int dy = s_pve_nodes[n].y - by;
+            if (dx < 0) dx = -dx;
+            if (dy < 0) dy = -dy;
+            dist[n] = dx + dy;
+            alive_count++;
+        }
+        idx[n] = n;
+    }
+    if (alive_count == 0) return -1;
+
+    /* Bubble-sort ascending by distance (mirrors LAB_0DE6–0DE9) */
+    for (int i = 0; i < NUM_PVE_NODES - 1; i++) {
+        for (int j = 0; j < NUM_PVE_NODES - 1 - i; j++) {
+            if (dist[j] > dist[j + 1]) {
+                int td = dist[j]; dist[j] = dist[j+1]; dist[j+1] = td;
+                int ti = idx[j];  idx[j]  = idx[j+1];  idx[j+1]  = ti;
+            }
+        }
+    }
+
+    /* Pick randomly from slots 1, 2, 3 (not slot 0 = absolute closest).
+     * Assembly: ANDI #3, rand; BEQ retry → picks 1, 2, or 3. */
+    int top = (alive_count < 4) ? alive_count : 4; /* slots 0..3 available */
+    if (top <= 1) return idx[0]; /* only one alive node, take it */
+
+    /* Randomly choose from slots 1..top-1 */
+    int slot = 1 + (rand() % (top - 1));
+    return idx[slot];
+}
+
+/*
+ * black_knight_update — advance every BK one movement step.
+ *
+ * BK behaviour mirrors the assembly turn dispatcher for faction=4
+ * knights (LAB_0DAD, mog.asm):
+ *
+ * 1. If the BK has no creature target, pick one via bk_pick_creature_target
+ *    (LAB_0DEA).
+ * 2. With BK_ATTACK_CHANCE % probability, look for the closest human
+ *    knight within a larger radius and lock on to it instead
+ *    (LAB_0DEF / LAB_0DF5 / LAB_0DF8 random 20 % check).
+ * 3. Move one pixel in the direction of the current target (creature
+ *    node or locked-on knight) — Bresenham-style step (LAB_0E0C).
+ * 4. If within BK_PROXIMITY of the locked-on knight, trigger PvP combat.
+ * 5. If it has reached its creature-node target, pick a new one.
+ *
+ * Returns the index of the player knight that was reached (combat
+ * trigger), or -1 if nobody was hit this tick.
  */
 static int black_knight_update(GameCtx *ctx)
 {
     int result = -1;
 
-    for (int b = 0; b < BK_COUNT; b++) {
+    for (int b = 0; b < ctx->bk_count; b++) {
         if (!ctx->black_knight_active[b]) continue;
 
-        /* Find nearest active player */
-        int best_i = -1, best_d = 0x7fffffff;
-        for (int i = 0; i < MAX_PLAYERS; i++) {
-            Knight *k = &ctx->knights[i];
-            if (!k->active || k->dead) continue;
-            int dx = ctx->black_knight_x[b] - k->map_x;
-            int dy = ctx->black_knight_y[b] - k->map_y;
-            int d  = dx * dx + dy * dy;
-            if (d < best_d) { best_d = d; best_i = i; }
-        }
-        if (best_i < 0) continue;
-
-        Knight *target = &ctx->knights[best_i];
-        int tx = target->map_x, ty = target->map_y;
         int bx = ctx->black_knight_x[b];
         int by = ctx->black_knight_y[b];
 
-        if (bx < tx)       ctx->black_knight_x[b] += BK_SPEED;
-        else if (bx > tx)  ctx->black_knight_x[b] -= BK_SPEED;
-        if (by < ty)       ctx->black_knight_y[b] += BK_SPEED;
-        else if (by > ty)  ctx->black_knight_y[b] -= BK_SPEED;
+        /* ---- Step 1: ensure we have a creature node target ---- */
+        if (ctx->black_knight_target[b] < 0 ||
+            !s_pve_nodes[ctx->black_knight_target[b]].alive) {
+            ctx->black_knight_target[b] = bk_pick_creature_target(bx, by);
+        }
+
+        /* ---- Step 2: maybe lock on to a human knight (LAB_0DF5/0DF8) ----
+         * 20 % chance per tick to scan for a nearby human knight and
+         * switch to pursuing them instead of the creature node.         */
+        int attack_target = -1;
+        if ((rand() % 100) < BK_ATTACK_CHANCE) {
+            int best_i = -1, best_d = 0x7fffffff;
+            for (int i = 0; i < MAX_PLAYERS; i++) {
+                Knight *k = &ctx->knights[i];
+                if (!k->active || k->dead) continue;
+                int dx = bx - k->map_x;
+                int dy = by - k->map_y;
+                int d  = dx * dx + dy * dy;
+                if (d < best_d) { best_d = d; best_i = i; }
+            }
+            if (best_i >= 0)
+                attack_target = best_i;
+        }
+
+        /* ---- Step 3: determine movement target (knight > creature) ---- */
+        int tx, ty;
+        if (attack_target >= 0) {
+            tx = ctx->knights[attack_target].map_x;
+            ty = ctx->knights[attack_target].map_y;
+        } else if (ctx->black_knight_target[b] >= 0) {
+            tx = s_pve_nodes[ctx->black_knight_target[b]].x;
+            ty = s_pve_nodes[ctx->black_knight_target[b]].y;
+        } else {
+            /* No valid target at all — stay put */
+            continue;
+        }
+
+        /* ---- Bresenham-style single-pixel step (LAB_0E0C) ---- */
+        if (bx < tx)       ctx->black_knight_x[b]++;
+        else if (bx > tx)  ctx->black_knight_x[b]--;
+        if (by < ty)       ctx->black_knight_y[b]++;
+        else if (by > ty)  ctx->black_knight_y[b]--;
 
         /* Clamp to map */
         if (ctx->black_knight_x[b] < 0)       ctx->black_knight_x[b] = 0;
@@ -410,15 +528,27 @@ static int black_knight_update(GameCtx *ctx)
         if (ctx->black_knight_y[b] < 0)        ctx->black_knight_y[b] = 0;
         if (ctx->black_knight_y[b] >= GAME_H)  ctx->black_knight_y[b] = GAME_H - 1;
 
-        /* Collision */
-        int dx2 = ctx->black_knight_x[b] - target->map_x;
-        int dy2 = ctx->black_knight_y[b] - target->map_y;
-        if (dx2 * dx2 + dy2 * dy2 <= BK_PROXIMITY * BK_PROXIMITY) {
-            /* Deactivate colliding black knight so combat only
-             * triggers once; it respawns after the fight. */
-            ctx->black_knight_active[b] = 0;
-            ctx->node_target_knight = b; /* reuse field as BK index */
-            result = best_i;
+        bx = ctx->black_knight_x[b];
+        by = ctx->black_knight_y[b];
+
+        /* ---- Step 4: combat trigger (reached locked-on knight) ---- */
+        if (attack_target >= 0) {
+            int dx2 = bx - ctx->knights[attack_target].map_x;
+            int dy2 = by - ctx->knights[attack_target].map_y;
+            if (dx2 * dx2 + dy2 * dy2 <= BK_PROXIMITY * BK_PROXIMITY) {
+                ctx->black_knight_active[b] = 0;
+                ctx->node_target_knight = b;
+                result = attack_target;
+            }
+        }
+
+        /* ---- Step 5: reached creature node → pick a new one ---- */
+        if (ctx->black_knight_target[b] >= 0) {
+            int nn = ctx->black_knight_target[b];
+            int dx3 = bx - s_pve_nodes[nn].x;
+            int dy3 = by - s_pve_nodes[nn].y;
+            if (dx3 * dx3 + dy3 * dy3 <= BK_PROXIMITY * BK_PROXIMITY)
+                ctx->black_knight_target[b] = -1; /* force re-pick next tick */
         }
     }
     return result;
@@ -562,7 +692,7 @@ static void draw_overworld(GameCtx *ctx)
     }
 
     /* ---- Black knights ---- */
-    for (int b = 0; b < BK_COUNT; b++) {
+    for (int b = 0; b < ctx->bk_count; b++) {
         if (!ctx->black_knight_active[b]) continue;
         int bx = ctx->black_knight_x[b];
         int by = ctx->black_knight_y[b];

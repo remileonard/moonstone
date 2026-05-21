@@ -130,12 +130,17 @@ typedef struct {
     int        dragon_tick;       /* tick counter for frame advance        */
 
     /* ------------------------------------------------------------------ */
-    /* Black knights (IA enemies, LAB_01C6 — mog.asm §5)                  */
-    /* Two black knight entities patrol the map.                           */
+    /* Black knights (IA enemies, LAB_01AE — mog.asm §5)                  */
+    /* Count = 4 − num_human_players (LAB_01AE initialises all 4 slots    */
+    /* with faction=4; player selection overwrites slots 0-3 with the     */
+    /* chosen faction, leaving the remainder as black knights).            */
+    /* Up to 4 slots; bk_count holds the actual number in play.           */
     /* ------------------------------------------------------------------ */
-    int        black_knight_x[2]; /* current X positions                  */
-    int        black_knight_y[2]; /* current Y positions                  */
-    int        black_knight_active[2]; /* 1 = alive on map                */
+    int        bk_count;           /* 4 − num_human_players (0..4)        */
+    int        black_knight_x[4];  /* current X positions                  */
+    int        black_knight_y[4];  /* current Y positions                  */
+    int        black_knight_active[4]; /* 1 = alive on map                */
+    int        black_knight_target[4]; /* PVE node index currently pursued */
 
     /* framebuffer — ARGB8888, GAME_W × GAME_H */
     uint32_t   fb[GAME_W * GAME_H];
