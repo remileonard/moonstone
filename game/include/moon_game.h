@@ -131,16 +131,14 @@ typedef struct {
 
     /* ------------------------------------------------------------------ */
     /* Black knights (IA enemies, LAB_01AE — mog.asm §5)                  */
-    /* Count = 4 − num_human_players (LAB_01AE initialises all 4 slots    */
-    /* with faction=4; player selection overwrites slots 0-3 with the     */
-    /* chosen faction, leaving the remainder as black knights).            */
-    /* Up to 4 slots; bk_count holds the actual number in play.           */
+    /* Count = 4 − num_human_players.  Black knights occupy the unused     */
+    /* knights[] slots (is_black_knight=1, human=0).  Their positions and  */
+    /* dead/alive state are stored in knights[].map_x/y/dead like any      */
+    /* other knight; they participate in the normal turn sequence.         */
     /* ------------------------------------------------------------------ */
     int        bk_count;           /* 4 − num_human_players (0..4)        */
-    int        black_knight_x[4];  /* current X positions                  */
-    int        black_knight_y[4];  /* current Y positions                  */
-    int        black_knight_active[4]; /* 1 = alive on map                */
-    int        black_knight_target[4]; /* PVE node index currently pursued */
+    int        black_knight_target[4]; /* PVE creature-node target, indexed
+                                         by knights[] slot (0..3)         */
 
     /* framebuffer — ARGB8888, GAME_W × GAME_H */
     uint32_t   fb[GAME_W * GAME_H];

@@ -375,8 +375,9 @@ static int dragon_update(GameCtx *ctx)
  * one slot with their chosen faction (0-3).  The remaining slots keep
  * faction=4 and become the active black knights.
  *
- * Here we count how many human players there are and spawn (4 - count)
- * black knights at their fixed starting positions.
+ * Here we populate the unused knights[] slots (those not already active
+ * as human players) as black knights so that they participate in the
+ * normal per-round turn sequence just like human knights.
  */
 static void black_knight_init(GameCtx *ctx)
 {
@@ -389,11 +390,27 @@ static void black_knight_init(GameCtx *ctx)
     if (ctx->bk_count < 0) ctx->bk_count = 0;
     if (ctx->bk_count > BK_MAX) ctx->bk_count = BK_MAX;
 
-    for (int b = 0; b < ctx->bk_count; b++) {
-        ctx->black_knight_x[b]      = s_bk_start_x[b];
-        ctx->black_knight_y[b]      = s_bk_start_y[b];
-        ctx->black_knight_active[b] = 1;
-        ctx->black_knight_target[b] = -1; /* no creature target yet */
+    /* Populate free knights[] slots as black knights.
+     * Use black_knight_target[i] indexed by the knight slot. */
+    int b = 0;
+    for (int i = 0; i < MAX_PLAYERS && b < ctx->bk_count; i++) {
+        if (ctx->knights[i].active) continue; /* already a human player */
+        Knight *bk = &ctx->knights[i];
+        bk->active          = 1;
+        bk->human           = 0;
+        bk->is_black_knight = 1;
+        bk->map_x           = s_bk_start_x[b];
+        bk->map_y           = s_bk_start_y[b];
+        bk->endurance       = DEFAULT_ENDURANCE;
+        bk->strength        = 2;
+        bk->constitution    = 2;
+        bk->max_hp          = 30;
+        bk->hp              = 30;
+        bk->dead            = 0;
+        bk->turn_done       = 0;
+        bk->steps_remaining = 0;
+        ctx->black_knight_target[i] = -1; /* no creature target yet */
+        b++;
     }
 }
 
@@ -451,107 +468,105 @@ static int bk_pick_creature_target(int bx, int by)
 }
 
 /*
- * black_knight_update — advance every BK one movement step.
+ * bk_turn_step — advance a single black knight one movement step during
+ * its overworld turn.  Called once per tick while the BK's turn is active.
  *
- * BK behaviour mirrors the assembly turn dispatcher for faction=4
- * knights (LAB_0DAD, mog.asm):
+ * Mirrors the assembly turn dispatcher for faction=4 knights (LAB_0DAD):
+ *   1. Ensure creature-node target (LAB_0DEA / bk_pick_creature_target).
+ *   2. 20 % chance to lock on to the nearest human knight (LAB_0DF8).
+ *   3. Move one pixel toward current target (LAB_0E0C).
+ *   4. Consume one step from steps_remaining; end turn when exhausted.
+ *   5. Combat trigger if the BK has closed to BK_PROXIMITY of a
+ *      locked-on human knight.
+ *   6. Re-target when the creature node is reached.
  *
- * 1. If the BK has no creature target, pick one via bk_pick_creature_target
- *    (LAB_0DEA).
- * 2. With BK_ATTACK_CHANCE % probability, look for the closest human
- *    knight within a larger radius and lock on to it instead
- *    (LAB_0DEF / LAB_0DF5 / LAB_0DF8 random 20 % check).
- * 3. Move one pixel in the direction of the current target (creature
- *    node or locked-on knight) — Bresenham-style step (LAB_0E0C).
- * 4. If within BK_PROXIMITY of the locked-on knight, trigger PvP combat.
- * 5. If it has reached its creature-node target, pick a new one.
- *
- * Returns the index of the player knight that was reached (combat
- * trigger), or -1 if nobody was hit this tick.
+ * Returns the index of the human knight that was reached (PvP trigger),
+ * or -1 if nobody was hit this step.
  */
-static int black_knight_update(GameCtx *ctx)
+static int bk_turn_step(GameCtx *ctx, int ki)
 {
-    int result = -1;
+    Knight *bk = &ctx->knights[ki];
+    int bx = bk->map_x;
+    int by = bk->map_y;
 
-    for (int b = 0; b < ctx->bk_count; b++) {
-        if (!ctx->black_knight_active[b]) continue;
+    /* ---- Step 1: ensure creature target ---- */
+    if (ctx->black_knight_target[ki] < 0 ||
+        !s_pve_nodes[ctx->black_knight_target[ki]].alive) {
+        ctx->black_knight_target[ki] = bk_pick_creature_target(bx, by);
+    }
 
-        int bx = ctx->black_knight_x[b];
-        int by = ctx->black_knight_y[b];
-
-        /* ---- Step 1: ensure we have a creature node target ---- */
-        if (ctx->black_knight_target[b] < 0 ||
-            !s_pve_nodes[ctx->black_knight_target[b]].alive) {
-            ctx->black_knight_target[b] = bk_pick_creature_target(bx, by);
+    /* ---- Step 2: maybe lock on to a human knight (LAB_0DF5/0DF8) ----
+     * 20 % chance per step to switch target to the nearest human knight. */
+    int attack_target = -1;
+    if ((rand() % 100) < BK_ATTACK_CHANCE) {
+        int best_i = -1, best_d = 0x7fffffff;
+        for (int i = 0; i < MAX_PLAYERS; i++) {
+            Knight *k = &ctx->knights[i];
+            if (!k->active || k->dead || k->is_black_knight) continue;
+            int dx = bx - k->map_x;
+            int dy = by - k->map_y;
+            int d  = dx * dx + dy * dy;
+            if (d < best_d) { best_d = d; best_i = i; }
         }
+        if (best_i >= 0)
+            attack_target = best_i;
+    }
 
-        /* ---- Step 2: maybe lock on to a human knight (LAB_0DF5/0DF8) ----
-         * 20 % chance per tick to scan for a nearby human knight and
-         * switch to pursuing them instead of the creature node.         */
-        int attack_target = -1;
-        if ((rand() % 100) < BK_ATTACK_CHANCE) {
-            int best_i = -1, best_d = 0x7fffffff;
-            for (int i = 0; i < MAX_PLAYERS; i++) {
-                Knight *k = &ctx->knights[i];
-                if (!k->active || k->dead) continue;
-                int dx = bx - k->map_x;
-                int dy = by - k->map_y;
-                int d  = dx * dx + dy * dy;
-                if (d < best_d) { best_d = d; best_i = i; }
-            }
-            if (best_i >= 0)
-                attack_target = best_i;
-        }
+    /* ---- Step 3: determine movement target (attack > creature) ---- */
+    int tx, ty;
+    if (attack_target >= 0) {
+        tx = ctx->knights[attack_target].map_x;
+        ty = ctx->knights[attack_target].map_y;
+    } else if (ctx->black_knight_target[ki] >= 0) {
+        tx = s_pve_nodes[ctx->black_knight_target[ki]].x;
+        ty = s_pve_nodes[ctx->black_knight_target[ki]].y;
+    } else {
+        /* No valid target — end turn */
+        bk->turn_done = 1;
+        return -1;
+    }
 
-        /* ---- Step 3: determine movement target (knight > creature) ---- */
-        int tx, ty;
-        if (attack_target >= 0) {
-            tx = ctx->knights[attack_target].map_x;
-            ty = ctx->knights[attack_target].map_y;
-        } else if (ctx->black_knight_target[b] >= 0) {
-            tx = s_pve_nodes[ctx->black_knight_target[b]].x;
-            ty = s_pve_nodes[ctx->black_knight_target[b]].y;
-        } else {
-            /* No valid target at all — stay put */
-            continue;
-        }
+    /* ---- Bresenham-style single-pixel step (LAB_0E0C) ---- */
+    if (bk->map_x < tx)       bk->map_x++;
+    else if (bk->map_x > tx)  bk->map_x--;
+    if (bk->map_y < ty)       bk->map_y++;
+    else if (bk->map_y > ty)  bk->map_y--;
 
-        /* ---- Bresenham-style single-pixel step (LAB_0E0C) ---- */
-        if (bx < tx)       ctx->black_knight_x[b]++;
-        else if (bx > tx)  ctx->black_knight_x[b]--;
-        if (by < ty)       ctx->black_knight_y[b]++;
-        else if (by > ty)  ctx->black_knight_y[b]--;
+    /* Clamp to map */
+    if (bk->map_x < 0)        bk->map_x = 0;
+    if (bk->map_x >= GAME_W)  bk->map_x = GAME_W - 1;
+    if (bk->map_y < 0)        bk->map_y = 0;
+    if (bk->map_y >= GAME_H)  bk->map_y = GAME_H - 1;
 
-        /* Clamp to map */
-        if (ctx->black_knight_x[b] < 0)       ctx->black_knight_x[b] = 0;
-        if (ctx->black_knight_x[b] >= GAME_W)  ctx->black_knight_x[b] = GAME_W - 1;
-        if (ctx->black_knight_y[b] < 0)        ctx->black_knight_y[b] = 0;
-        if (ctx->black_knight_y[b] >= GAME_H)  ctx->black_knight_y[b] = GAME_H - 1;
+    bx = bk->map_x;
+    by = bk->map_y;
 
-        bx = ctx->black_knight_x[b];
-        by = ctx->black_knight_y[b];
+    bk->steps_remaining--;
 
-        /* ---- Step 4: combat trigger (reached locked-on knight) ---- */
-        if (attack_target >= 0) {
-            int dx2 = bx - ctx->knights[attack_target].map_x;
-            int dy2 = by - ctx->knights[attack_target].map_y;
-            if (dx2 * dx2 + dy2 * dy2 <= BK_PROXIMITY * BK_PROXIMITY) {
-                ctx->black_knight_active[b] = 0;
-                ctx->node_target_knight = b;
-                result = attack_target;
-            }
-        }
-
-        /* ---- Step 5: reached creature node → pick a new one ---- */
-        if (ctx->black_knight_target[b] >= 0) {
-            int nn = ctx->black_knight_target[b];
-            int dx3 = bx - s_pve_nodes[nn].x;
-            int dy3 = by - s_pve_nodes[nn].y;
-            if (dx3 * dx3 + dy3 * dy3 <= BK_PROXIMITY * BK_PROXIMITY)
-                ctx->black_knight_target[b] = -1; /* force re-pick next tick */
+    /* ---- Step 4: combat trigger (closed to locked-on knight) ---- */
+    if (attack_target >= 0) {
+        int dx2 = bx - ctx->knights[attack_target].map_x;
+        int dy2 = by - ctx->knights[attack_target].map_y;
+        if (dx2 * dx2 + dy2 * dy2 <= BK_PROXIMITY * BK_PROXIMITY) {
+            bk->dead = 1; /* BK leaves the map after triggering combat */
+            ctx->node_target_knight = ki;
+            return attack_target;
         }
     }
-    return result;
+
+    /* ---- Step 5: reached creature node → pick a new one next step ---- */
+    if (ctx->black_knight_target[ki] >= 0) {
+        int nn = ctx->black_knight_target[ki];
+        int dx3 = bx - s_pve_nodes[nn].x;
+        int dy3 = by - s_pve_nodes[nn].y;
+        if (dx3 * dx3 + dy3 * dy3 <= BK_PROXIMITY * BK_PROXIMITY)
+            ctx->black_knight_target[ki] = -1;
+    }
+
+    if (bk->steps_remaining <= 0)
+        bk->turn_done = 1;
+
+    return -1;
 }
 
 /* ------------------------------------------------------------------ */
@@ -692,10 +707,11 @@ static void draw_overworld(GameCtx *ctx)
     }
 
     /* ---- Black knights ---- */
-    for (int b = 0; b < ctx->bk_count; b++) {
-        if (!ctx->black_knight_active[b]) continue;
-        int bx = ctx->black_knight_x[b];
-        int by = ctx->black_knight_y[b];
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        Knight *bk = &ctx->knights[i];
+        if (!bk->active || !bk->is_black_knight || bk->dead) continue;
+        int bx = bk->map_x;
+        int by = bk->map_y;
         if (s_kn5_ob && s_kn5_ob->frame_count > 0) {
             int fr = s_kn_frame % s_kn5_ob->frame_count;
             int fw = (int)s_kn5_ob->frames[fr].width;
@@ -708,10 +724,10 @@ static void draw_overworld(GameCtx *ctx)
         }
     }
 
-    /* ---- Player knights ---- */
+    /* ---- Player knights (skip black knights, drawn separately above) ---- */
     for (int i = 0; i < MAX_PLAYERS; i++) {
         Knight *k = &ctx->knights[i];
-        if (!k->active || k->dead) continue;
+        if (!k->active || k->dead || k->is_black_knight) continue;
         int kx = k->map_x, ky = k->map_y;
 
         if (s_kn_ob[i] && s_kn_ob[i]->frame_count > 0) {
@@ -730,13 +746,18 @@ static void draw_overworld(GameCtx *ctx)
     /* ---- HUD (top bar) ---- */
     Knight *k = &ctx->knights[ctx->current_knight];
     char hud[128];
-    snprintf(hud, sizeof(hud),
-             "%s  HP:%d  GOLD:%d  Keys:%d/4  Steps:%d",
-             (const char *[]){ "RICHARD","GODBER","JEFFREY","EDWARD" }[k->id],
-             k->hp, k->gold, __builtin_popcount(k->keys & 0x0f),
-             k->steps_remaining);
     render_fill_rect(ctx->fb, 0, 0, GAME_W, 9, 0xAA000000u);
-    render_text(ctx->fb, hud, 2, 1, s_knight_dot_colors[ctx->current_knight]);
+    if (k->is_black_knight) {
+        snprintf(hud, sizeof(hud), "BLACK KNIGHT  Steps:%d", k->steps_remaining);
+        render_text(ctx->fb, hud, 2, 1, 0xFF880000u);
+    } else {
+        snprintf(hud, sizeof(hud),
+                 "%s  HP:%d  GOLD:%d  Keys:%d/4  Steps:%d",
+                 (const char *[]){ "RICHARD","GODBER","JEFFREY","EDWARD" }[k->id],
+                 k->hp, k->gold, __builtin_popcount(k->keys & 0x0f),
+                 k->steps_remaining);
+        render_text(ctx->fb, hud, 2, 1, s_knight_dot_colors[ctx->current_knight]);
+    }
 
     /* ---- Node name tooltip ---- */
     for (int n = 0; n < NUM_NODES; n++) {
@@ -762,18 +783,20 @@ static void draw_overworld(GameCtx *ctx)
         }
     }
 
-    /* ---- Turn action hint (bottom) ---- */
-    if (k->steps_remaining > 0) {
-        render_fill_rect(ctx->fb, 0, GAME_H - 20, GAME_W, 9, 0x88000000u);
-        render_text_centered(ctx->fb,
-                             "FIRE=Interact  I=Inventory  SPACE=Pass turn",
-                             GAME_H - 20, 0xFF888888u);
-    } else {
-        render_fill_rect(ctx->fb, 0, GAME_H - 20, GAME_W, 9, 0x88000000u);
-        render_text_centered(ctx->fb,
-                             "No steps left.  FIRE=Interact  SPACE=End turn",
-                             GAME_H - 20, 0xFFAA6666u);
-    }
+    /* ---- Turn action hint (bottom, human players only) ---- */
+    if (!k->is_black_knight) {
+        if (k->steps_remaining > 0) {
+            render_fill_rect(ctx->fb, 0, GAME_H - 20, GAME_W, 9, 0x88000000u);
+            render_text_centered(ctx->fb,
+                                 "FIRE=Interact  I=Inventory  SPACE=Pass turn",
+                                 GAME_H - 20, 0xFF888888u);
+        } else {
+            render_fill_rect(ctx->fb, 0, GAME_H - 20, GAME_W, 9, 0x88000000u);
+            render_text_centered(ctx->fb,
+                                 "No steps left.  FIRE=Interact  SPACE=End turn",
+                                 GAME_H - 20, 0xFFAA6666u);
+        }
+    } /* end !is_black_knight hints */
 }
 
 /* ------------------------------------------------------------------ */
@@ -934,8 +957,19 @@ void game_run_overworld(GameCtx *ctx)
                 }
 
             } else {
-                /* ---- AI-controlled knight (CPU) ---- */
-                /* Simple AI: move toward nearest PVE node */
+                /* ---- AI-controlled knight ---- */
+                if (k->is_black_knight) {
+                    /* Black knight: BK AI (creature wander + player attack) */
+                    int hit = bk_turn_step(ctx, ctx->current_knight);
+                    if (hit >= 0) {
+                        ctx->node_type      = 0x01; /* PvP */
+                        ctx->current_knight = hit;
+                        ctx->state          = STATE_COMBAT;
+                        hal_music_stop();
+                        return;
+                    }
+                } else {
+                /* ---- Generic CPU knight: move toward nearest PVE node ---- */
                 int best_n = -1, best_d = 0x7fffffff;
                 for (int n = 0; n < NUM_PVE_NODES; n++) {
                     if (!s_pve_nodes[n].alive) continue;
@@ -961,6 +995,7 @@ void game_run_overworld(GameCtx *ctx)
                     if (sn >= 0) handle_static_node(ctx, sn);
                     k->turn_done = 1;
                 }
+                } /* end generic CPU */
             }
 
             /* Steps exhausted → auto-end turn */
@@ -1003,18 +1038,6 @@ void game_run_overworld(GameCtx *ctx)
                 /* Reactivate dragon after combat (it is never destroyed) */
                 ctx->dragon_active = 1;
                 dragon_init(ctx);
-                return;
-            }
-        }
-
-        /* ---- Black knight update (collision = PvP) ---- */
-        {
-            int hit = black_knight_update(ctx);
-            if (hit >= 0) {
-                ctx->node_type          = 0x01; /* PvP */
-                ctx->current_knight     = hit;
-                ctx->state              = STATE_COMBAT;
-                hal_music_stop();
                 return;
             }
         }
