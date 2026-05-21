@@ -491,14 +491,27 @@ static void draw_overworld(GameCtx *ctx)
     for (int n = 0; n < NUM_NODES; n++)
         draw_node_icon(ctx, s_nodes[n].x, s_nodes[n].y, s_nodes[n].type);
 
-    /* ---- PVE creature nodes (type 0x02) ---- */
+    /* ---- PVE creature nodes (type 0x02) ----
+     * Original assembly (LAB_0077): MOVEQ #31,D0 + JSR LAB_0CDA with A0 = li1.cel
+     * → use frame 31 of li1.cel as the generic creature icon.
+     */
     for (int n = 0; n < NUM_PVE_NODES; n++) {
         if (!s_pve_nodes[n].alive) continue;
         int nx = s_pve_nodes[n].x;
         int ny = s_pve_nodes[n].y;
-        /* Small red diamond to represent a creature */
-        render_fill_rect(ctx->fb, nx - 3, ny - 3, 7, 7, 0xFFAA2200u);
-        render_fill_rect(ctx->fb, nx - 1, ny - 1, 3, 3, 0xFFFF4400u);
+        if (s_li_cel && s_li_cel->frame_count > 0) {
+            /* frame 31: generic creature icon (MOVEQ #31,D0 in LAB_0077) */
+            int fr = 31;
+            if (fr >= s_li_cel->frame_count) fr = s_li_cel->frame_count - 1;
+            render_cel(s_li_cel, fr, s_ov_palette, ctx->fb,
+                       nx - (int)s_li_cel->frames[fr].width  / 2,
+                       ny - (int)s_li_cel->frames[fr].height / 2,
+                       BLIT_MASK);
+        } else {
+            /* Fallback: small red diamond when CEL is unavailable */
+            render_fill_rect(ctx->fb, nx - 3, ny - 3, 7, 7, 0xFFAA2200u);
+            render_fill_rect(ctx->fb, nx - 1, ny - 1, 3, 3, 0xFFFF4400u);
+        }
     }
 
     /* ---- Dragon ---- */
