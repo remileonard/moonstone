@@ -32,7 +32,6 @@
 #include "moon_hal.h"
 #include "moon_render.h"
 #include "moon_assets.h"
-#include "moon_wizard.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -60,7 +59,7 @@ static const MapNode s_nodes[] = {
     { 0x1a, 277, 143, "Waterdeep"               },
     { 0x1b,  88, 155, "Stonehenge"              },
     { 0x1c, 152,  97, "Valley of the Gods"      },
-    /* 0x1e (Math the Wizard) is handled separately via moon_wizard.h */
+    { 0x1e, 217,  11, "Math the Wizard"         },
 };
 #define NUM_NODES ((int)(sizeof(s_nodes)/sizeof(s_nodes[0])))
 
@@ -236,6 +235,7 @@ static int node_li_frame(int node_type)
     case 0x1a: return 20;
     case 0x1b: return 24;
     case 0x1c: return 28;
+    case 0x1e: return  2;
     default:   return  0;
     }
 }
@@ -246,6 +246,7 @@ static int node_icon_frame(int node_type)
     case 0x15: case 0x16: case 0x17: case 0x18: return 0;
     case 0x19: case 0x1a:                        return 2;
     case 0x1b: case 0x1c:                        return 3;
+    case 0x1e:                                   return 3;
     default:                                     return 0;
     }
 }
@@ -423,19 +424,6 @@ static int check_pve_node(GameCtx *ctx)
     return -1;
 }
 
-/*
- * check_wizard_node — returns 1 if the current knight is close enough
- * to the wizard tower to interact with it.
- * Node data is owned by moon_wizard.h.
- */
-static int check_wizard_node(GameCtx *ctx)
-{
-    Knight *k = &ctx->knights[ctx->current_knight];
-    int dx = k->map_x - WIZARD_NODE_X;
-    int dy = k->map_y - WIZARD_NODE_Y;
-    return (dx * dx + dy * dy) <= NODE_PROXIMITY * NODE_PROXIMITY;
-}
-
 static void handle_static_node(GameCtx *ctx, int node_idx)
 {
     int type = s_nodes[node_idx].type;
@@ -454,6 +442,9 @@ static void handle_static_node(GameCtx *ctx, int node_idx)
     case 0x1c:
         /* Valley of Gods — key check handled in moon_stonehenge.c */
         ctx->state = STATE_STONEHENGE;
+        break;
+    case 0x1e:
+        ctx->state = STATE_WIZARD;
         break;
     default:
         break;
@@ -499,27 +490,6 @@ static void draw_overworld(GameCtx *ctx)
     /* ---- Static node icons ---- */
     for (int n = 0; n < NUM_NODES; n++)
         draw_node_icon(ctx, s_nodes[n].x, s_nodes[n].y, s_nodes[n].type);
-
-    /* ---- Wizard tower icon (owned by moon_wizard.h) ---- */
-    {
-        if (s_li_cel && s_li_cel->frame_count > WIZARD_LI_FRAME) {
-            int fr = WIZARD_LI_FRAME;
-            render_cel(s_li_cel, fr, s_ov_palette, ctx->fb,
-                       WIZARD_NODE_X - (int)s_li_cel->frames[fr].width  / 2,
-                       WIZARD_NODE_Y - (int)s_li_cel->frames[fr].height / 2,
-                       BLIT_MASK);
-        } else if (s_ov_cel && s_ov_cel->frame_count > WIZARD_ICON_FRAME) {
-            int fr = WIZARD_ICON_FRAME;
-            render_cel(s_ov_cel, fr, s_ov_palette, ctx->fb,
-                       WIZARD_NODE_X - (int)s_ov_cel->frames[fr].width  / 2,
-                       WIZARD_NODE_Y - (int)s_ov_cel->frames[fr].height / 2,
-                       BLIT_MASK);
-        } else {
-            render_fill_rect(ctx->fb,
-                             WIZARD_NODE_X - 2, WIZARD_NODE_Y - 2,
-                             5, 5, 0xFF8844AAu);
-        }
-    }
 
     /* ---- PVE creature nodes (type 0x02) ---- */
     for (int n = 0; n < NUM_PVE_NODES; n++) {
@@ -604,16 +574,6 @@ static void draw_overworld(GameCtx *ctx)
             render_text_centered(ctx->fb, s_nodes[n].name,
                                  GAME_H - 9, 0xFFFFFF88u);
             break;
-        }
-    }
-    /* Wizard tower tooltip (node data from moon_wizard.h) */
-    {
-        int dx = k->map_x - WIZARD_NODE_X;
-        int dy = k->map_y - WIZARD_NODE_Y;
-        if (dx * dx + dy * dy <= NODE_PROXIMITY * NODE_PROXIMITY) {
-            render_fill_rect(ctx->fb, 0, GAME_H - 10, GAME_W, 10, 0xAA000000u);
-            render_text_centered(ctx->fb, WIZARD_NODE_NAME,
-                                 GAME_H - 9, 0xFFAA44FFu);
         }
     }
     /* PVE node tooltip */
@@ -765,7 +725,7 @@ void game_run_overworld(GameCtx *ctx)
                 }
                 (void)moved;
 
-                /* FIRE: interact with static or PVE node, or wizard tower */
+                /* FIRE: interact with static or PVE node */
                 int just_fire = (ctx->input.joy[0].fire || ctx->input.enter);
                 if (just_fire) {
                     int static_node = check_static_node(ctx);
@@ -777,13 +737,6 @@ void game_run_overworld(GameCtx *ctx)
                         }
                         /* After returning from event, end this player's turn */
                         k->turn_done = 1;
-                    } else if (check_wizard_node(ctx)) {
-                        /* Wizard tower: event is fully self-contained in
-                         * moon_wizard.c — we just set the state here.     */
-                        ctx->node_type = WIZARD_NODE_TYPE;
-                        ctx->state = STATE_WIZARD;
-                        hal_music_stop();
-                        return;
                     } else {
                         int pve_node = check_pve_node(ctx);
                         if (pve_node >= 0) {
