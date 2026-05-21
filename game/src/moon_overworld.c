@@ -67,28 +67,57 @@ static const MapNode s_nodes[] = {
 
 /* ------------------------------------------------------------------ */
 /* PVE creature nodes (type 0x02, §1.7)                               */
-/* 4 carry Valley keys (key_bit 0–3); 4 are plain monsters.           */
-/* A creature node disappears once the key is taken AND loot cleared. */
+/*                                                                     */
+/* 24 entries at fixed overworld positions, sourced from LAB_07BE     */
+/* (mog.asm).  Keys are assigned randomly at game start (LAB_01B4):   */
+/* one key per group of 6 creatures (groups 0-5, 6-11, 12-17, 18-23) */
+/* so key_bit is -1 here and will be resolved at runtime.             */
+/* A node disappears once the creature's key AND loot are exhausted   */
+/* (LAB_005F: MOVE.L #$ffffffff, 10(A0)).                             */
 /* ------------------------------------------------------------------ */
 
 typedef struct {
     int x;
     int y;
-    int key_bit;    /* –1 = no key; 0–3 = bit in knight.keys          */
+    int key_bit;    /* –1 = dynamic (assigned randomly at game start)  */
     int alive;      /* 1 = still present on the map                   */
     const char *name;
 } PveNode;
 
-/* 8 PVE nodes at fixed positions across the map */
+/*
+ * 24 creature nodes — positions extracted from LAB_07BE (mog.asm).
+ * Each DC.L $XXXXYYYY encodes X=high-word, Y=low-word.
+ * Groups (per LAB_07C0 sound table): fol=0-5, wal=6-11, swl=12-17, gll=18-23.
+ */
 static PveNode s_pve_nodes[] = {
-    { 140,  30, 0, 1, "Dark Creature"     },  /* NW — key 0 */
-    { 200,  30, 1, 1, "Forest Troll"      },  /* NE — key 1 */
-    {  50, 130, 2, 1, "Stone Golem"       },  /* SW — key 2 */
-    { 260, 130, 3, 1, "Shadow Beast"      },  /* SE — key 3 */
-    { 152,  55, -1, 1, "Mud Creature"     },  /* centre N */
-    { 130, 145, -1, 1, "Swamp Wraith"     },  /* SW mid  */
-    { 240,  80, -1, 1, "Cave Troll"       },  /* E mid   */
-    {  80,  90, -1, 1, "Bone Warrior"     },  /* W mid   */
+    /* Entries 0-5  : "fol" group (western region) */
+    {  24, 112, -1, 1, "Creature" },   /* $00180070 */
+    { 104, 120, -1, 1, "Creature" },   /* $00680078 */
+    { 120, 144, -1, 1, "Creature" },   /* $00780090 */
+    {  80, 184, -1, 1, "Creature" },   /* $005000b8 */
+    {  24, 160, -1, 1, "Creature" },   /* $001800a0 */
+    {  48, 136, -1, 1, "Creature" },   /* $00300088 */
+    /* Entries 6-11 : "wal" group (north/northeast region) */
+    { 296,  32, -1, 1, "Creature" },   /* $01280020 */
+    { 232,  16, -1, 1, "Creature" },   /* $00e80010 */
+    { 176,  48, -1, 1, "Creature" },   /* $00b00030 */
+    { 240,  48, -1, 1, "Creature" },   /* $00f00030 */
+    { 216,  72, -1, 1, "Creature" },   /* $00d80048 */
+    { 272,  80, -1, 1, "Creature" },   /* $01100050 */
+    /* Entries 12-17: "swl" group (central/eastern region) */
+    { 208, 104, -1, 1, "Creature" },   /* $00d00068 */
+    { 248, 120, -1, 1, "Creature" },   /* $00f80078 */
+    { 168, 136, -1, 1, "Creature" },   /* $00a80088 */
+    { 152, 176, -1, 1, "Creature" },   /* $009800b0 */
+    { 232, 176, -1, 1, "Creature" },   /* $00e800b0 */
+    { 288, 176, -1, 1, "Creature" },   /* $012000b0 */
+    /* Entries 18-23: "gll" group (northwest/north-central region) */
+    {  24,  24, -1, 1, "Creature" },   /* $00180018 */
+    {  96,  16, -1, 1, "Creature" },   /* $00600010 */
+    { 136,  40, -1, 1, "Creature" },   /* $00880028 */
+    {  32,  64, -1, 1, "Creature" },   /* $00200040 */
+    {  80,  64, -1, 1, "Creature" },   /* $00500040 */
+    {  96,  88, -1, 1, "Creature" },   /* $00600058 */
 };
 #define NUM_PVE_NODES ((int)(sizeof(s_pve_nodes)/sizeof(s_pve_nodes[0])))
 
@@ -492,16 +521,17 @@ static void draw_overworld(GameCtx *ctx)
         draw_node_icon(ctx, s_nodes[n].x, s_nodes[n].y, s_nodes[n].type);
 
     /* ---- PVE creature nodes (type 0x02) ----
-     * Original assembly (LAB_0077): MOVEQ #31,D0 + JSR LAB_0CDA with A0 = li1.cel
-     * → use frame 31 of li1.cel as the generic creature icon.
+     * Global map display mirrors LAB_0DA3 (mog.asm): MOVE.W #$0014,D0 →
+     * frame 20 of li1.cel is the generic creature icon on the full map.
+     * (Frame 31 is used only in LAB_0077 for the proximity-highlight pass.)
      */
     for (int n = 0; n < NUM_PVE_NODES; n++) {
         if (!s_pve_nodes[n].alive) continue;
         int nx = s_pve_nodes[n].x;
         int ny = s_pve_nodes[n].y;
         if (s_li_cel && s_li_cel->frame_count > 0) {
-            /* frame 31: generic creature icon (MOVEQ #31,D0 in LAB_0077) */
-            int fr = 31;
+            /* frame 20 (0x14): generic creature map icon (LAB_0DA3) */
+            int fr = 20;
             if (fr >= s_li_cel->frame_count) fr = s_li_cel->frame_count - 1;
             render_cel(s_li_cel, fr, s_ov_palette, ctx->fb,
                        nx - (int)s_li_cel->frames[fr].width  / 2,
