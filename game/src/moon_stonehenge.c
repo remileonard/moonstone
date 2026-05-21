@@ -56,15 +56,41 @@ void game_run_stonehenge(GameCtx *ctx)
     Knight *k = &ctx->knights[ctx->current_knight];
 
     if (ctx->node_type == 0x1c) {
-        /* Valley of Gods — final boss combat */
+        /* Valley of Gods — requires all 4 keys (LAB_009D, §1.7) */
+        if ((k->keys & 0x0f) != 0x0f) {
+            /* Not all keys — refuse entry */
+            char key_msg[80];
+            snprintf(key_msg, sizeof(key_msg),
+                     "You have %d of 4 keys.",
+                     __builtin_popcount(k->keys & 0x0f));
+            const char *no_key[] = {
+                "VALLEY OF THE GODS",
+                "",
+                "You must have all four keys",
+                "to enter the Valley of the Gods.",
+                "",
+                key_msg,
+                "Seek the Black Knights to claim",
+                "the missing keys.",
+            };
+            draw_stonehenge_screen(ctx, no_key, 8, 0xFF888888u);
+            hal_present(ctx->fb);
+            wait_for_fire(ctx);
+            ctx->state = STATE_OVERWORLD;
+            return;
+        }
+
+        /* All 4 keys — grant access to final boss */
         const char *pre_lines[] = {
             "VALLEY OF THE GODS",
             "",
-            "The gods await...",
+            "You possess all four keys!",
+            "The gates of the Valley",
+            "of the Gods swing open...",
             "Only the strongest knight",
             "may claim the Moonstone."
         };
-        draw_stonehenge_screen(ctx, pre_lines, 5, 0xFFFFCC44u);
+        draw_stonehenge_screen(ctx, pre_lines, 7, 0xFFFFCC44u);
         hal_present(ctx->fb);
         wait_for_fire(ctx);
 

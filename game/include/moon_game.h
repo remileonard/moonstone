@@ -64,6 +64,33 @@ typedef struct {
     int      dead;         /* 1 = eliminated                          */
     /* Inventory: simple bitmask of collected items */
     uint32_t items;
+
+    /* Combat stats (mog.asm KnightStruct offsets 70,71,72) */
+    int      strength;     /* Force      (1–5)                        */
+    int      constitution; /* Constitution (1–5)                      */
+    int      endurance;    /* Endurance  (1–5) — governs move range   */
+
+    /* Valley of Gods keys: bitmask of 4 keys (bits 0–3).
+     * Equivalent to inventaire[20] in the assembler (LAB_069F §1.7) */
+    uint8_t  keys;         /* 0x0f = all 4 keys collected             */
+
+    /* Wizard tower visit counter (83(knight) in KnightStruct).
+     * 0 = never visited; set to 70 after first visit so subsequent
+     * visits are more likely to yield a malus (frog). */
+    uint8_t  wizard_visited;
+
+    /* Turn-based movement budget (steps_remaining decrements as the
+     * knight moves; when 0 the player must act or pass their turn). */
+    int      steps_remaining;
+
+    /* Flag: this knight has ended their overworld turn this round. */
+    int      turn_done;
+
+    /* Is this knight currently transformed into a frog? */
+    int      is_frog;
+
+    /* Black-knight flag: 1 = this slot is an AI enemy black knight */
+    int      is_black_knight;
 } Knight;
 
 /* ------------------------------------------------------------------ */
@@ -87,6 +114,28 @@ typedef struct {
     /* current active node type for combat/town/etc. triggers */
     int        node_type;
     int        node_target_knight; /* opponent index for PvP          */
+
+    /* ------------------------------------------------------------------ */
+    /* Dragon state (LAB_0617 / LAB_0DCB — mog.asm §4)                    */
+    /* The dragon appears after round >= 2, flies autonomously and         */
+    /* triggers combat when it collides with a knight.                     */
+    /* ------------------------------------------------------------------ */
+    int        dragon_active;     /* 1 = dragon is flying on the map       */
+    int        dragon_x;          /* current X position (pixels)           */
+    int        dragon_y;          /* current Y position (pixels)           */
+    int        dragon_vx;         /* X velocity (+2 or -2, inverted at edges) */
+    int        dragon_countdown;  /* 100→0: approach phase then pursuit    */
+    int        dragon_target;     /* index of target knight (–1 = none)    */
+    int        dragon_frame;      /* animation frame (0–15, dg1.cel 34–41) */
+    int        dragon_tick;       /* tick counter for frame advance        */
+
+    /* ------------------------------------------------------------------ */
+    /* Black knights (IA enemies, LAB_01C6 — mog.asm §5)                  */
+    /* Two black knight entities patrol the map.                           */
+    /* ------------------------------------------------------------------ */
+    int        black_knight_x[2]; /* current X positions                  */
+    int        black_knight_y[2]; /* current Y positions                  */
+    int        black_knight_active[2]; /* 1 = alive on map                */
 
     /* framebuffer — ARGB8888, GAME_W × GAME_H */
     uint32_t   fb[GAME_W * GAME_H];
