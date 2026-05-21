@@ -543,7 +543,53 @@ Pour accéder à la **Vallée des Dieux** (`0x1c`), le joueur doit avoir
 `inventaire[20] == 0x0f` : les 4 bits (un par Chevalier Noir / groupe de
 créatures) tous à 1, ce qui signifie qu'il a collecté les 4 clefs.
 
-#### Tri des créatures pour l'IA ennemie
+#### Nœuds de type `0x00` — Rencontres Chevalier Ennemi IA
+
+Parmi les 24 entrées du tableau `LAB_07BD`, trois ont le type `0x00`
+(handler `LAB_0188`). Elles se trouvent **toutes dans le groupe `gll`**
+(région nord-ouest, entrées 18, 21, 23) aux positions :
+
+| Entrée | X  | Y  | Hex       |
+|--------|----|----|-----------|
+| 18     | 24 | 24 | $00180018 |
+| 21     | 32 | 64 | $00200040 |
+| 23     | 96 | 88 | $00600058 |
+
+Ces entrées **sont de vraies positions de carte** (présentes dans `LAB_07BE`)
+et **sont affichées** avec l'icône générique de créature (frame 20 de `li1.cel`,
+boucle `LAB_0DA3`) comme tous les autres nœuds vivants.
+
+Quand le joueur approche d'un nœud `0x00`, **`LAB_0188`** est appelé (à la
+place de `LAB_018C` / `LAB_019A` / etc. pour les autres créatures). Ce
+handler configure un duel contre un chevalier ennemi IA (sprite `He1.ob`) :
+
+```asm
+LAB_0188:
+  MOVEQ  #3, D0
+  JSR    LAB_016F         ; préparation scène (musique, graphiques)
+  JSR    LAB_0123         ; charge He1.ob (fichier LAB_077E)
+  MOVE.W #$0001, LAB_05ED ; compteur joueur 1
+  MOVE.W #$0003, LAB_05EC ; 3 rounds à remporter
+  MOVE.W #$0000, LAB_05EE
+  ...
+  LEA    LAB_07BB, A0     ; données de défilement du fond d'arène
+  BSR    LAB_016D
+```
+
+Différences clés par rapport aux créatures ordinaires :
+- `LAB_05EC = 3` : le joueur doit remporter **3 rounds** (pas une vague de
+  créatures).
+- L'adversaire utilise le sprite **`He1.ob`** (chevalier) et non un sprite de
+  créature.
+- Il n'y a **pas de multi-spawn** : un seul adversaire à la fois.
+
+**Portage C** (`moon_overworld.c`, `moon_combat.c`) : les nœuds type `0x00`
+restent dans `s_pve_nodes[]` avec `node_type = 0x02`. Lorsque
+`pve_creature_type == 0x00`, `moon_combat.c` force
+`enemies_total = enemies_simul = 1` pour reproduire le duel unique de
+`LAB_0188` (au lieu d'une vague scalée sur la force du chevalier).
+
+
 
 `LAB_0DE0` ([mog.asm#L25193](../amiga_asm/mog.asm)) trie en temps réel les
 24 créatures par distance Manhattan au chevalier IA, pour que l'ennemi
@@ -1306,6 +1352,7 @@ l'Amiga (ASM) et l'implémentation actuelle en C (`moon_overworld.c`).
 | **Chevaliers noirs — attaque**      | `LAB_0DF8` : 20 % chance de poursuivre un joueur     | `BK_ATTACK_CHANCE = 25 %` (légère différence)        | ✅ Approximatif |
 | **Chevaliers noirs — stats**        | skill=5, hp=20, épée longue, armure rembourrée        | strength=2, constitution=2, hp=30 (valeurs différentes) | ⚠️ Différent |
 | **Combat BK ↔ joueur**              | `LAB_004F`, transfert items après victoire           | `STATE_COMBAT`, `node_type=0x01`                     | ✅ Équivalent |
+| **Combat joueur ↔ chevalier ennemi IA (type 0x00)** | `LAB_0188` : duel 3 rounds, sprite He1.ob, région gll | `node_type=0x02`, `pve_creature_type=0x00`, `enemies_total=1` | ✅ Équivalent |
 | **Combat joueur ↔ créature**        | `LAB_005B`, pillage multi-items, cycle créatures     | `STATE_COMBAT`, `node_type=0x02`, clef unique         | ⚠️ Simplifié |
 | **Pillage tombe (`0x21`)**          | `LAB_004F` : récupère l'équipement du mort           | Non implémenté                                       | ❌ Absent |
 | **Village natal**                   | `LAB_00B0` : skill +1 si bonne faction               | `STATE_VILLAGE`                                      | ✅ Délégué à moon_village.c |

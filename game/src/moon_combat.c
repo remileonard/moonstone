@@ -178,7 +178,8 @@ static const char *combat_bg_for_node(int node_type)
  * Mapping confirmed by tracing each handler in LAB_08C8 to its sprite
  * loading routine and the filename DC.B strings (LAB_0778..LAB_07B5):
  *
- *   0x00 → He1.ob         (enemy knight,  LAB_08C8+0  → LAB_0188 → LAB_0123)
+ *   0x00 → He1.ob         (enemy knight NPC — LAB_0188 ; duel unique,
+ *                          pas une vague ; positions fixes région gll)
  *   0x04 → Mudmen1.cel    (Mudmen,        LAB_08C8+4  → LAB_019A → LAB_011E → LAB_0782)
  *   0x08 → Demon1.cel     (Demon/Gardien, LAB_08C8+8  → LAB_01A0 → LAB_0125 → LAB_07B0)
  *   0x0c → Ratmen1.cel    (generic,       LAB_08C8+12 → LAB_0164 → LAB_0116)
@@ -708,7 +709,10 @@ void game_run_combat(GameCtx *ctx)
     int enemies_spawned    = 0;   /* creatures spawned so far          */
 
     /* For non-PVE combat (PvP, Valley) always use a single enemy      */
-    if (ctx->node_type != 0x02) {
+    /* For type 0x00 (ENEMY KNIGHT NPC) also force single opponent:    *
+     * LAB_0188 sets LAB_05EC=3 (rounds) not a creature wave.          */
+    if (ctx->node_type != 0x02 ||
+        (ctx->node_type == 0x02 && ctx->pve_creature_type == 0x00)) {
         enemies_total  = 1;
         enemies_simul  = 1;
     }

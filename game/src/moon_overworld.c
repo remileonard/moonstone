@@ -97,7 +97,10 @@ typedef struct {
  *
  * creature_type values (LAB_08C8 offsets, confirmed by tracing each handler
  * in LAB_08C8 to its sprite-loading routine and the DC.B filename strings):
- *   0x00 = He    (enemy knight, He1.ob)
+ *   0x00 = He    (enemy knight NPC, He1.ob — rencontre chevalier IA à
+ *                 position fixe sur la carte ; déclenche LAB_0188 qui
+ *                 configure un duel chevalier unique, pas une vague de
+ *                 créatures.  Ces nœuds sont dans la région gll uniquement.)
  *   0x04 = Mudmen (Mudmen1.cel)
  *   0x08 = Demon  (Demon/Gardien — Demon1-4.cel — Valley of Gods only)
  *   0x0c = Ratmen generic (Ratmen1.cel)
@@ -134,7 +137,13 @@ static PveNode s_pve_nodes[] = {
     { 152, 176, -1, 1, "TROLL",         0x40, 0x07, 2 }, /* $009800b0 */
     { 232, 176, -1, 1, "MUDMEN",        0x04, 0x06, 2 }, /* $00e800b0 */
     { 288, 176, -1, 1, "TROLL",         0x40, 0x06, 2 }, /* $012000b0 */
-    /* Entries 18-23: "gll" group (northwest/north-central region) */
+    /* Entries 18-23: "gll" group (northwest/north-central region)      *
+     * Note : les 3 entrées de type 0x00 ("ENEMY KNIGHT") sont de       *
+     * vraies positions de carte (LAB_07BE) dans cette région.           *
+     * Elles représentent des rencontres avec un chevalier ennemi IA     *
+     * (He1.ob, handler LAB_0188) : un seul adversaire, pas une vague.  *
+     * Elles ne s'affichent PAS comme icônes de créature (voir boucle    *
+     * de rendu ci-dessous).                                             */
     {  24,  24, -1, 1, "ENEMY KNIGHT",  0x00, 0x08, 3 }, /* $00180018 */
     {  96,  16, -1, 1, "TROGGSPEAR",    0x20, 0x05, 3 }, /* $00600010 */
     { 136,  40, -1, 1, "TROGGSPEAR",    0x20, 0x04, 3 }, /* $00880028 */
@@ -692,6 +701,9 @@ static void draw_overworld(GameCtx *ctx)
      * Global map display mirrors LAB_0DA3 (mog.asm): MOVE.W #$0014,D0 →
      * frame 20 of li1.cel is the generic creature icon on the full map.
      * (Frame 31 is used only in LAB_0077 for the proximity-highlight pass.)
+     * All 24 nodes, including type 0x00 (ENEMY KNIGHT), are displayed with
+     * the generic creature icon when alive — confirmed by LAB_0077 which
+     * iterates all 24 entries without type filtering.
      */
     for (int n = 0; n < NUM_PVE_NODES; n++) {
         if (!s_pve_nodes[n].alive) continue;
