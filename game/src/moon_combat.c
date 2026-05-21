@@ -422,27 +422,6 @@ static void draw_combatant_cel(uint32_t *fb,
     }
 }
 
-static void draw_hp_bar(uint32_t *fb, int x, int y, int hp, int max_hp,
-                        uint32_t color, const char *name)
-{
-    int bar_w = 80;
-    int filled = (max_hp > 0) ? bar_w * hp / max_hp : 0;
-    if (filled < 0) filled = 0;
-    if (filled > bar_w) filled = bar_w;
-
-    /* Background */
-    render_fill_rect(fb, x, y, bar_w, 8, 0xFF222222u);
-    /* Filled portion — colour shifts to red when critically low */
-    uint32_t bar_color = (hp <= LOW_HP_THRESHOLD) ? 0xFFFF2200u : color;
-    render_fill_rect(fb, x, y, filled, 8, bar_color);
-    /* Border */
-    render_fill_rect(fb, x,          y, bar_w, 1, 0xFF888888u);
-    render_fill_rect(fb, x, y + 7,        bar_w, 1, 0xFF888888u);
-
-    /* Name label above the bar */
-    render_text(fb, name, x, y - 10, color);
-}
-
 /* ------------------------------------------------------------------ */
 /* Combat logic helpers                                                */
 /* ------------------------------------------------------------------ */
@@ -1032,22 +1011,6 @@ void game_run_combat(GameCtx *ctx)
                            bg_palette,
                            1 /* is_knight */,
                            knight_colors[ctx->current_knight]);
-
-        /* HP bars — player top-left, first living enemy top-right      */
-        draw_hp_bar(ctx->fb, 10, 12,
-                    player.hp, player.max_hp,
-                    knight_colors[ctx->current_knight], player.name);
-        {
-            /* Find the first living enemy for the HP bar               */
-            for (int ei = 0; ei < MAX_COMBAT_ENEMIES; ei++) {
-                if (enemies[ei].state != CSTATE_DEAD && enemies[ei].hp > 0) {
-                    draw_hp_bar(ctx->fb, GAME_W - 90, 12,
-                                enemies[ei].hp, enemies[ei].max_hp,
-                                0xFFCC4444u, enemies[ei].name);
-                    break;
-                }
-            }
-        }
 
         /* Wave counter (PVE only): show remaining kills                */
         if (ctx->node_type == 0x02 && enemies_total > 1) {
