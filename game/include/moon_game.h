@@ -3,7 +3,7 @@
  *
  * Manages the overall flow of Moonstone:
  *   INTRO → MENU → OVERWORLD → (COMBAT | TOWN | SHOP | WIZARD |
- *   VILLAGE | STONEHENGE) → ENDING
+ *   VILLAGE | STONEHENGE | VALLEY) → ENDING
  */
 
 #ifndef MOON_GAME_H
@@ -32,7 +32,8 @@ typedef enum {
     STATE_VILLAGE     = 7,
     STATE_STONEHENGE  = 8,
     STATE_ENDING      = 9,
-    STATE_QUIT        = 10
+    STATE_QUIT        = 10,
+    STATE_VALLEY      = 11   /* Valley of the Gods (node 0x1c, LAB_009D) */
 } GameState;
 
 /* ------------------------------------------------------------------ */
@@ -189,6 +190,7 @@ void game_run_shop       (GameCtx *ctx);
 void game_run_wizard     (GameCtx *ctx);
 void game_run_village    (GameCtx *ctx);
 void game_run_stonehenge (GameCtx *ctx);
+void game_run_valley     (GameCtx *ctx);
 void game_run_ending     (GameCtx *ctx);
 
 /* Palette fade helpers used by multiple states */

@@ -13,7 +13,7 @@
  *     reach a player (§5)
  *  5. Math the Wizard (0x1e) → STATE_WIZARD (handled in moon_wizard.c)
  *  6. Valley of Gods (0x1c) → requires all 4 keys (handled in
- *     moon_stonehenge.c)
+ *     moon_valley.c)
  *
  * The map is displayed using dw1.PIV (320×200 background).
  * Sprite assets (DOC_MODE_OVERWORLD.md §1.2):
@@ -614,8 +614,8 @@ static void handle_static_node(GameCtx *ctx, int node_idx)
         ctx->state = STATE_STONEHENGE;
         break;
     case 0x1c:
-        /* Valley of Gods — key check handled in moon_stonehenge.c */
-        ctx->state = STATE_STONEHENGE;
+        /* Valley of Gods — delegated to moon_valley.c (LAB_009D) */
+        ctx->state = STATE_VALLEY;
         break;
     case 0x1e:
         ctx->state = STATE_WIZARD;

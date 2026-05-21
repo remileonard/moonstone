@@ -557,7 +557,17 @@ void game_run_combat(GameCtx *ctx)
                 }
             }
 
-            ctx->state = STATE_OVERWORLD;
+            /* Determine return state.
+             * Valley of Gods (0x1c): return to STATE_VALLEY so
+             * game_run_valley can resolve the outcome (victory or
+             * defeat).  node_target_knight carries the result flag:
+             *   0 = player won, 1 = player lost. */
+            if (ctx->node_type == 0x1c) {
+                ctx->node_target_knight = (player.state == CSTATE_DEAD) ? 1 : 0;
+                ctx->state = STATE_VALLEY;
+            } else {
+                ctx->state = STATE_OVERWORLD;
+            }
             /* Free loaded sprites before returning */
             moon_cel_free(knight_cel);
             /* Only free enemy_cel if it's different from knight_cel */

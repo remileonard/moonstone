@@ -19,6 +19,7 @@ set(GAME_SOURCES
     src/moon_wizard.c
     src/moon_village.c
     src/moon_stonehenge.c
+    src/moon_valley.c
     src/moon_ending.c
 )
 

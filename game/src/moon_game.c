@@ -197,6 +197,12 @@ void game_run(GameCtx *ctx)
                 ctx->state = STATE_OVERWORLD;
             break;
 
+        case STATE_VALLEY:
+            game_run_valley(ctx);
+            if (ctx->state == STATE_VALLEY)
+                ctx->state = STATE_OVERWORLD;
+            break;
+
         case STATE_ENDING:
             game_run_ending(ctx);
             ctx->state = STATE_QUIT;

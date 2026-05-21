@@ -787,6 +787,12 @@ Après le traitement de l'événement, le retour s'effectue toujours vers
 approprié, puis `return` pour sortir de la boucle. Le retour sur la carte
 se fait par le re-entry dans `game_run_overworld` au tour suivant.
 
+> **Note Vallée des Dieux** : le nœud `0x1c` n'est **pas** délégué à
+> `STATE_STONEHENGE`. Il dispose de son propre état `STATE_VALLEY` géré
+> par `moon_valley.c`, qui implémente fidèlement `LAB_009D` : vérification
+> des 4 clefs, intro, déclenchement du combat final, puis résolution
+> victoire/défaite.
+
 #### Résumé des actions déclenchables sur la carte
 
 | Type nœud    | Nom UI                          | Action                                                      | ASM handler  | C (état cible)        |
@@ -797,7 +803,7 @@ se fait par le re-entry dans `game_run_overworld` au tour suivant.
 | `0x19`       | "Enter the city of Highwood"    | Cité de Highwood                                            | `LAB_0093`   | `STATE_TOWN`          |
 | `0x1a`       | "Enter the city of Waterdeep"   | Cité de Waterdeep                                           | `LAB_008A`   | `STATE_TOWN`          |
 | `0x1b`       | "Enter Stonehenge"              | Stonehenge                                                  | `LAB_00A1`   | `STATE_STONEHENGE`    |
-| `0x1c`       | "Enter Valley of the Gods"      | **Vallée des Dieux** : requiert 4 clefs                     | `LAB_009D`   | `STATE_STONEHENGE`    |
+| `0x1c`       | "Enter Valley of the Gods"      | **Vallée des Dieux** : requiert 4 clefs                     | `LAB_009D`   | `STATE_VALLEY`        |
 | `0x1e`       | "Visit Math the Wizard"         | Math le Sorcier                                             | `LAB_007C`   | `STATE_WIZARD`        |
 | `0x21`       | "Pillage knight's grave"        | Pillage d'une tombe *(non implémenté en C)*                 | `LAB_004F`   | *(absent)*            |
 
@@ -1305,7 +1311,7 @@ l'Amiga (ASM) et l'implémentation actuelle en C (`moon_overworld.c`).
 | **Village natal**                   | `LAB_00B0` : skill +1 si bonne faction               | `STATE_VILLAGE`                                      | ✅ Délégué à moon_village.c |
 | **Cités (Highwood, Waterdeep)**     | Menus 5 options (arène, achat, sorcier, forge/taverne) | `STATE_TOWN`                                       | ✅ Délégué à moon_town.c |
 | **Stonehenge**                      | `LAB_00A1` : offrande → skill +1                     | `STATE_STONEHENGE`                                   | ✅ Délégué à moon_stonehenge.c |
-| **Vallée des Dieux**                | `LAB_009D` : requiert 4 clefs, combat final          | `STATE_STONEHENGE` (vérification clefs déléguée)     | ✅ Délégué |
+| **Vallée des Dieux**                | `LAB_009D` : requiert 4 clefs, combat final          | `STATE_VALLEY` → `moon_valley.c`                             | ✅ Implémenté |
 | **Math le Sorcier**                 | `LAB_007C` : restaure HP, skill payant               | `STATE_WIZARD`                                       | ✅ Délégué à moon_wizard.c |
 | **Musique**                         | `vmusic.cmp` / `music.cmp` RNC1 → MOD SoundTracker  | Même décompression RNC1, lecture via `hal_music_play_raw` | ✅ Équivalent |
 | **Double-buffer Amiga**             | 2 buffers bitmap 5 plans, flip VBL                   | Framebuffer `uint32_t` unique, `hal_present`          | ✅ Équivalent (SDL2 gère le flip) |

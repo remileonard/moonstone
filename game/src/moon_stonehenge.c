@@ -1,11 +1,11 @@
 /*
- * moon_stonehenge.c — Stonehenge and Valley of Gods for Moonstone
+ * moon_stonehenge.c — Stonehenge (node 0x1b) for Moonstone
  *
- * Stonehenge (node 0x1b): to claim the Moonstone, the knight must
- *   enter with all relics (or after defeating the Valley Gods).
+ * Stonehenge (node 0x1b): the knight may offer a magic item to Danu
+ *   in exchange for a longer life (skill +1, LAB_00A1).
  *
- * Valley of Gods (node 0x1c): final boss battle — triggers the ending
- *   sequence on victory.
+ * The Valley of the Gods (node 0x1c) is handled separately in
+ * moon_valley.c (LAB_009D).
  */
 
 #include "moon_stonehenge.h"
@@ -54,51 +54,6 @@ static void wait_for_fire(GameCtx *ctx)
 void game_run_stonehenge(GameCtx *ctx)
 {
     Knight *k = &ctx->knights[ctx->current_knight];
-
-    if (ctx->node_type == 0x1c) {
-        /* Valley of Gods — requires all 4 keys (LAB_009D, §1.7) */
-        if ((k->keys & 0x0f) != 0x0f) {
-            /* Not all keys — refuse entry */
-            char key_msg[80];
-            snprintf(key_msg, sizeof(key_msg),
-                     "You have %d of 4 keys.",
-                     __builtin_popcount(k->keys & 0x0f));
-            const char *no_key[] = {
-                "VALLEY OF THE GODS",
-                "",
-                "You must have all four keys",
-                "to enter the Valley of the Gods.",
-                "",
-                key_msg,
-                "Seek the Black Knights to claim",
-                "the missing keys.",
-            };
-            draw_stonehenge_screen(ctx, no_key, 8, 0xFF888888u);
-            hal_present(ctx->fb);
-            wait_for_fire(ctx);
-            ctx->state = STATE_OVERWORLD;
-            return;
-        }
-
-        /* All 4 keys — grant access to final boss */
-        const char *pre_lines[] = {
-            "VALLEY OF THE GODS",
-            "",
-            "You possess all four keys!",
-            "The gates of the Valley",
-            "of the Gods swing open...",
-            "Only the strongest knight",
-            "may claim the Moonstone."
-        };
-        draw_stonehenge_screen(ctx, pre_lines, 7, 0xFFFFCC44u);
-        hal_present(ctx->fb);
-        wait_for_fire(ctx);
-
-        /* Trigger final boss combat */
-        ctx->node_type = 0x1c;
-        ctx->state = STATE_COMBAT;
-        return;
-    }
 
     /* Stonehenge (0x1b) */
     if (k->has_moonstone) {
