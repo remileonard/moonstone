@@ -146,16 +146,140 @@ typedef struct {
 /* Combat backgrounds                                                  */
 /* ------------------------------------------------------------------ */
 
-/* Maps node_type to a background PIV file (from DOC_MODE_COMBAT.md §2) */
-static const char *combat_bg_for_type(int node_type)
+/*
+ * combat_bg_for_node — return the PIV background file for a combat.
+ *
+ * Per DOC_MODE_COMBAT §2.1 (LAB_012C in mog.asm), ALL combats load
+ * "ch.piv" as the universal combat background.  The original game had
+ * no per-node PIV — visual variety came from palette indices applied
+ * over ch.piv.  We try that canonical name first; callers fall back
+ * gracefully if the file is absent.
+ *
+ * node_type 0x1b/0x1c have dedicated backgrounds in the doc, so keep
+ * the specialised names for those states.
+ */
+static const char *combat_bg_for_node(int node_type)
 {
     switch (node_type) {
-    case 0x01: case 0x21: return "bg5a.PIV"; /* PvP */
-    case 0x02:             return "bg3.PIV";  /* creature */
-    case 0x1b:             return "bg4.PIV";  /* Stonehenge/Mythral */
-    case 0x1c:             return "bg4.PIV";  /* Valley of Gods */
-    default:               return "bg2a.PIV"; /* default/arena */
+    case 0x1b:             return "MYS.piv";
+    case 0x1c:             return "bg4.piv";
+    default:               return "ch.piv";   /* universal per LAB_012C */
     }
+}
+
+/* ------------------------------------------------------------------ */
+/* Creature type → asset mapping (LAB_08C8, mog.asm §3.3)            */
+/* ------------------------------------------------------------------ */
+
+/*
+ * creature_cel_for_type — primary CEL/OB filename for the given
+ * creature type index (= byte offset into LAB_08C8 handler table).
+ *
+ * Sources confirmed from mog.asm labels LAB_0775..LAB_07B5 and handler
+ * code LAB_0116..LAB_0127:
+ *   0x00 → He1.ob        (enemy knight,  LAB_0123)
+ *   0x04 → Mudmen1.cel   (Mudmen,        LAB_011E)
+ *   0x08 → Balok1.cel    (Balok,         LAB_011F)
+ *   0x0c → Ratmen1.cel   (generic,       LAB_0116)
+ *   0x10 → Ratmen1.cel   (generic alt,   LAB_0116)
+ *   0x14 → Dragon1.cel   (Dragon,        LAB_0121)
+ *   0x18 → TroggAxe1.cel (TroggAxe,      LAB_011A)
+ *   0x1c → TroggSpear1.cel(TroggSpear,   LAB_011A)
+ *   0x20 → Demon1.cel    (Demon,         LAB_0118)
+ *   0x24 → Ratmen1.cel   (Ratmen variant,LAB_011C)
+ *   0x30 → Troll1.cel    (Troll,         LAB_011F-ish / LAB_07B4)
+ *   0x38 → Ratmen1.cel   (generic,       LAB_0164)
+ *   0x40 → Sel.cel       (Demon/Selene,  LAB_0126)
+ */
+static const char *creature_cel_for_type(int ctype)
+{
+    switch (ctype) {
+    case 0x00: return "He1.ob";
+    case 0x04: return "Mudmen1.cel";
+    case 0x08: return "Balok1.cel";
+    case 0x14: return "Dragon1.cel";
+    case 0x18: return "TroggAxe1.cel";
+    case 0x1c: return "TroggSpear1.cel";
+    case 0x20: return "Demon1.cel";
+    case 0x40: return "Sel.cel";
+    case 0x30: return "Troll1.cel";
+    default:   return "Ratmen1.cel";   /* 0x0c, 0x10, 0x24, 0x38 */
+    }
+}
+
+/*
+ * creature_name_for_type — display name matching the creature type,
+ * aligned with the PveNode name strings set from LAB_07BD.
+ */
+static const char *creature_name_for_type(int ctype)
+{
+    switch (ctype) {
+    case 0x00: return "ENEMY KNIGHT";
+    case 0x04: return "MUDMEN";
+    case 0x08: return "BALOK";
+    case 0x14: return "DRAGON";
+    case 0x18: return "TROGGAXE";
+    case 0x1c: return "TROGGSPEAR";
+    case 0x20: return "DEMON";
+    case 0x30: return "TROLL";
+    case 0x40: return "SELENE";
+    default:   return "RATMEN";
+    }
+}
+
+/* ------------------------------------------------------------------ */
+/* Multi-enemy wave system                                             */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Maximum number of simultaneous enemies on screen — matches the
+ * maximum spawn config from LAB_01BC/LAB_01BD (3 creatures).
+ */
+#define MAX_COMBAT_ENEMIES  3
+
+/*
+ * Difficulty tables based on knight strength (1–5).
+ *
+ * total_to_kill : how many creatures must die to win the fight.
+ *   Faithful to LAB_01B7's spawn types (1, 3, or 3) weighted toward
+ *   higher totals at higher levels.
+ *
+ * simultaneous : how many enemies are on screen at once.
+ *   LAB_01BC spawns 3 simultaneously; at low levels only 1 at a time.
+ */
+static int pve_total_to_kill(int strength)
+{
+    if (strength <= 1) return 1;
+    if (strength <= 2) return 2;
+    if (strength <= 3) return 3;
+    if (strength <= 4) return 4;
+    return 5;
+}
+
+static int pve_simultaneous(int strength)
+{
+    if (strength <= 2) return 1;
+    if (strength <= 4) return 2;
+    return 3;
+}
+
+/*
+ * spawn_enemy — initialise a new enemy combatant at the right-side
+ * spawn point.  Slightly randomise X start to distinguish waves.
+ */
+static void spawn_enemy(Combatant *e, int spawn_idx,
+                        const char *name, int base_hp)
+{
+    memset(e, 0, sizeof(*e));
+    e->hp         = base_hp;
+    e->max_hp     = base_hp;
+    /* Spread enemies horizontally so they don't stack */
+    e->x          = 220 + spawn_idx * 20;
+    e->y          = COMBAT_GROUND_Y;
+    e->facing     = -1;
+    e->state      = CSTATE_IDLE;
+    e->human      = 0;
+    e->name       = name;
 }
 
 /* ------------------------------------------------------------------ */
@@ -209,9 +333,11 @@ static const FrameRange s_creature_ranges[] = {
 #define NUM_STATES_KNIGHT   ((int)(sizeof(s_knight_ranges)   / sizeof(s_knight_ranges[0])))
 #define NUM_STATES_CREATURE ((int)(sizeof(s_creature_ranges) / sizeof(s_creature_ranges[0])))
 
-/* Per-combatant animation sub-frame (index within current state's range) */
-static int s_anim_frame[2] = { 0, 0 }; /* [0]=player, [1]=enemy */
-static int s_anim_tick [2] = { 0, 0 };
+/* Per-combatant animation sub-frame (index within current state's range).
+ * Index 0 = player, indices 1..MAX_COMBAT_ENEMIES = enemy slots.    */
+#define ANIM_SLOTS  (1 + MAX_COMBAT_ENEMIES)
+static int s_anim_frame[ANIM_SLOTS];
+static int s_anim_tick [ANIM_SLOTS];
 #define COMBAT_ANIM_SPEED  4  /* ticks per animation frame */
 
 /* ------------------------------------------------------------------ */
@@ -521,12 +647,16 @@ static void ai_update(Combatant *ai, const Combatant *player,
 
 void game_run_combat(GameCtx *ctx)
 {
-    /* Set up combatants */
-    Combatant player, enemy;
-    memset(&player, 0, sizeof(player));
-    memset(&enemy,  0, sizeof(enemy));
-
     Knight *pk = &ctx->knights[ctx->current_knight];
+
+    /* Knight strength drives difficulty (default 1 if uninitialised) */
+    int knight_strength = pk->strength > 0 ? pk->strength : 1;
+
+    /* ---------------------------------------------------------------- */
+    /* Set up player combatant                                          */
+    /* ---------------------------------------------------------------- */
+    Combatant player;
+    memset(&player, 0, sizeof(player));
     player.hp         = pk->hp;
     player.max_hp     = pk->max_hp;
     player.x          = 80;
@@ -537,44 +667,100 @@ void game_run_combat(GameCtx *ctx)
     player.knight_idx = ctx->current_knight;
     player.name       = (const char *[]){ "RICHARD","GODBER","JEFFREY","EDWARD" }[pk->id];
 
-    /* Enemy HP scales with combat type and knight strength (difficulty) */
-    int enemy_hp = 40 + pk->strength * 8;   /* base difficulty        */
-    const char *enemy_name = "CREATURE";
-    if (ctx->node_type == 0x01 || ctx->node_type == 0x21) {
-        enemy_name = "KNIGHT";
-        enemy_hp   = 60 + pk->strength * 10;
-    } else if (ctx->node_type == 0x1c) {
-        enemy_name = "VALLEY GOD";
-        enemy_hp   = 120 + pk->strength * 16;
-    }
-    enemy.hp      = enemy_hp;
-    enemy.max_hp  = enemy_hp;
-    enemy.x       = 240;
-    enemy.y       = COMBAT_GROUND_Y;
-    enemy.facing  = -1;
-    enemy.state   = CSTATE_IDLE;
-    enemy.human   = 0;
-    enemy.name    = enemy_name;
+    /* ---------------------------------------------------------------- */
+    /* Determine enemy type, CEL, name and HP                          */
+    /* ---------------------------------------------------------------- */
 
-    /* Load background */
-    const char *bg_name = combat_bg_for_type(ctx->node_type);
+    /* Is this a PvP fight (knight vs knight)?                         */
+    int enemy_is_knight = (ctx->node_type == 0x01 || ctx->node_type == 0x21);
+
+    /* Creature type comes from the PVE context set by the overworld.
+     * For non-PVE combats (PvP, valley) pve_creature_type is ignored.
+     * We use it here only when node_type == 0x02.                     */
+    int creature_type = (ctx->node_type == 0x02) ? ctx->pve_creature_type : -1;
+
+    const char *enemy_cel_name;
+    const char *enemy_name;
+    int         base_enemy_hp;
+
+    if (enemy_is_knight) {
+        /* PvP: enemy uses the same knight sprites                     */
+        enemy_cel_name  = "dw1.cel";   /* will be replaced by knight_cel */
+        enemy_name      = "KNIGHT";
+        base_enemy_hp   = 60 + knight_strength * 10;
+    } else if (ctx->node_type == 0x1c) {
+        enemy_cel_name  = "au1.cel";
+        enemy_name      = "VALLEY GOD";
+        base_enemy_hp   = 120 + knight_strength * 16;
+    } else if (ctx->node_type == 0x02) {
+        /* PVE creature — select CEL from the creature type extracted   *
+         * from LAB_07BD (mog.asm) during overworld node setup.         */
+        enemy_cel_name  = creature_cel_for_type(creature_type);
+        enemy_name      = creature_name_for_type(creature_type);
+        /* HP scales with node defence value (pve_node_defense) and     *
+         * knight strength.  LAB_07BD low word is creature defence;     *
+         * we use it as a base multiplier (× 4) on top of a strength   *
+         * bonus, matching the original stat scaling.                   */
+        int cdef        = (ctx->pve_node_defense > 0) ? ctx->pve_node_defense : 5;
+        base_enemy_hp   = cdef * 4 + knight_strength * 6;
+        if (base_enemy_hp < 20) base_enemy_hp = 20;
+    } else {
+        enemy_cel_name  = "au1.cel";
+        enemy_name      = "CREATURE";
+        base_enemy_hp   = 40 + knight_strength * 8;
+    }
+
+    /* ---------------------------------------------------------------- */
+    /* PVE wave system — LAB_01B7 spawn type probability table         */
+    /*                                                                  */
+    /* From mog.asm LAB_08C5:                                          */
+    /*   rand 0..49  (50 %) → type 1 : 1 creature                     */
+    /*   rand 50..69 (20 %) → type 2 : 3 creatures simultaneously     */
+    /*   rand 70..89 (20 %) → type 3 : 1 + 2 = 3 total, 1 at a time  */
+    /*   rand 90..99 (10 %) → type 4 : reserved (treated as type 1)   */
+    /*                                                                  */
+    /* We map knight strength → difficulty, scaling both the total    */
+    /* number of kills required and simultaneous enemies on screen.    */
+    /* ---------------------------------------------------------------- */
+    int enemies_total      = pve_total_to_kill(knight_strength);
+    int enemies_simul      = pve_simultaneous(knight_strength);
+    int enemies_killed     = 0;   /* creatures defeated so far         */
+    int enemies_spawned    = 0;   /* creatures spawned so far          */
+
+    /* For non-PVE combat (PvP, Valley) always use a single enemy      */
+    if (ctx->node_type != 0x02) {
+        enemies_total  = 1;
+        enemies_simul  = 1;
+    }
+
+    /* Enemy combatant array — up to MAX_COMBAT_ENEMIES simultaneous   */
+    Combatant enemies[MAX_COMBAT_ENEMIES];
+    memset(enemies, 0, sizeof(enemies));
+
+    /* Spawn initial wave of enemies                                    */
+    {
+        int to_spawn = enemies_simul;
+        if (to_spawn > enemies_total) to_spawn = enemies_total;
+        for (int i = 0; i < to_spawn; i++) {
+            spawn_enemy(&enemies[i], i, enemy_name, base_enemy_hp);
+            enemies_spawned++;
+        }
+    }
+
+    /* ---------------------------------------------------------------- */
+    /* Load background (ch.piv — universal combat bg per LAB_012C)     */
+    /* ---------------------------------------------------------------- */
+    const char *bg_name = combat_bg_for_node(ctx->node_type);
     uint32_t bg[GAME_W * GAME_H];
     uint32_t bg_palette[MAX_PALETTE];
     MoonPiv *piv = moon_piv_load(bg_name);
     if (!piv) {
-        const char *alt = bg_name;
-        /* Try lowercase variant */
-        char lc_name[64];
-        int li = 0;
-        for (; alt[li] && li < 63; li++)
-            lc_name[li] = (char)(alt[li] >= 'A' && alt[li] <= 'Z'
-                           ? alt[li] + 32 : alt[li]);
-        lc_name[li] = '\0';
-        piv = moon_piv_load(lc_name);
+        /* Try the other common name variant */
+        if (bg_name[0] == 'c' || bg_name[0] == 'C')
+            piv = moon_piv_load("ch.PIV");
+        else
+            piv = moon_piv_load("ch.piv");
     }
-    /* Also try ch.piv — the dedicated combat background */
-    if (!piv) piv = moon_piv_load("ch.piv");
-    if (!piv) piv = moon_piv_load("ch.PIV");
     if (piv) {
         render_piv_full(piv, bg);
         int pal_size = 1 << piv->planes;
@@ -584,40 +770,68 @@ void game_run_combat(GameCtx *ctx)
     } else {
         for (int i = 0; i < GAME_W * GAME_H; i++)
             bg[i] = 0xFF080808u;
-        /* Fallback neutral palette */
         for (int i = 0; i < MAX_PALETTE; i++)
             bg_palette[i] = 0xFF808080u | 0xFF000000u;
     }
 
-    /* Load knight sprite (dw1.cel — generic knight, 53 frames) */
-    MoonCel *knight_cel = moon_cel_load("dw1.cel");
-    if (!knight_cel) knight_cel = moon_cel_load("dw1.CEL");
-
-    /* Load enemy/creature sprite (au1.cel — 92 frames) */
-    MoonCel *enemy_cel  = moon_cel_load("au1.cel");
-    if (!enemy_cel) enemy_cel = moon_cel_load("au1.CEL");
-
-    /* For PvP, enemy is also a knight */
-    int enemy_is_knight = (ctx->node_type == 0x01 || ctx->node_type == 0x21);
-    if (enemy_is_knight && !enemy_cel) {
-        /* Re-use the knight sprite for the opponent */
-        enemy_cel = knight_cel;
+    /* ---------------------------------------------------------------- */
+    /* Load knight sprite (dw1.cel — generic knight, 53 frames)        */
+    /* dw1.cel is always loaded for the player combatant.              */
+    /* The player's knight may also load their faction OB file:        */
+    /*   kn1.ob … kn4.ob (LAB_01A9, LAB_07FC in mog.asm).             */
+    /* We try the faction-specific OB first and fall back to dw1.cel.  */
+    /* ---------------------------------------------------------------- */
+    static const char *s_faction_ob[MAX_PLAYERS] = {
+        "kn1.ob", "kn2.ob", "kn3.ob", "kn4.ob"
+    };
+    MoonCel *knight_cel = NULL;
+    {
+        int ki = ctx->current_knight;
+        if (ki >= 0 && ki < MAX_PLAYERS)
+            knight_cel = moon_cel_load(s_faction_ob[ki]);
+        if (!knight_cel) knight_cel = moon_cel_load("dw1.cel");
+        if (!knight_cel) knight_cel = moon_cel_load("dw1.CEL");
     }
 
-    /* Reset per-combat animation counters */
-    s_anim_frame[0] = s_anim_frame[1] = 0;
-    s_anim_tick [0] = s_anim_tick [1] = 0;
+    /* ---------------------------------------------------------------- */
+    /* Load creature/enemy CEL (from creature type, with fallbacks)    */
+    /* ---------------------------------------------------------------- */
+    MoonCel *enemy_cel = moon_cel_load(enemy_cel_name);
+    if (!enemy_cel) {
+        /* Try lowercase variant of the filename                       */
+        char lc[64];
+        int li = 0;
+        for (; enemy_cel_name[li] && li < 63; li++)
+            lc[li] = (char)(enemy_cel_name[li] >= 'A' && enemy_cel_name[li] <= 'Z'
+                            ? enemy_cel_name[li] + 32 : enemy_cel_name[li]);
+        lc[li] = '\0';
+        enemy_cel = moon_cel_load(lc);
+    }
+    if (!enemy_cel) enemy_cel = moon_cel_load("au1.cel");
+    if (!enemy_cel) enemy_cel = moon_cel_load("au1.CEL");
+
+    /* For PvP the enemy uses the same knight sprites                  */
+    if (enemy_is_knight && !enemy_cel)
+        enemy_cel = knight_cel;
+
+    /* ---------------------------------------------------------------- */
+    /* Reset per-combat animation counters                              */
+    /* ---------------------------------------------------------------- */
+    for (int i = 0; i < ANIM_SLOTS; i++) {
+        s_anim_frame[i] = 0;
+        s_anim_tick [i] = 0;
+    }
 
     static const uint32_t knight_colors[MAX_PLAYERS] = {
         0xFF4444FFu, 0xFFFF4444u, 0xFF44FF44u, 0xFFFFFF44u
     };
 
-    /* Knight strength for AI difficulty (default 1 if uninitialised) */
-    int knight_strength = pk->strength > 0 ? pk->strength : 1;
-
-    /* Track previous fire state to detect the rising edge              */
+    /* Track previous fire state to detect rising edge (LAB_057D)      */
     int prev_fire = 0;
 
+    /* ================================================================ */
+    /* Main combat loop                                                 */
+    /* ================================================================ */
     while (ctx->state == STATE_COMBAT) {
         if (hal_poll(&ctx->input)) {
             if (ctx->input.quit || ctx->input.escape) {
@@ -641,7 +855,6 @@ void game_run_combat(GameCtx *ctx)
             if (player.state_timer > 0) {
                 player.state_timer--;
                 if (player.state_timer == 0) {
-                    /* Attack/block finished — clear attack type */
                     player.attack_type = ATTACK_NONE;
                     player.state       = CSTATE_IDLE;
                 }
@@ -660,35 +873,33 @@ void game_run_combat(GameCtx *ctx)
                                               ? CSTATE_BLOCK : CSTATE_ATTACK;
                         player.state_timer  = resolve_attack_duration(at);
 
-                        /* Resolve hit immediately for melee attacks.
-                         * Knife could be a projectile but we resolve it
-                         * instantly here for simplicity. */
-                        if (enemy.state != CSTATE_DEAD &&
-                            check_hit(&player, &enemy)) {
-                            /* Block/Special reduce incoming damage to 0;
-                             * a blocking enemy absorbs the hit. */
-                            int blocked = (enemy.state == CSTATE_BLOCK);
-                            if (!blocked) {
-                                int dmg = resolve_attack_damage(at);
-                                enemy.hp -= dmg;
-                                if (enemy.hp < 0) enemy.hp = 0;
-                                enemy.hit_flash  = 6;
-                                /* Stagger when critically low */
-                                if (enemy.hp <= LOW_HP_THRESHOLD && enemy.hp > 0) {
-                                    enemy.state       = CSTATE_STAGGER;
-                                    enemy.state_timer = DUR_STAGGER;
-                                } else {
-                                    enemy.state       = CSTATE_HIT;
-                                    enemy.state_timer = DUR_HIT;
+                        /* Test hit against all active enemies */
+                        for (int ei = 0; ei < MAX_COMBAT_ENEMIES; ei++) {
+                            if (enemies[ei].state == CSTATE_DEAD) continue;
+                            if (enemies[ei].hp    <= 0)            continue;
+                            if (check_hit(&player, &enemies[ei])) {
+                                int blocked = (enemies[ei].state == CSTATE_BLOCK);
+                                if (!blocked) {
+                                    int dmg = resolve_attack_damage(at);
+                                    enemies[ei].hp -= dmg;
+                                    if (enemies[ei].hp < 0) enemies[ei].hp = 0;
+                                    enemies[ei].hit_flash = 6;
+                                    if (enemies[ei].hp <= LOW_HP_THRESHOLD
+                                        && enemies[ei].hp > 0) {
+                                        enemies[ei].state       = CSTATE_STAGGER;
+                                        enemies[ei].state_timer = DUR_STAGGER;
+                                    } else {
+                                        enemies[ei].state       = CSTATE_HIT;
+                                        enemies[ei].state_timer = DUR_HIT;
+                                    }
                                 }
                             }
                         }
                     }
                 } else {
                     /* Fire not held: move the knight in the arena.
-                     * Movement is purely planar (horizontal + vertical),
-                     * there is NO jumping per the game manual and
-                     * DOC_MODE_COMBAT §5. */
+                     * Movement is purely planar (no jumping) per the
+                     * game manual and DOC_MODE_COMBAT §5.             */
                     player.state = CSTATE_IDLE;
 
                     if (joy_left) {
@@ -722,22 +933,28 @@ void game_run_combat(GameCtx *ctx)
 
         prev_fire = cur_fire;
 
-        /* Advance stagger oscillation counter (drives the wobble)      */
+        /* Advance player stagger oscillation counter                   */
         if (player.hp > 0 && player.hp <= LOW_HP_THRESHOLD)
             player.stagger_tick++;
-        if (enemy.hp  > 0 && enemy.hp  <= LOW_HP_THRESHOLD)
-            enemy.stagger_tick++;
 
-        /* ---- AI update ---- */
-        if (enemy.state != CSTATE_DEAD) {
-            ai_update(&enemy, &player, knight_strength);
+        /* ---- AI update for each active enemy ---- */
+        for (int ei = 0; ei < MAX_COMBAT_ENEMIES; ei++) {
+            Combatant *e = &enemies[ei];
+
+            if (e->state == CSTATE_DEAD && e->hp <= 0) continue;
+
+            /* Advance stagger oscillation */
+            if (e->hp > 0 && e->hp <= LOW_HP_THRESHOLD)
+                e->stagger_tick++;
+
+            if (e->state != CSTATE_DEAD)
+                ai_update(e, &player, knight_strength);
 
             /* Resolve AI attack hitting the player */
-            if (enemy.state == CSTATE_ATTACK &&
-                check_hit(&enemy, &player)) {
+            if (e->state == CSTATE_ATTACK && check_hit(e, &player)) {
                 int blocked = (player.state == CSTATE_BLOCK);
                 if (!blocked) {
-                    int dmg = resolve_attack_damage(enemy.attack_type);
+                    int dmg = resolve_attack_damage(e->attack_type);
                     player.hp -= dmg;
                     if (player.hp < 0) player.hp = 0;
                     player.hit_flash = 6;
@@ -750,53 +967,103 @@ void game_run_combat(GameCtx *ctx)
                     }
                 }
             }
+
+            /* Detect newly-dead enemies and count kills                */
+            if (e->hp <= 0 && e->state != CSTATE_DEAD) {
+                e->state = CSTATE_DEAD;
+                enemies_killed++;
+                /* Spawn a replacement if the wave is not exhausted     */
+                if (enemies_spawned < enemies_total) {
+                    spawn_enemy(e, ei, enemy_name, base_enemy_hp);
+                    enemies_spawned++;
+                    /* Reset animation slot for this enemy slot          */
+                    s_anim_frame[1 + ei] = 0;
+                    s_anim_tick [1 + ei] = 0;
+                }
+            }
         }
 
         /* ---- Clamp positions to arena bounds ---- */
-        if (player.x < 8)            player.x = 8;
-        if (player.x > GAME_W - 8)   player.x = GAME_W - 8;
-        if (player.y < ARENA_Y_MIN)  player.y = ARENA_Y_MIN;
-        if (player.y > ARENA_Y_MAX)  player.y = ARENA_Y_MAX;
-        if (enemy.x  < 8)            enemy.x  = 8;
-        if (enemy.x  > GAME_W - 8)   enemy.x  = GAME_W - 8;
-        if (enemy.y  < ARENA_Y_MIN)  enemy.y  = ARENA_Y_MIN;
-        if (enemy.y  > ARENA_Y_MAX)  enemy.y  = ARENA_Y_MAX;
+        if (player.x < 8)           player.x = 8;
+        if (player.x > GAME_W - 8)  player.x = GAME_W - 8;
+        if (player.y < ARENA_Y_MIN) player.y = ARENA_Y_MIN;
+        if (player.y > ARENA_Y_MAX) player.y = ARENA_Y_MAX;
+        for (int ei = 0; ei < MAX_COMBAT_ENEMIES; ei++) {
+            Combatant *e = &enemies[ei];
+            if (e->x < 8)           e->x = 8;
+            if (e->x > GAME_W - 8)  e->x = GAME_W - 8;
+            if (e->y < ARENA_Y_MIN) e->y = ARENA_Y_MIN;
+            if (e->y > ARENA_Y_MAX) e->y = ARENA_Y_MAX;
+        }
 
         /* Decrement hit flash */
         if (player.hit_flash > 0) player.hit_flash--;
-        if (enemy.hit_flash  > 0) enemy.hit_flash--;
+        for (int ei = 0; ei < MAX_COMBAT_ENEMIES; ei++)
+            if (enemies[ei].hit_flash > 0) enemies[ei].hit_flash--;
 
-        /* ---- Death check ---- */
+        /* ---- Death check for player ---- */
         if (player.hp <= 0) player.state = CSTATE_DEAD;
-        if (enemy.hp  <= 0) enemy.state  = CSTATE_DEAD;
+
+        /* ---- Victory check: all kills done and no living enemies ---- */
+        int all_dead = 1;
+        for (int ei = 0; ei < MAX_COMBAT_ENEMIES; ei++) {
+            if (enemies[ei].state != CSTATE_DEAD && enemies[ei].hp > 0)
+                all_dead = 0;
+        }
+        int victory = (all_dead && enemies_killed >= enemies_total);
 
         /* ---- Render ---- */
         memcpy(ctx->fb, bg, sizeof(bg));
 
-        draw_combatant_cel(ctx->fb, &enemy,  1,
-                           enemy_is_knight ? knight_cel : enemy_cel,
-                           bg_palette,
-                           enemy_is_knight,
-                           0xFFCC4444u);
+        /* Draw all active enemies (back-to-front, right to left)       */
+        for (int ei = MAX_COMBAT_ENEMIES - 1; ei >= 0; ei--) {
+            if (enemies[ei].state == CSTATE_DEAD && enemies[ei].hp <= 0)
+                continue;
+            draw_combatant_cel(ctx->fb, &enemies[ei], 1 + ei,
+                               enemy_is_knight ? knight_cel : enemy_cel,
+                               bg_palette,
+                               enemy_is_knight,
+                               0xFFCC4444u);
+        }
+
+        /* Draw player */
         draw_combatant_cel(ctx->fb, &player, 0,
                            knight_cel,
                            bg_palette,
                            1 /* is_knight */,
                            knight_colors[ctx->current_knight]);
 
-        /* HP bars — always visible per issue requirement               */
+        /* HP bars — player top-left, first living enemy top-right      */
         draw_hp_bar(ctx->fb, 10, 12,
                     player.hp, player.max_hp,
                     knight_colors[ctx->current_knight], player.name);
-        draw_hp_bar(ctx->fb, GAME_W - 90, 12,
-                    enemy.hp, enemy.max_hp,
-                    0xFFCC4444u, enemy.name);
+        {
+            /* Find the first living enemy for the HP bar               */
+            for (int ei = 0; ei < MAX_COMBAT_ENEMIES; ei++) {
+                if (enemies[ei].state != CSTATE_DEAD && enemies[ei].hp > 0) {
+                    draw_hp_bar(ctx->fb, GAME_W - 90, 12,
+                                enemies[ei].hp, enemies[ei].max_hp,
+                                0xFFCC4444u, enemies[ei].name);
+                    break;
+                }
+            }
+        }
 
-        /* Low-HP warning (knight "vacille" signal to player)           */
+        /* Wave counter (PVE only): show remaining kills                */
+        if (ctx->node_type == 0x02 && enemies_total > 1) {
+            char wave_buf[32];
+            int remaining = enemies_total - enemies_killed;
+            if (remaining < 0) remaining = 0;
+            snprintf(wave_buf, sizeof(wave_buf), "LEFT: %d/%d",
+                     enemies_killed, enemies_total);
+            render_text(ctx->fb, wave_buf, 10, 24, 0xFFFFDD88u);
+        }
+
+        /* Low-HP warning (knight "vacille" per DOC_MODE_COMBAT §7)     */
         if (player.hp > 0 && player.hp <= LOW_HP_THRESHOLD)
             render_text_centered(ctx->fb, "STAGGERING!", 28, 0xFFFF8800u);
 
-        /* Current attack label (debug / UX feedback)                  */
+        /* Current attack label (UX feedback)                          */
         if (player.state == CSTATE_ATTACK || player.state == CSTATE_BLOCK) {
             static const char *attack_names[] = {
                 "", "SWING", "AXE BLOW", "FORWARD BLOW",
@@ -813,7 +1080,7 @@ void game_run_combat(GameCtx *ctx)
         if (player.state == CSTATE_DEAD) {
             render_text_centered(ctx->fb, "YOU DIED",      GAME_H / 2,      0xFFFF2222u);
             render_text_centered(ctx->fb, "Press any key", GAME_H / 2 + 12, 0xFF888888u);
-        } else if (enemy.state == CSTATE_DEAD) {
+        } else if (victory) {
             render_text_centered(ctx->fb, "VICTORY!",      GAME_H / 2,      0xFF44FF44u);
             render_text_centered(ctx->fb, "Press any key", GAME_H / 2 + 12, 0xFF888888u);
         }
@@ -822,7 +1089,7 @@ void game_run_combat(GameCtx *ctx)
         hal_vbl_wait();
 
         /* ---- Combat end ---- */
-        if (player.state == CSTATE_DEAD || enemy.state == CSTATE_DEAD) {
+        if (player.state == CSTATE_DEAD || victory) {
             /* Wait for keypress */
             int waited = 0;
             while (waited < 150) {
@@ -836,13 +1103,12 @@ void game_run_combat(GameCtx *ctx)
 
             /* Apply combat results */
             if (player.state == CSTATE_DEAD) {
-                pk->hp = 0;
+                pk->hp   = 0;
                 pk->dead = 1;
-                /* Gold penalty */
                 pk->gold /= 2;
             } else {
                 /* Victory: restore some HP, gain gold */
-                pk->hp = player.hp;
+                pk->hp    = player.hp;
                 pk->gold += 20;
                 pk->xp   += 50;
 
@@ -850,14 +1116,8 @@ void game_run_combat(GameCtx *ctx)
                  * (node_target_knight stores the PVE node index when
                  *  node_type == 0x02 and it was a creature combat).    */
                 if (ctx->node_type == 0x02) {
-                    extern int g_pve_node_hit; /* set in moon_overworld.c */
-                    (void)g_pve_node_hit;
-                    /* Award key via node_target_knight if in range */
                     int pve_idx = ctx->node_target_knight;
-                    if (pve_idx >= 0 && pve_idx < 8) {
-                        /* Resolve key award — the PVE table is in
-                         * moon_overworld.c; we read it through the
-                         * exported helper. */
+                    if (pve_idx >= 0 && pve_idx < 24) {
                         extern int overworld_pve_take_key(int node_idx, Knight *k);
                         overworld_pve_take_key(pve_idx, pk);
                     }
@@ -867,8 +1127,7 @@ void game_run_combat(GameCtx *ctx)
             /* Determine return state.
              * Valley of Gods (0x1c): return to STATE_VALLEY so
              * game_run_valley can resolve the outcome (victory or
-             * defeat).  node_target_knight carries the result flag:
-             *   0 = player won, 1 = player lost. */
+             * defeat).  node_target_knight carries the result flag. */
             if (ctx->node_type == 0x1c) {
                 ctx->node_target_knight = (player.state == CSTATE_DEAD) ? 1 : 0;
                 ctx->state = STATE_VALLEY;

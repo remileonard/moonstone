@@ -79,45 +79,67 @@ static const MapNode s_nodes[] = {
 typedef struct {
     int x;
     int y;
-    int key_bit;    /* –1 = dynamic (assigned randomly at game start)  */
-    int alive;      /* 1 = still present on the map                   */
+    int key_bit;      /* –1 = dynamic (assigned randomly at game start)  */
+    int alive;        /* 1 = still present on the map                   */
     const char *name;
+    int creature_type;/* LAB_07BD high word = byte offset into LAB_08C8  */
+    int creature_def; /* LAB_07BD low  word = creature defence value      */
+    int group;        /* sound/region group: 0=fol, 1=wal, 2=swl, 3=gll */
 } PveNode;
 
 /*
  * 24 creature nodes — positions extracted from LAB_07BE (mog.asm).
  * Each DC.L $XXXXYYYY encodes X=high-word, Y=low-word.
+ *
+ * creature_type / creature_def come from LAB_07BD (mog.asm):
+ *   DC.L $TTTTDDDD  where TTTT = high word (type/handler offset),
+ *                         DDDD = low  word (defence value)
+ *
+ * creature_type values (LAB_08C8 offsets, confirmed by LAB_01AE fill loop):
+ *   0x00 = He   (enemy knight, He1.ob)
+ *   0x04 = Mudmen (Mudmen1.cel)
+ *   0x08 = Balok  (Balok1.cel)
+ *   0x0c = Ratmen generic (Ratmen1.cel)
+ *   0x14 = Dragon (Dragon1.cel)
+ *   0x18 = TroggAxe  (TroggAxe1.cel)
+ *   0x1c = TroggSpear (TroggSpear1.cel)
+ *   0x20 = Demon (Demon1.cel)
+ *   0x24 = Ratmen variant (Ratmen1.cel)
+ *   0x30 = Troll (Troll1.cel)
+ *   0x40 = Demon/Selene (Sel.cel)
+ *
  * Groups (per LAB_07C0 sound table): fol=0-5, wal=6-11, swl=12-17, gll=18-23.
  */
 static PveNode s_pve_nodes[] = {
+    /* x,   y, key, alive, name,         ctype, cdef, grp */
     /* Entries 0-5  : "fol" group (western region) */
-    {  24, 112, -1, 1, "Creature" },   /* $00180070 */
-    { 104, 120, -1, 1, "Creature" },   /* $00680078 */
-    { 120, 144, -1, 1, "Creature" },   /* $00780090 */
-    {  80, 184, -1, 1, "Creature" },   /* $005000b8 */
-    {  24, 160, -1, 1, "Creature" },   /* $001800a0 */
-    {  48, 136, -1, 1, "Creature" },   /* $00300088 */
+    {  24, 112, -1, 1, "RATMEN",        0x24, 0x0a, 0 }, /* $00180070 */
+    { 104, 120, -1, 1, "TROGGAXE",      0x18, 0x0a, 0 }, /* $00680078 */
+    { 120, 144, -1, 1, "TROGGAXE",      0x18, 0x0e, 0 }, /* $00780090 */
+    {  80, 184, -1, 1, "RATMEN",        0x24, 0x0e, 0 }, /* $005000b8 */
+    {  24, 160, -1, 1, "RATMEN",        0x24, 0x0e, 0 }, /* $001800a0 */
+    {  48, 136, -1, 1, "TROGGAXE",      0x18, 0x0d, 0 }, /* $00300088 */
     /* Entries 6-11 : "wal" group (north/northeast region) */
-    { 296,  32, -1, 1, "Creature" },   /* $01280020 */
-    { 232,  16, -1, 1, "Creature" },   /* $00e80010 */
-    { 176,  48, -1, 1, "Creature" },   /* $00b00030 */
-    { 240,  48, -1, 1, "Creature" },   /* $00f00030 */
-    { 216,  72, -1, 1, "Creature" },   /* $00d80048 */
-    { 272,  80, -1, 1, "Creature" },   /* $01100050 */
+    { 296,  32, -1, 1, "TROLL",         0x30, 0x04, 1 }, /* $01280020 */
+    { 232,  16, -1, 1, "TROLL",         0x30, 0x03, 1 }, /* $00e80010 */
+    { 176,  48, -1, 1, "TROLL",         0x30, 0x05, 1 }, /* $00b00030 */
+    { 240,  48, -1, 1, "TROGGSPEAR",    0x1c, 0x0a, 1 }, /* $00f00030 */
+    { 216,  72, -1, 1, "TROGGSPEAR",    0x1c, 0x0a, 1 }, /* $00d80048 */
+    { 272,  80, -1, 1, "TROGGSPEAR",    0x1c, 0x0a, 1 }, /* $01100050 */
     /* Entries 12-17: "swl" group (central/eastern region) */
-    { 208, 104, -1, 1, "Creature" },   /* $00d00068 */
-    { 248, 120, -1, 1, "Creature" },   /* $00f80078 */
-    { 168, 136, -1, 1, "Creature" },   /* $00a80088 */
-    { 152, 176, -1, 1, "Creature" },   /* $009800b0 */
-    { 232, 176, -1, 1, "Creature" },   /* $00e800b0 */
-    { 288, 176, -1, 1, "Creature" },   /* $012000b0 */
+    { 208, 104, -1, 1, "MUDMEN",        0x04, 0x05, 2 }, /* $00d00068 */
+    { 248, 120, -1, 1, "MUDMEN",        0x04, 0x05, 2 }, /* $00f80078 */
+    { 168, 136, -1, 1, "MUDMEN",        0x04, 0x05, 2 }, /* $00a80088 */
+    { 152, 176, -1, 1, "DEMON",         0x40, 0x07, 2 }, /* $009800b0 */
+    { 232, 176, -1, 1, "MUDMEN",        0x04, 0x06, 2 }, /* $00e800b0 */
+    { 288, 176, -1, 1, "DEMON",         0x40, 0x06, 2 }, /* $012000b0 */
     /* Entries 18-23: "gll" group (northwest/north-central region) */
-    {  24,  24, -1, 1, "Creature" },   /* $00180018 */
-    {  96,  16, -1, 1, "Creature" },   /* $00600010 */
-    { 136,  40, -1, 1, "Creature" },   /* $00880028 */
-    {  32,  64, -1, 1, "Creature" },   /* $00200040 */
-    {  80,  64, -1, 1, "Creature" },   /* $00500040 */
-    {  96,  88, -1, 1, "Creature" },   /* $00600058 */
+    {  24,  24, -1, 1, "ENEMY KNIGHT",  0x00, 0x08, 3 }, /* $00180018 */
+    {  96,  16, -1, 1, "DEMON",         0x20, 0x05, 3 }, /* $00600010 */
+    { 136,  40, -1, 1, "DEMON",         0x20, 0x04, 3 }, /* $00880028 */
+    {  32,  64, -1, 1, "ENEMY KNIGHT",  0x00, 0x08, 3 }, /* $00200040 */
+    {  80,  64, -1, 1, "TROGGAXE",      0x18, 0x0d, 3 }, /* $00500040 */
+    {  96,  88, -1, 1, "ENEMY KNIGHT",  0x00, 0x08, 3 }, /* $00600058 */
 };
 #define NUM_PVE_NODES ((int)(sizeof(s_pve_nodes)/sizeof(s_pve_nodes[0])))
 
@@ -936,10 +958,16 @@ void game_run_overworld(GameCtx *ctx)
                     } else {
                         int pve_node = check_pve_node(ctx);
                         if (pve_node >= 0) {
-                            /* Store PVE node index for combat resolution */
-                            ctx->node_type = 0x02;
-                            ctx->node_target_knight = pve_node;
-                            ctx->state = STATE_COMBAT;
+                            /* Store PVE node index and creature metadata
+                             * for combat resolution (moon_combat.c).
+                             * creature_type / group / defense come from
+                             * the LAB_07BD-derived PveNode table. */
+                            ctx->node_type           = 0x02;
+                            ctx->node_target_knight  = pve_node;
+                            ctx->pve_creature_type   = s_pve_nodes[pve_node].creature_type;
+                            ctx->pve_node_group      = s_pve_nodes[pve_node].group;
+                            ctx->pve_node_defense    = s_pve_nodes[pve_node].creature_def;
+                            ctx->state               = STATE_COMBAT;
                             hal_music_stop();
                             return;
                         }
@@ -1033,6 +1061,11 @@ void game_run_overworld(GameCtx *ctx)
                 ctx->node_type           = 0x02; /* dragon = PVE combat */
                 ctx->node_target_knight  = hit;
                 ctx->current_knight      = hit;
+                /* Dragon creature type = 0x14 (LAB_0192, Dragon1.cel/Dragon2.cel)
+                 * per the LAB_08C8 handler table fill in LAB_01AE (mog.asm). */
+                ctx->pve_creature_type   = 0x14; /* Dragon */
+                ctx->pve_node_group      = 0;    /* dragon uses fol sound group */
+                ctx->pve_node_defense    = 0x08;
                 ctx->state               = STATE_COMBAT;
                 hal_music_stop();
                 /* Reactivate dragon after combat (it is never destroyed) */
