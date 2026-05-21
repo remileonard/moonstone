@@ -54,7 +54,7 @@ du jeu interactif. Les états pertinents pour le combat sont :
 | `1`        | STATE_PVP | Combat PvP chevalier vs chevalier         | `LAB_04D7`  |
 | `2`        | STATE_PVE | Combat contre une créature PvE            | `LAB_04D6`  |
 | `3`        | STATE_MYS | Sorcier Mythral (Mystic)                  | `LAB_058F`  |
-| `5`        | STATE_ARENA | Combat d'arène en ville                 | `LAB_0522`  |
+| `5`        | STATE_SHOP | Boutique d'achat d'armes/armures en ville       | `LAB_0522`  |
 | `10` (0xa) | STATE_GOD | Vallée des Dieux (boss)                   | `LAB_0590`  |
 
 La fonction `LAB_04CF` (`mog.asm#L10547`) est le **point d'entrée principal**
@@ -200,7 +200,7 @@ des chaînes de texte d'UI (items, stats) propres à chaque état de combat :
 
 | Label       | État `LAB_068F` | Rôle                                              |
 |-------------|-----------------|---------------------------------------------------|
-| `LAB_0692`  | Arène (5)       | Table UI arène — textes d'items/options spéciaux  |
+| `LAB_0692`  | Tous états  | Table textes côté joueur — stats (Strength/Endurance/Constitution/Life points/Gold) + noms d'items ; les 3 premiers entrées ("Increase Strength/Endurance/Constitution") remplacent optionnellement les tiles quand le chevalier a assez d'or et que la stat n'est pas à 5 |
 | `LAB_0693`  | Temple (9)      | Table UI temple — textes de soin / skill          |
 | `LAB_0694`  | PvP (1)         | Table UI combat chevalier vs chevalier            |
 | `LAB_0695`  | —               | Table UI auxiliaire                               |

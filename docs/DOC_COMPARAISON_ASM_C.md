@@ -49,7 +49,7 @@ La variable `LAB_068F` (long) encode l'**état courant** :
 | `1`        | PvP chevalier vs chevalier        | `LAB_04D7`          |
 | `2`        | PvE créature                      | `LAB_04D6`          |
 | `3`        | Sorcier Mythral (Mystic)          | `LAB_058F`          |
-| `5`        | Arène en ville                    | `LAB_0522`          |
+| `5`        | Boutique achat armes/armures      | `LAB_0522`          |
 | `9`        | Temple de soin                    | `LAB_0591`          |
 | `10` (0xa) | Vallée des Dieux (boss)           | `LAB_0590`          |
 | `11` (0xb) | PvP alternatif (même table 1)     | `LAB_058C`          |
@@ -86,7 +86,7 @@ L'initialisation est intégrée dans `game_run_combat`, sans routine dédiée di
 | Lecture joystick via handler ISR (`LAB_0575`) | ⚠️ Simplifié — polling direct dans la boucle |
 | Tables d'animation initialisées (`LAB_0588`) | ⚠️ Tables de frames codées en dur dans les struct C |
 | État `9` (Temple) géré en combat   | ❌ Absent du C — `game_run_combat` ne couvre pas le temple |
-| État `5` (Arène en ville)          | ❌ Absent du C — pas de branche `node_type == 5` |
+| État `5` (Boutique achat)          | ❌ Absent du C — pas de branche `node_type == 5` |
 
 ---
 
@@ -614,7 +614,7 @@ présents dans l'original :
 | Fin de combat → fondu + transition       | `LAB_04D2` (l.10575)   | `goto combat_cleanup`| ⚠️ Simplifié |
 | Écran de butin/inventaire post-combat (skill/or/items) | `LAB_04F8` (l.10823) | —                    | ❌ Non implémenté |
 | Barres de HP                             | **N'existent PAS**     | **N'existent PAS**   | ✅ Conforme |
-| État arène en ville (5)                  | `LAB_0522`             | —                    | ❌ Absent |
+| État boutique achat (5)                  | `LAB_0522`             | —                    | ❌ Non implémenté |
 | État temple de soin (9)                  | `LAB_0591`             | —                    | ❌ Absent |
 | État Mystic (3) en combat               | `LAB_058F`             | —                    | ❌ Absent |
 | Stagger oscillation basse HP             | —                      | `stagger_tick`       | ⚠️ Ajout C |
@@ -731,7 +731,7 @@ dans `game_run_combat` :
 | État ASM (`LAB_068F`) | Description                  | Absent du C |
 |-----------------------|------------------------------|-------------|
 | `3` (Mystic)          | Sorcier Mythral              | ❌ |
-| `5` (Arena)           | Arène en ville               | ❌ |
+| `5` (Shop)            | Boutique achat d'armes/armures       | ❌ |
 | `9` (Temple)          | Temple de soin               | ❌ |
 | `6` (Shop)            | Boutique/inventaire          | ❌ |
 | `8` (PvP rematch)     | Duel rejoué                  | ❌ |

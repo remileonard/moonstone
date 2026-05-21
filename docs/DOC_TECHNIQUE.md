@@ -1498,7 +1498,7 @@ Les différents services accessibles via les nœuds de la carte correspondent à
 
 | État | Lieu          | Contenu                                                     | Entrée           |
 |------|---------------|-------------------------------------------------------------|------------------|
-| `5`  | Arène         | Combat contre adversaire dans l'arène d'une ville           | `LAB_0522`       |
+| `5`  | Boutique (achat) | Boutique d'achat d'armes et d'armures — textes "Buy X for Y GP" (LAB_0695) | `LAB_0522`  |
 | `6`  | Boutique/Carte| Inventaire, gemmes, navigation items                        | `LAB_04FE`+`LAB_051F` |
 | `8`  | Armurier      | Achat d'armure (`0x1c`/`0x1d`/`0x1e`) et épée              | `LAB_04DB`       |
 | `9`  | Temple        | Soins (restaure HP au max) et monte/descend en skill        | `LAB_04D4`       |
@@ -2019,7 +2019,7 @@ LAB_04CF:
 | `1`    | PvP             | Duel entre deux chevaliers joueurs                                           | LAB_068B=k0, LAB_068D=k1     | `LAB_0694`      |
 | `2`    | Créature        | Combat contre créature à **position fixe** (`LAB_08C6` = ptr créature courant, table source = `LAB_05C6`) | LAB_068B=k0, LAB_068D=ennemi | `LAB_069A`+`LAB_0698` |
 | `3`    | Sorcier/Mystic  | Witch Doctor / Mythral the Mystic — échange moonstones ↔ skill              | LAB_068B=k0                  | `LAB_0696`      |
-| `5`    | Arène           | Combat dans l'arène d'une ville                                              | LAB_068B=k0                  | `LAB_0695`      |
+| `5`    | Boutique (achat) | Boutique d'achat d'armes, armures et items (textes "Buy X for Y GP")         | LAB_068B=k0                  | `LAB_0695`      |
 | `6`    | Carte/Inventaire| Carte overworld + interaction items/NPC                                      | LAB_068B=k0                  | `LAB_0695`+`LAB_0697` |
 | `8`    | Armurier        | Boutique armurier (achat épée, armure, dagues)                               | LAB_068B=k0                  | `LAB_0694`      |
 | `9`    | Temple          | Temple de guérison (soins, achat skill points)                               | LAB_068B=k0                  | `LAB_0693`      |
@@ -2070,25 +2070,25 @@ Table de triplets `(type:word, x:word, y:word)` terminée par `$FFFF`. Lue par `
 | 22         | `0x16`     | `LAB_00B0`    | Château de Godber — skill+1 si faction=1, puis état 9              |
 | 23         | `0x17`     | `LAB_00B0`    | Château de Jeffrey — skill+1 si faction=2, puis état 9             |
 | 24         | `0x18`     | `LAB_00B0`    | Château d'Edward — skill+1 si faction=3, puis état 9              |
-| 25         | `0x19`     | `LAB_0093`    | Ville avec armurier + arène + sorcier (menu 5 boutons)             |
-| 26         | `0x1a`     | `LAB_008A`    | Ville avec taverne + arène (menu 5 boutons)                        |
+| 25         | `0x19`     | `LAB_0093`    | Ville commerçante — boutique achat (état 5), soin/temple, boutique vente (état 6) (menu 5 boutons) |
+| 26         | `0x1a`     | `LAB_008A`    | Ville mixte — boutique achat (état 5), guérisseur (LAB_048E/HEA.piv), mystic (LAB_047C/MYS.piv) (menu 5 boutons) |
 | 27         | `0x1b`     | `LAB_00A1`    | Sorcier Mythral → état 3                                           |
 | 28         | `0x1c`     | `LAB_009D`    | **Vallée des Dieux** → état 10 (condition : `inventaire[20] == 0x0f`, les 4 Clefs de la Vallée) |
 | 30         | `0x1e`     | `LAB_007C`    | Temple de guérison → état 9                                        |
 | 33         | `0x21`     | `LAB_004F`    | Rencontre chevalier (duel PvP)                                     |
 
 **Menu d'une ville type 0x19 (`LAB_0093`) :**
-- Bouton 1 → état 5 (combat dans l'arène)
-- Bouton 2 → `LAB_04A6` (achat potion ou soin rapide)
-- Bouton 3 → `LAB_048E` (sorcier de guérison)
-- Bouton 4 → état 6 (boutique armurier)
+- Bouton 1 → état 5 (boutique achat armes/armures)
+- Bouton 2 → `LAB_04A6` (interaction à clarifier)
+- Bouton 3 → `LAB_048E` (guérisseur/temple — restaure HP et skill)
+- Bouton 4 → état 6 (boutique vente/échange)
 - Bouton 5 → quitter
 
 **Menu d'une ville type 0x1a (`LAB_008A`) :**
-- Bouton 1 → état 5 (arène)
-- Bouton 2 → `LAB_04A6` (achat)
-- Bouton 3 → `LAB_048E` (sorcier)
-- Bouton 4 → `LAB_047C` (taverne ?)
+- Bouton 1 → état 5 (boutique achat armes/armures)
+- Bouton 2 → `LAB_04A6` (interaction à clarifier)
+- Bouton 3 → `LAB_048E` (guérisseur/temple — charge `HEA.piv`)
+- Bouton 4 → `LAB_047C` (mystic — charge `MYS.piv`)
 - Bouton 5 → quitter
 
 **Vallée des Dieux (type 0x1c, `LAB_009D`) :**
