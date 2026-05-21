@@ -139,11 +139,12 @@ static PveNode s_pve_nodes[] = {
     { 288, 176, -1, 1, "TROLL",         0x40, 0x06, 2 }, /* $012000b0 */
     /* Entries 18-23: "gll" group (northwest/north-central region)      *
      * Note : les 3 entrées de type 0x00 ("ENEMY KNIGHT") sont de       *
-     * vraies positions de carte (LAB_07BE) dans cette région.           *
+     * vraies positions FIXES de carte (LAB_07BE) dans cette région.    *
      * Elles représentent des rencontres avec un chevalier ennemi IA     *
      * (He1.ob, handler LAB_0188) : un seul adversaire, pas une vague.  *
-     * Elles ne s'affichent PAS comme icônes de créature (voir boucle    *
-     * de rendu ci-dessous).                                             */
+     * Elles s'affichent avec l'icône générique de créature (frame 20   *
+     * de li1.cel), exactement comme tous les autres nœuds vivants      *
+     * (LAB_0DA4 : MOVE.W #$0014,D0 pour les 24 entrées sans filtrage). */
     {  24,  24, -1, 1, "ENEMY KNIGHT",  0x00, 0x08, 3 }, /* $00180018 */
     {  96,  16, -1, 1, "TROGGSPEAR",    0x20, 0x05, 3 }, /* $00600010 */
     { 136,  40, -1, 1, "TROGGSPEAR",    0x20, 0x04, 3 }, /* $00880028 */
