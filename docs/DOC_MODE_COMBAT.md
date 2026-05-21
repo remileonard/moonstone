@@ -857,7 +857,7 @@ du chevalier.
 | `ch.piv`      | PIV   | `LAB_07AF` | Fond de combat (320×200, 5 plans)       |
 | `message.piv` | PIV   | `LAB_07AE` | Fond écran de messages / butin          |
 | `co.stile`    | STILE | —          | Tileset décors de combat (RLE 2 bits)   |
-| `bold.f`      | CEL   | `LAB_078B` | Police de caractères bold (HUD/textes)  |
+| `bold.f`      | CEL   | `LAB_078B` | Police de caractères bold (textes butin/inventaire) |
 | `Small.font`  | font  | `LAB_078C` | Police de caractères petite             |
 | `vmusic.cmp`  | CMP   | —          | Module SoundTracker musique de combat   |
 

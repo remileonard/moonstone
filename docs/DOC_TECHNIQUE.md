@@ -1498,7 +1498,7 @@ Les différents services accessibles via les nœuds de la carte correspondent à
 
 | État | Lieu          | Contenu                                                     | Entrée           |
 |------|---------------|-------------------------------------------------------------|------------------|
-| `5`  | Arène         | Combat contre adversaire dans l'arène d'une ville           | `LAB_0522` (HUD) |
+| `5`  | Arène         | Combat contre adversaire dans l'arène d'une ville           | `LAB_0522`       |
 | `6`  | Boutique/Carte| Inventaire, gemmes, navigation items                        | `LAB_04FE`+`LAB_051F` |
 | `8`  | Armurier      | Achat d'armure (`0x1c`/`0x1d`/`0x1e`) et épée              | `LAB_04DB`       |
 | `9`  | Temple        | Soins (restaure HP au max) et monte/descend en skill        | `LAB_04D4`       |
@@ -1741,7 +1741,13 @@ Voir **DOC_MODE_OVERWORLD §1.7** pour la description complète de la structure 
 - Les statistiques initiales des chevaliers (HP max, vitesse, attaque)
 - Les emplacements d'inventaire (4 slots reliques + slots équipement)
 
-#### Barres de vie / statut HUD
+#### Barres de score — overworld uniquement (`program.asm`, `LAB_0032`)
+
+> **Note importante** : ces barres appartiennent à la **carte overworld**
+> (`program.asm`). **Il n'y a aucun HUD affiché pendant le combat** dans
+> `mog.asm`. L'affichage des stats (skill, or, items) après un combat se
+> fait dans l'**écran de butin post-combat** via `LAB_04F8` (`mog.asm`),
+> pas pendant la phase de combat active.
 
 ```text
 LAB_0032():
@@ -1750,7 +1756,7 @@ LAB_0032():
     bar_slot[2] ← D0=23, couleur LAB_01CA    → 3e indicateur (or / énergie ?)
 ```
 
-Ces 3 barres sont des **fade-animations couleur** dans la copper list (via `LAB_057A`), positionnées au bas de l'écran. Leur valeur numérique est mise à jour à chaque appel de `LAB_003C` (appelé depuis la boucle principale quand `LAB_00D1 = 1`).
+Ces 3 barres sont des **fade-animations couleur** dans la copper list (via `LAB_057A`), positionnées au bas de l'écran overworld. Leur valeur numérique est mise à jour à chaque appel de `LAB_003C` (appelé depuis la boucle principale quand `LAB_00D1 = 1`).
 
 ---
 

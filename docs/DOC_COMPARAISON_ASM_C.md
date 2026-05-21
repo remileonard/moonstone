@@ -16,7 +16,7 @@
 5. [Animation des sprites / FSM de combat](#5-animation-des-sprites--fsm-de-combat)
 6. [Système de dégâts / détection de collision](#6-système-de-dégâts--détection-de-collision)
 7. [Fin de combat / transition](#7-fin-de-combat--transition)
-8. [HUD / affichage — barres de HP](#8-hud--affichage--barres-de-hp)
+8. [Écran de butin / inventaire post-combat — absence de HUD pendant le combat](#8-écran-de-butin--inventaire-post-combat--absence-de-hud-pendant-le-combat)
 9. [Tableau récapitulatif](#9-tableau-récapitulatif)
 10. [Écarts non conformes](#10-écarts-non-conformes)
 
@@ -337,11 +337,13 @@ La FSM de l'adversaire est encodée dans les tables de données (`LAB_04F3`,
 `LAB_04F4`, lignes 10776–10812) : séquences de tuples
 `(frame_id, durée, flags, Y_offset)` terminées par `$FFFF`.
 
-**État HUD des combattants affiché via `LAB_04F8` (ligne 10823)** :
-cette routine affiche le portrait et les statistiques textuelles (nom, skill,
-items) à l'écran. Elle accède directement aux offsets de la structure
-chevalier (`70(A0)`, `71(A0)`, `72(A0)` etc.) et appelle `LAB_0516`
-répétitivement pour chaque champ. **Aucun appel de tracé de barre de HP.**
+**Remarque — `LAB_04F8` n'est PAS un HUD pendant le combat.**
+Cette routine (ligne 10823) affiche les statistiques du chevalier (nom, skill,
+items, or, armure, épée). Elle est appelée dans `LAB_04D4` mais **uniquement
+dans le contexte de l'écran de butin post-combat** (state 2 réentré via
+`LAB_005D` après la victoire) et dans l'écran d'inventaire/boutique.
+Elle n'est jamais appelée pendant la boucle de combat active.
+**Il n'y a aucun HUD affiché pendant le combat dans l'original.**
 
 ### Code C réimplémenté
 
@@ -526,53 +528,67 @@ if (player.state == CSTATE_DEAD) {
 
 ---
 
-## 8. HUD / affichage — barres de HP
+## 8. Écran de butin / inventaire post-combat — absence de HUD pendant le combat
 
-### Code ASM original
+### Principe fondamental
 
-**`LAB_04F8` (mog.asm, lignes 10823–11006) — affichage du HUD en combat**
+> **Il n'y a aucun HUD pendant le combat dans `mog.asm`.**  
+> Ni barre de HP, ni affichage de skill, ni indicateur d'or ne sont
+> superposés à l'action de combat. L'écran de combat est entièrement
+> réservé aux sprites des combattants et au décor.
 
-Cette longue routine affiche les portraits et statistiques des combattants.
-Elle affiche successivement :
+### Code ASM original — `LAB_04F8` (mog.asm, lignes 10823–11006)
+
+`LAB_04F8` est la routine d'**affichage des statistiques du chevalier**
+pour l'**écran de butin et d'inventaire post-combat**.
+
+**Quand est-elle appelée ?**
+
+Après la fin du combat, `LAB_005D` ré-entre dans la machine à états avec
+`D0 = 2` via `JSR LAB_04CF`. Cette ré-entrée dans `LAB_04D4` (via état 2)
+déclenche `BSR.W LAB_04F8` dans le contexte de l'**écran de butin**, où
+le joueur peut consulter les items de la créature vaincue et les prendre.
+C'est ici, et seulement ici, que les stats du chevalier sont affichées.
+
+La même routine sert aussi pour les états 1 (PvP), 8 et 11 (duels), et
+l'écran d'inventaire/boutique (état 6).
+
+**Ce qu'affiche `LAB_04F8` :**
+
 - Nom du chevalier (offsets `70`, `72`, `71` dans la structure chevalier)
 - Level/Skill (`73(A0)`)
-- Items portés (boucle sur offsets `10(A1)…14(A1)`)
-- Or (`78(A0)`)
-- Expérience/kills (`74(A0)`)
+- Items portés (boucle sur offsets `0x46..0x48` de la structure)
+- Or (`78(A0)`) et kills/or-gain (`74(A0)`)
 - Potions (`76(A0)`)
-- **Niveau d'armure** (`88(A0)`) — affichage en longueur de sprite
-- **Niveau d'épée** (`92(A0)`) — affichage en longueur de sprite
+- Niveau d'armure (`88(A0)`) et niveau d'épée (`92(A0)`) — affichés comme
+  longueur de sprite proportionnelle
 
-**→ Aucune barre de HP n'est dessinée dans `LAB_04F8` ni dans aucune autre routine de combat.**
-
-La santé (`80(A0)` = HP courant, `84(A0)` = HP max) est une variable interne
-manipulée par `LAB_052F` et `LAB_0553`, mais **jamais affichée visuellement
-sous forme de barre** pendant le combat.
+**→ Aucune barre de HP n'est dessinée.** La santé (`80(A0)` / `84(A0)`)
+est une variable interne jamais affichée sous forme de barre, ni pendant
+le combat, ni dans l'écran de butin.
 
 ### Code C réimplémenté
 
-Le fichier `moon_combat.c` dans son état actuel **ne dessine aucune barre de HP** :
+`moon_combat.c` ne dessine aucune barre de HP (conforme) et n'implémente
+pas l'écran de butin/inventaire post-combat (qui appartient à la transition
+vers l'overworld, hors périmètre du fichier). Il n'y a donc aucun équivalent
+de `LAB_04F8` dans le C actuel.
 
-```c
-// Il n'y a aucun appel à render_hp_bar, draw_hp_bar, ou équivalent
-// dans moon_combat.c (vérification grep)
-```
-
-Les seuls indicateurs visuels HP sont :
-1. Le texte `"STAGGERING!"` quand `player.hp <= LOW_HP_THRESHOLD` (ligne 1027)
-2. L'oscillation visuelle `stagger_tick` (wobble ±2px)
+Les seuls indicateurs visuels de santé dans le C sont des ajouts non
+présents dans l'original :
+1. Le texte `"STAGGERING!"` quand `player.hp <= LOW_HP_THRESHOLD`
+2. L'oscillation visuelle `stagger_tick` (wobble ±2 px)
 
 ### Différences
 
-| Point                              | Statut |
-|------------------------------------|--------|
-| Barres de HP dans l'ASM            | ❌ **N'existent pas** dans `mog.asm` |
-| Barres de HP dans le C             | ✅ **Absentes aussi** — conforme |
-| Affichage skill/level en combat    | ❌ Absent du C (l'ASM affiche `73(A0)` = skill) |
-| Affichage items en combat          | ❌ Absent du C |
-| Affichage or en combat             | ❌ Absent du C |
-| Affichage armure/épée en combat    | ❌ Absent du C |
-| Texte "STAGGERING!" basse HP       | ⚠️ Ajout — aucun équivalent textuel dans l'ASM |
+| Point                                         | Statut |
+|-----------------------------------------------|--------|
+| Barres de HP dans l'ASM                       | ❌ **N'existent pas** dans `mog.asm` |
+| Barres de HP dans le C                        | ✅ **Absentes aussi** — conforme |
+| HUD pendant le combat                        | ❌ **N'existe pas** dans `mog.asm` |
+| Écran de butin (skill/items/or) après combat | ❌ Absent du C (non implémenté) |
+| Affichage armure/épée (écran de butin)       | ❌ Absent du C |
+| Texte "STAGGERING!" basse HP                 | ⚠️ Ajout non-original — aucun équivalent dans l'ASM |
 
 ---
 
@@ -596,7 +612,7 @@ Les seuls indicateurs visuels HP sont :
 | Dégâts axe = 2× base                    | implicite dans frames  | `DMG_AXE=20`         | ✅ Fidèle |
 | Mort joueur → restaure HP                | `LAB_052F` (l.11548)   | `pk->hp=0; dead=1`   | ❌ Comportement différent |
 | Fin de combat → fondu + transition       | `LAB_04D2` (l.10575)   | `goto combat_cleanup`| ⚠️ Simplifié |
-| HUD stats en combat (skill/or/items)     | `LAB_04F8` (l.10823)   | —                    | ❌ Absent |
+| Écran de butin/inventaire post-combat (skill/or/items) | `LAB_04F8` (l.10823) | —                    | ❌ Non implémenté |
 | Barres de HP                             | **N'existent PAS**     | **N'existent PAS**   | ✅ Conforme |
 | État arène en ville (5)                  | `LAB_0522`             | —                    | ❌ Absent |
 | État temple de soin (9)                  | `LAB_0591`             | —                    | ❌ Absent |
@@ -645,9 +661,10 @@ précises (`LAB_052F`), et via l'acquisition d'items.
 ```c
 render_text_centered(ctx->fb, "STAGGERING!", 28, 0xFFFF8800u);
 ```
-**Dans l'ASM :** `LAB_04F8` n'affiche aucun message textuel en cas de basse HP.
-L'effet "vacille" est purement visuel (oscillation sprite). Il n'y a pas
-d'annotation textuelle.
+**Dans l'ASM :** L'écran de butin post-combat (`LAB_04F8`) n'affiche aucun
+message textuel en cas de basse HP. L'effet "vacille" est purement visuel
+(oscillation sprite). Il n'y a pas d'annotation textuelle, ni pendant le
+combat, ni dans l'écran de butin.
 
 **→ Message textuel ajouté, absent de l'original.**
 
