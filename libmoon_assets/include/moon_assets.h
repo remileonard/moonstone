@@ -2,7 +2,7 @@
  * libmoon_assets — Moonstone asset loading library
  *
  * Loads and decompresses the original Mindscape/Amiga Moonstone assets
- * without any file conversion: .cel, .PIV, .stile, .cmp, .ob, collide.hit
+ * without any file conversion: .cel, .PIV, .stile, .cmp, .ob, collide.hit, .a
  *
  * File formats supported:
  *   - CEL  : sprite sheets (LZSS compressed, proprietary Mindscape header)
@@ -11,6 +11,7 @@
  *   - CMP  : ProTracker modules (RNC ProPack 1 compressed)
  *   - OB   : character sprite sheets (same format as CEL, LZSS compressed)
  *   - HIT  : hitbox definitions (ASCII text, collide.hit)
+ *   - SFX  : raw 8-bit PCM audio sample banks (.a files, no header)
  *
  * All multi-byte values in Mindscape files are big-endian (Amiga/68000).
  */
@@ -315,6 +316,66 @@ const MoonHitSprite *moon_hit_find(const MoonHit *hit, const char *name);
 
 /** moon_hit_free - release a MoonHit obtained from moon_hit_load(). */
 void moon_hit_free(MoonHit *hit);
+
+/* ------------------------------------------------------------------ */
+/* SFX — raw PCM audio sample banks (.a files)                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * MoonSfx - a raw PCM audio sample bank loaded from a .a file.
+ *
+ * .a files are flat binary blobs of 8-bit signed PCM audio data in
+ * Amiga Paula native format.  There is NO file header: the file begins
+ * directly with sample data.
+ *
+ * A single bank may contain several concatenated samples.  The sample
+ * boundaries (start offset and length in words) are NOT stored in the
+ * file — they are encoded in the LAB_10A3 descriptor table hardcoded in
+ * the game binary (mog.asm line 31115).  Each 14-byte descriptor entry
+ * in that table has the form:
+ *
+ *   +0  [2] flags  : $0001 = play-once SFX, $FFFF = looping sample
+ *   +2  [2] pad    : $0000
+ *   +4  [2] length : sample length in 16-bit words (bytes = length * 2)
+ *   +6  [4] pcm    : file-relative offset into the .a bank
+ *                    (patched to absolute address at load time by LAB_0FD4)
+ *   +10 [4] periods: pointer to the ProTracker period table (LAB_0FD3)
+ *
+ * To access sample i within the bank:
+ *   uint8_t *start = sfx->data + descriptor[i].pcm_offset;
+ *   size_t   bytes = (size_t)descriptor[i].length_words * 2;
+ *
+ * One bank is loaded per combat encounter:
+ *
+ *   kn.a — player knight SFX (always loaded; LAB_05C7 buffer)
+ *   Re.a — background-music PCM replay samples (LAB_05C9 buffer)
+ *   Wz.a — Wizard / Mythral SFX (LAB_05CA buffer)
+ *   Ra.a — Ratman SFX (LAB_05CB buffer)
+ *   He.a — enemy knight SFX (LAB_05C8 shared enemy buffer)
+ *   Be.a / Ba.a / Dr.a / To.a / Tr.a / Wn.a / Gu.a / Mu.a
+ *        — per-creature SFX, all sharing LAB_05C8 (only one loaded at a time)
+ *
+ * The .a files are NOT present in the repository; they must be extracted
+ * from the original Moonstone floppy disk image by the user.  If
+ * moon_sfx_load() cannot find the file it returns NULL and the game
+ * should continue silently without the affected sounds.
+ */
+typedef struct {
+    size_t   size; /* byte count of the raw PCM sample bank */
+    uint8_t *data; /* raw 8-bit signed PCM data (no header, owned by MoonSfx) */
+} MoonSfx;
+
+/**
+ * moon_sfx_load - load a raw .a PCM sample bank from the asset directory.
+ * @name: filename relative to the asset directory (e.g. "kn.a").
+ * Returns a newly allocated MoonSfx on success, or NULL if the file
+ * cannot be found or read (missing .a files are silently ignored).
+ * The caller must free the result with moon_sfx_free().
+ */
+MoonSfx *moon_sfx_load(const char *name);
+
+/** moon_sfx_free - release a MoonSfx obtained from moon_sfx_load(). */
+void moon_sfx_free(MoonSfx *sfx);
 
 /* ------------------------------------------------------------------ */
 /* Generic raw file access                                             */

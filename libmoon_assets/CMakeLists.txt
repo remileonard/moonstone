@@ -26,6 +26,7 @@ add_library(moon_assets STATIC
     src/mod.c
     src/ob.c
     src/hit.c
+    src/sfx.c
     src/rnc1.c
     src/lzss_cel.c
     src/rle_stile.c

@@ -654,23 +654,116 @@ Chaque table contient 8 pointeurs vers des fichiers son `.t` ; le moteur
 sélectionne l'un d'eux de façon cyclique (compteur `LAB_0AA5` modulo 8)
 pour varier les sons d'attaque.
 
-#### Sons de combat spéciaux
+#### Sons de combat spéciaux — banques PCM `.a`
 
-| Fichier   | Label     | Rôle                                       |
-|-----------|-----------|--------------------------------------------|
-| `kn.a`    | `SECSTRT_17` | Son du chevalier joueur (marche/cri)    |
-| `Be.a`    | `LAB_0AB7` | Son de créature Be (Ratmen/Ours)           |
-| `Ba.a`    | `LAB_0AB8` | Son de Balok                               |
-| `Dr.a`    | `LAB_0AB9` | Son du Dragon                              |
-| `To.a`    | `LAB_0ABA` | Son du Troll                               |
-| `Tr.a`    | `LAB_0ABB` | Son du TroggAxe/TroggSpear                 |
-| `Wn.a`    | `LAB_0ABC` | Son du Sorcier (Wn = Wyvern ?)             |
-| `Gu.a`    | `LAB_0ABD` | Son du garde (Guard)                       |
-| `Wz.a`    | `LAB_0ABE` | Son du Wizard (Mythral)                    |
-| `Ra.a`    | `LAB_0ABF` | Son du Ratman                              |
-| `Mu.a`    | `LAB_0AC0` | Son du Mudman                              |
-| `Re.a`    | `LAB_0AC1` | Module de replay (SoundTracker engine)     |
-| `He.a`    | `LAB_0AC2` | Son du Hefalump (chevalier ennemi)         |
+##### Format des fichiers `.a`
+
+Les fichiers `.a` sont des **banques de samples PCM bruts** en format
+natif Amiga Paula :
+
+- **Pas d'en-tête** — le fichier commence directement par les données PCM.
+- **PCM 8-bit signé**, mono, compatible avec les registres DMA Paula
+  (`AUDxLC`/`AUDxLEN`/`AUDxPER`).
+- **Plusieurs samples concaténés** dans le même fichier ; les frontières
+  entre samples (offset de début et longueur) ne sont **pas** stockées
+  dans le fichier — elles sont encodées dans la table de descripteurs
+  `LAB_10A3` en dur dans le binaire du jeu (`mog.asm#L31115`).
+
+##### Structure d'un descripteur de sample (`LAB_10A3`, 14 octets par entrée)
+
+```
++0  [2] flags   : $0001 = son joué une fois (SFX),
+                  $FFFF = sample en boucle (musique replay)
++2  [2] réservé : $0000
++4  [2] length  : longueur du sample en mots 16-bit
+                  (octets = length × 2)
++6  [4] pcm     : offset relatif dans la banque .a
+                  (après relocalisation par LAB_0FD4 : adresse absolue Amiga)
++10 [4] periods : pointeur vers la table de périodes ProTracker (LAB_0FD3)
+```
+
+##### Procédures de chargement
+
+| Routine      | `mog.asm` | Rôle                                                |
+|--------------|-----------|-----------------------------------------------------|
+| `LAB_0AA7`   | #L19329   | Init audio combat : installe les IRQ VBL + DMA audio, charge `Re.a` |
+| `LAB_0AAA`…`LAB_0AB4` | #L19338–19421 | Un loader par type de créature (appelle `LAB_0AB5`) |
+| `LAB_0AB5`   | #L19423   | Dispatcher commun : ouvre le fichier via `LAB_0BB5`, lit *N* octets dans le buffer destination, ferme |
+| `LAB_0BB5`   | #L20884   | Ouvre un fichier par hachage de son nom dans le répertoire disque |
+| `LAB_0FD4`   | #L29138   | Relocalisation post-chargement : ajoute l'adresse du buffer au champ `+6` de chaque descripteur `LAB_10A3` |
+
+##### Allocation des buffers
+
+Quatre buffers sont pré-alloués en mémoire Amiga :
+
+| Buffer      | Rôle                                   |
+|-------------|----------------------------------------|
+| `LAB_05C7`  | Banque `kn.a` (chevalier joueur)       |
+| `LAB_05C8`  | Banque ennemi partagée (un seul type à la fois) |
+| `LAB_05C9`  | Banque `Re.a` (samples replay/musique) |
+| `LAB_05CA`  | Banque `Wz.a` (Wizard/Mythral)         |
+| `LAB_05CB`  | Banque `Ra.a` (Ratman)                 |
+
+##### Table des fichiers `.a`
+
+| Fichier | Label        | Buffer      | Taille (octets) | Créature / Rôle                  |
+|---------|--------------|-------------|-----------------|----------------------------------|
+| `kn.a`  | `SECSTRT_17` | `LAB_05C7`  | 0x57F8 = 22 520 | Chevalier joueur                 |
+| `Be.a`  | `LAB_0AB7`   | `LAB_05C8`  | 0x57BE = 22 462 | TroggWarBeast (Berzerker/Bête)   |
+| `Ba.a`  | `LAB_0AB8`   | `LAB_05C8`  | 0xBDCC = 48 588 | Balok                            |
+| `Dr.a`  | `LAB_0AB9`   | `LAB_05C8`  | 0xC140 = 49 472 | Dragon                           |
+| `To.a`  | `LAB_0ABA`   | `LAB_05C8`  | 0xBBC8 = 48 072 | Troll                            |
+| `Tr.a`  | `LAB_0ABB`   | `LAB_05C8`  | 0xAB28 = 43 816 | Trogg (TroggAxe / TroggSpear)    |
+| `Wn.a`  | `LAB_0ABC`   | `LAB_05C8`  | 0x4EF4 = 20 212 | Créature inconnue (Wyvern ?)     |
+| `Gu.a`  | `LAB_0ABD`   | `LAB_05C8`  | 0xB27C = 45 692 | Garde (Guard)                    |
+| `Wz.a`  | `LAB_0ABE`   | `LAB_05CA`  | 0xD6D8 = 54 872 | Wizard / Mythral                 |
+| `Ra.a`  | `LAB_0ABF`   | `LAB_05CB`  | 0xD508 = 54 536 | Ratman                           |
+| `Mu.a`  | `LAB_0AC0`   | `LAB_05C8`  | 0xB690 = 46 736 | Mudman                           |
+| `Re.a`  | `LAB_0AC1`   | `LAB_05C9`  | 0xD924 = 55 588 | Samples replay (musique de fond) |
+| `He.a`  | `LAB_0AC2`   | `LAB_05C8`  | 0x2F78 = 12 152 | Chevalier ennemi (Enemy Knight)  |
+
+> **Note** : `LAB_05C8` est un buffer **partagé** entre toutes les créatures
+> génériques — un seul fichier ennemi est chargé à la fois selon le type
+> de créature du combat en cours.
+>
+> Les fichiers `.a` **ne sont pas inclus dans le dépôt** ; ils doivent être
+> extraits par l'utilisateur depuis l'image disquette originale Moonstone.
+
+##### Relocalisation `LAB_10A3` par `LAB_0FD4`
+
+`LAB_0FD4` parcourt des sous-plages de `LAB_10A3` et ajoute l'adresse
+Amiga du buffer correspondant au champ `+6` de chaque descripteur :
+
+| Sous-plage                     | Buffer utilisé | Banque .a              |
+|--------------------------------|----------------|------------------------|
+| `LAB_10A3` → `LAB_10A4`        | `LAB_05C7`     | `kn.a` (joueur)        |
+| `LAB_10A4` → `LAB_10A7`        | `LAB_05C8`     | ennemi courant         |
+| `LAB_10A7` → `LAB_10A8`        | `LAB_05CB`     | `Ra.a` (Ratman)        |
+| `LAB_10A8` → `LAB_10A9`        | `LAB_05C8`     | ennemi courant         |
+| `LAB_10A5`, `LAB_10A6` (spéciaux) | `LAB_05C7` | `kn.a` (offsets fixes) |
+| `LAB_10A9` → `LAB_10AA`        | `LAB_05C9`     | `Re.a` (replay)        |
+| `LAB_10AA` → `LAB_10AB`        | `LAB_05CA`     | `Wz.a` (Wizard)        |
+| `LAB_10AB` → `LAB_10AC`        | `LAB_05C8`     | ennemi courant         |
+| `LAB_10AC` → `LAB_10AD`        | `LAB_05C9`     | `Re.a` (replay)        |
+| `LAB_10AD` → `LAB_10AE`        | `LAB_05C8`     | ennemi courant         |
+
+##### Chargement C : `moon_sfx_load()`
+
+```c
+/* Charger la banque du joueur */
+MoonSfx *kn = moon_sfx_load("kn.a");
+
+/* Accéder au sample #1 de kn.a (offset 0x0068, longueur 0x0506 mots) */
+if (kn) {
+    uint8_t *pcm   = kn->data + 0x0068;
+    size_t   bytes = 0x0506 * 2; /* = 2572 octets */
+    /* passer pcm à SDL_QueueAudio ou équivalent */
+    moon_sfx_free(kn);
+}
+```
+
+`moon_sfx_load()` retourne `NULL` sans erreur si le fichier `.a` est absent
+(les fichiers `.a` sont optionnels).
 
 ### 6.3 Moteur de lecture sonore : `LAB_0F8C`
 
