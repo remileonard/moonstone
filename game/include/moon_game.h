@@ -135,8 +135,10 @@ typedef struct {
      *
      * pve_node_group : which of the 4 overworld groups this node belongs
      *   to (0=fol/west, 1=wal/north, 2=swl/central, 3=gll/northwest).
-     *   Determines the sound effect group (fol?.t / wal?.t / swl?.t / gll?.t)
-     *   and a hint for background palette selection.
+     *   Determines the SFX group (fol?.t / wal?.t / swl?.t / gll?.t) AND
+     *   the terrain data file (FO?.t / GL?.t / Sw?.t / Wa?.t, tables
+     *   LAB_07B9/LAB_07B7/LAB_07B8/LAB_07B6 in mog.asm).
+     *   Also used as a hint for background palette selection.
      *
      * pve_node_defense : low word of LAB_07BD = creature defence value
      *   used to scale combat difficulty independently of the knight level.

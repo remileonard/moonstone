@@ -228,6 +228,167 @@ static void sfx_free_family(MoonSfx **arr)
 }
 
 /* ------------------------------------------------------------------ */
+/* Terrain — .t file loading and collision (LAB_0A6D, LAB_0A71)       */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Terrain types and their .t file families (LAB_013C in mog.asm):
+ *
+ *   pve_node_group 0 (fol/west)    → terrain type 4  → FO1.t … FO8.t
+ *   pve_node_group 1 (wal/north)   → terrain type 0xc → GL1.t … GL8.t
+ *   pve_node_group 2 (swl/central) → terrain type 8  → Sw1.t … Sw8.t
+ *   pve_node_group 3 (gll/nw)      → terrain type 0  → Wa1.t … Wa8.t
+ *
+ * Eight variants per type are cycled in sequence (counters LAB_05EB,
+ * LAB_05E9, LAB_05E8, LAB_05EA in mog.asm, each incremented mod 8 after
+ * every combat).  The counters are stored here as static state and persist
+ * across encounters within the same session, matching the original game.
+ */
+
+#define TERRAIN_VARIANTS 8
+
+static MoonTerrain *s_terrain;
+
+/* Per-type variant counters (cycled mod 8 as in mog.asm LAB_05E8–05EB) */
+static int s_terrain_idx_fo = 0; /* LAB_05EB: Forest */
+static int s_terrain_idx_gl = 0; /* LAB_05E9: Glade  */
+static int s_terrain_idx_sw = 0; /* LAB_05E8: Swamp  */
+static int s_terrain_idx_wa = 0; /* LAB_05EA: Water  */
+
+/*
+ * terrain_load_for_combat — load the appropriate .t file for this
+ * encounter, cycling through the 8 variants per terrain type.
+ *
+ * If the .t file is unavailable (original assets not present), returns
+ * NULL and the collision engine uses no obstacle checks.
+ */
+static MoonTerrain *terrain_load_for_combat(int node_group)
+{
+    /* Prefixes and their rotating variant counters                     */
+    static const char *prefixes[4]   = { "FO", "GL", "Sw", "Wa" };
+    static int        *counters[4];
+    /* Initialise pointer array once at first call                      */
+    counters[0] = &s_terrain_idx_fo;
+    counters[1] = &s_terrain_idx_gl;
+    counters[2] = &s_terrain_idx_sw;
+    counters[3] = &s_terrain_idx_wa;
+
+    if (node_group < 0 || node_group > 3)
+        node_group = 0;
+
+    const char *prefix = prefixes[node_group];
+    int idx = *counters[node_group];
+
+    /* Try canonical capitalisation first (FO1.t), then lowercase       */
+    char name[16];
+    snprintf(name, sizeof(name), "%s%d.t", prefix, idx + 1);
+    MoonTerrain *t = moon_terrain_load(name);
+    if (!t) {
+        /* Try fully-lower-case variant (fo1.t, gl1.t, sw1.t, wa1.t)   */
+        char lc[16];
+        int li = 0;
+        for (; name[li] && li < 15; li++)
+            lc[li] = (char)((name[li] >= 'A' && name[li] <= 'Z')
+                            ? name[li] + 32 : name[li]);
+        lc[li] = '\0';
+        t = moon_terrain_load(lc);
+    }
+
+    /* Advance the counter regardless of whether the file was found,
+     * matching LAB_013F/LAB_0146/LAB_0141/LAB_0149 which increment
+     * the counter unconditionally after calling LAB_0A6D.              */
+    *counters[node_group] = (idx + 1) % TERRAIN_VARIANTS;
+
+    return t;
+}
+
+/*
+ * terrain_check_obstacle — test whether position (x, y) overlaps any
+ * obstacle in the terrain data.
+ *
+ * Mirrors the first two range checks of LAB_0A71 (mog.asm lines
+ * 19133–19178):
+ *
+ *   Check 1 (horizontal): is sprite X inside [obs.x_left, obs.x_right]?
+ *     (LAB_03CA with D0=obs.x_left, D1=obs.x_right,
+ *                       D2=sprite.x_left, D3=sprite.x_right)
+ *
+ *   Check 2 (depth): is sprite Y above the obstacle's depth threshold?
+ *     Blocking occurs when obs.y_depth > (sprite.y + Y_DEPTH_OFFSET)
+ *     (LAB_0A75: BCLR #3 when word2 >= SECSTRT_13 = sprite_y + 47)
+ *
+ * Returns 1 if the position is inside at least one obstacle, 0 otherwise.
+ */
+
+/* Constant 47 (0x2f) added to the sprite's Y before comparing against
+ * the obstacle y_depth threshold (LAB_0A71 line 19123: ADDI.W #$002f). */
+#define TERRAIN_Y_OFFSET 47
+
+static int terrain_check_obstacle(const MoonTerrain *t, int x, int y)
+{
+    if (!t || t->n_obstacles == 0)
+        return 0;
+
+    /* Half-width used for the X range of the sprite (approximately
+     * half a knight sprite; the original used fields 58/60 of the
+     * sprite struct which vary per sprite.  8 pixels is a conservative
+     * estimate for the player/enemy widths used in combat.)            */
+    const int half_w = 8;
+    int sp_left  = x - half_w;
+    int sp_right = x + half_w;
+
+    for (int i = 0; i < t->n_obstacles; i++) {
+        const MoonTerrainObstacle *obs = &t->obstacles[i];
+        int xl = (int)obs->x_left;
+        int xr = (int)obs->x_right;
+        int yd = (int)obs->y_depth;
+
+        /* Check 1: horizontal overlap */
+        int x_overlap = (sp_right >= xl && sp_left <= xr);
+        if (!x_overlap)
+            continue;
+
+        /* Check 2: depth — blocked when yd >= sprite.y + TERRAIN_Y_OFFSET
+         * (equivalent to: sprite.y <= yd - TERRAIN_Y_OFFSET)            */
+        if (yd >= y + TERRAIN_Y_OFFSET)
+            return 1;
+    }
+    return 0;
+}
+
+/*
+ * terrain_render_objects — draw a subtle marker for each visual terrain
+ * object in the .t file.
+ *
+ * The original game drew full sprites from LAB_05C1/LAB_0D92 (Amiga chip
+ * RAM sprite banks not reproduced here).  We draw a small semi-transparent
+ * filled rectangle as a visual placeholder so that the positions of terrain
+ * objects are visible during development.
+ *
+ * sprite_bank values (SECSTRT_12 in mog.asm):
+ *   0x03 → character/knight sprite bank (LAB_05C1)
+ *   0x04 or other → terrain decoration bank (LAB_0D92)
+ */
+static void terrain_render_objects(uint32_t *fb, const MoonTerrain *t)
+{
+    if (!t || t->n_objects == 0)
+        return;
+
+    for (int i = 0; i < t->n_objects; i++) {
+        const MoonTerrainObject *obj = &t->objects[i];
+        int ox = (int)obj->x;
+        int oy = (int)obj->y;
+
+        /* Colour hint: character sprites in blue-ish, terrain in green-ish */
+        uint32_t color = (obj->sprite_bank == 0x03)
+                         ? 0x40004080u   /* semi-transparent blue  */
+                         : 0x40204020u;  /* semi-transparent green */
+
+        render_fill_rect(fb, ox - 4, oy - 8, 8, 16, color);
+    }
+}
+
+/* ------------------------------------------------------------------ */
 /* Combat backgrounds                                                  */
 /* ------------------------------------------------------------------ */
 
@@ -1141,6 +1302,15 @@ void game_run_combat(GameCtx *ctx)
     s_sfx_gll_idx  = 0;
     s_sfx_step_tick = 0;
 
+    /* ---------------------------------------------------------------- */
+    /* Load terrain data (LAB_0A6D / LAB_013C in mog.asm)              */
+    /* Select the .t file based on the node group (pve_node_group):    */
+    /*   0=FO (Forest), 1=GL (Glade), 2=Sw (Swamp), 3=Wa (Water)      */
+    /* Files are optional — terrain_load_for_combat returns NULL if    */
+    /* the assets are absent; collision engine runs unconstrained.     */
+    /* ---------------------------------------------------------------- */
+    s_terrain = terrain_load_for_combat(ctx->pve_node_group);
+
     static const uint32_t knight_colors[MAX_PLAYERS] = {
         0xFF4444FFu, 0xFFFF4444u, 0xFF44FF44u, 0xFFFFFF44u
     };
@@ -1339,6 +1509,48 @@ void game_run_combat(GameCtx *ctx)
             if (e->y > ARENA_Y_MAX) e->y = ARENA_Y_MAX;
         }
 
+        /* ---- Terrain obstacle collision (LAB_0A71 in mog.asm) ----   *
+         * Push combatants out of any terrain obstacle region.           *
+         * We check the proposed (current) position after movement and  *
+         * revert to the pre-move position stored in prev_x/prev_y if   *
+         * an obstacle is hit.  The logic matches the BCLR #3,63(A0)    *
+         * check in LAB_0A71 that clears the forward-movement bit when  *
+         * the obstacle's y_depth threshold is breached.                */
+        if (s_terrain) {
+            if (terrain_check_obstacle(s_terrain, player.x, player.y)) {
+                /* Revert Y first (upward movement most commonly blocked) */
+                if (!terrain_check_obstacle(s_terrain, player.x,
+                                            player.y + MOVE_SPEED))
+                    player.y += MOVE_SPEED;
+                else if (!terrain_check_obstacle(s_terrain,
+                                                  player.x + MOVE_SPEED,
+                                                  player.y))
+                    player.x += MOVE_SPEED;
+                else if (!terrain_check_obstacle(s_terrain,
+                                                  player.x - MOVE_SPEED,
+                                                  player.y))
+                    player.x -= MOVE_SPEED;
+                /* If still inside after all attempts, keep position as-is */
+            }
+            for (int ei = 0; ei < MAX_COMBAT_ENEMIES; ei++) {
+                Combatant *e = &enemies[ei];
+                if (e->state == CSTATE_DEAD && e->hp <= 0) continue;
+                if (terrain_check_obstacle(s_terrain, e->x, e->y)) {
+                    if (!terrain_check_obstacle(s_terrain, e->x,
+                                                e->y + MOVE_SPEED))
+                        e->y += MOVE_SPEED;
+                    else if (!terrain_check_obstacle(s_terrain,
+                                                      e->x + MOVE_SPEED,
+                                                      e->y))
+                        e->x += MOVE_SPEED;
+                    else if (!terrain_check_obstacle(s_terrain,
+                                                      e->x - MOVE_SPEED,
+                                                      e->y))
+                        e->x -= MOVE_SPEED;
+                }
+            }
+        }
+
         /* Decrement hit flash */
         if (player.hit_flash > 0) player.hit_flash--;
         for (int ei = 0; ei < MAX_COMBAT_ENEMIES; ei++)
@@ -1361,6 +1573,11 @@ void game_run_combat(GameCtx *ctx)
 
         /* ---- Render ---- */
         memcpy(ctx->fb, bg, sizeof(bg));
+
+        /* Draw terrain visual objects (LAB_0A83 / SECSTRT_12 in mog.asm)
+         * These are drawn after the background but before combatants so
+         * that knights appear in front of terrain decorations.          */
+        terrain_render_objects(ctx->fb, s_terrain);
 
         /* Draw all active enemies (back-to-front, right to left)       */
         for (int ei = MAX_COMBAT_ENEMIES - 1; ei >= 0; ei--) {
@@ -1478,6 +1695,7 @@ combat_cleanup:
     sfx_free_family(s_sfx_gll);
 
     if (s_hit) { moon_hit_free(s_hit); s_hit = NULL; }
+    if (s_terrain) { moon_terrain_free(s_terrain); s_terrain = NULL; }
     moon_cel_free(knight_cel);
     if (enemy_cel != knight_cel)
         moon_cel_free(enemy_cel);

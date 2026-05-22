@@ -639,20 +639,46 @@ chaque type de créature (table `LAB_07C0`, `mog.asm#L13887`) :
 | 22    | `gll5.t`  | `LAB_07D7` | Grognement/impact type 5            |
 | 23    | `gll6.t`  | `LAB_07D8` | Grognement/impact type 6            |
 
-#### Sons des armes du joueur (tables `LAB_07B6`…`LAB_07B9`)
+#### Données de terrain du combat (tables `LAB_07B6`…`LAB_07B9`)
 
-Quatre catégories de sons d'armes sont sélectionnées selon l'arme équipée :
+Les fichiers `FO?.t`, `Sw?.t`, `GL?.t` et `Wa?.t` sont des **fichiers de données
+de terrain** — ils ne contiennent PAS de sons.  Chaque fichier décrit la géométrie
+visuelle et les obstacles de collision pour un champ de bataille.
 
-| Table      | Fichiers      | Arme correspondante          |
-|------------|---------------|------------------------------|
-| `LAB_07B9` | `FO1.t`…`FO8.t` | Dague / attaque de base     |
-| `LAB_07B8` | `Sw1.t`…`Sw8.t` | Épée longue / Broad Sword   |
-| `LAB_07B7` | `GL1.t`…`GL8.t` | Claymore                    |
-| `LAB_07B6` | `Wa1.t`…`Wa8.t` | Sword of Sharpness           |
+Le terrain est sélectionné selon le groupe de nœuds (`pve_node_group`) :
 
-Chaque table contient 8 pointeurs vers des fichiers son `.t` ; le moteur
-sélectionne l'un d'eux de façon cyclique (compteur `LAB_0AA5` modulo 8)
-pour varier les sons d'attaque.
+| Table      | Fichiers        | Groupe de nœuds | Terrain        |
+|------------|-----------------|-----------------|----------------|
+| `LAB_07B9` | `FO1.t`…`FO8.t` | 0 — fol (ouest) | Forêt (Forest) |
+| `LAB_07B7` | `GL1.t`…`GL8.t` | 1 — wal (nord)  | Clairière (Glade) |
+| `LAB_07B8` | `Sw1.t`…`Sw8.t` | 2 — swl (central) | Marais (Swamp) |
+| `LAB_07B6` | `Wa1.t`…`Wa8.t` | 3 — gll (nord-ouest) | Eau (Water) |
+
+Huit variantes par terrain sont sélectionnées en rotation (compteurs
+`LAB_05EB`/`LAB_05E9`/`LAB_05E8`/`LAB_05EA`, incrémentés mod 8 après chaque combat).
+
+##### Format binaire des fichiers `.t` de terrain
+
+Les fichiers sont compressés LZSS (même décompresseur `LAB_0CC0` que CEL/PIV).
+Après décompression (`LAB_0A6D`, `mog.asm` ligne 19091) :
+
+```
+[N: uint16 big-endian]      ← nombre d'entrées obstacles de collision
+[N × 8 octets]              ← table obstacles :
+    x_left  (int16 BE)      ← bord gauche de la zone bloquante (pixels)
+    x_right (int16 BE)      ← bord droit
+    y_depth (int16 BE)      ← seuil de profondeur
+    extra   (int16 BE)      ← réservé
+[2400 octets]               ← enregistrements visuels (6 octets chacun) :
+    type    (uint16 BE)     ← banque sprite (0x03=chevalier, 0x04=décor)
+                              octet haut 0xFF = fin de liste
+    x       (int16 BE)      ← position X écran
+    y       (int16 BE)      ← position Y écran
+```
+
+La collision est vérifiée par `LAB_0A71` : un obstacle bloque le mouvement
+quand `obs.y_depth >= sprite.y + 47` ET que la plage X du sprite chevauche
+`[obs.x_left, obs.x_right]`.
 
 #### Sons de combat spéciaux — banques PCM `.a`
 

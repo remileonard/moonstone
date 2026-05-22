@@ -25,6 +25,7 @@ add_library(moon_assets STATIC
     libmoon_assets/src/ob.c
     libmoon_assets/src/hit.c
     libmoon_assets/src/sfx.c
+    libmoon_assets/src/terrain.c
     libmoon_assets/src/rnc1.c
     libmoon_assets/src/lzss_cel.c
     libmoon_assets/src/rle_stile.c

@@ -2,16 +2,20 @@
  * libmoon_assets — Moonstone asset loading library
  *
  * Loads and decompresses the original Mindscape/Amiga Moonstone assets
- * without any file conversion: .cel, .PIV, .stile, .cmp, .ob, collide.hit, .a
+ * without any file conversion: .cel, .PIV, .stile, .cmp, .ob, collide.hit,
+ * .a, and terrain .t files.
  *
  * File formats supported:
- *   - CEL  : sprite sheets (LZSS compressed, proprietary Mindscape header)
- *   - PIV  : background bitmaps (proprietary Mindscape, LZSS body)
- *   - STILE: tile maps (2-bit RLE)
- *   - CMP  : ProTracker modules (RNC ProPack 1 compressed)
- *   - OB   : character sprite sheets (same format as CEL, LZSS compressed)
- *   - HIT  : hitbox definitions (ASCII text, collide.hit)
- *   - SFX  : raw 8-bit PCM audio sample banks (.a files, no header)
+ *   - CEL     : sprite sheets (LZSS compressed, proprietary Mindscape header)
+ *   - PIV     : background bitmaps (proprietary Mindscape, LZSS body)
+ *   - STILE   : tile maps (2-bit RLE)
+ *   - CMP     : ProTracker modules (RNC ProPack 1 compressed)
+ *   - OB      : character sprite sheets (same format as CEL, LZSS compressed)
+ *   - HIT     : hitbox definitions (ASCII text, collide.hit)
+ *   - SFX     : raw 8-bit PCM audio sample banks (.a files, no header)
+ *   - TERRAIN : combat arena terrain data (.t files — FO/Sw/GL/Wa families,
+ *               LZSS compressed; contain obstacle collision table and visual
+ *               object placement records for the combat background)
  *
  * All multi-byte values in Mindscape files are big-endian (Amiga/68000).
  */
@@ -376,6 +380,98 @@ MoonSfx *moon_sfx_load(const char *name);
 
 /** moon_sfx_free - release a MoonSfx obtained from moon_sfx_load(). */
 void moon_sfx_free(MoonSfx *sfx);
+
+/* ------------------------------------------------------------------ */
+/* TERRAIN — combat arena terrain data (.t files)                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * MoonTerrainObstacle - one collision entry from a .t terrain file.
+ *
+ * Mirrors the 8-byte entries stored at the start of the decompressed .t
+ * data (after the 2-byte count word), as read by LAB_0A71 in mog.asm.
+ *
+ * x_left / x_right are the screen-space horizontal bounds of the obstacle.
+ * y_depth is the vertical depth threshold: a combatant whose Y position
+ * is less than y_depth and whose X falls in [x_left, x_right] is blocked
+ * from moving further into the obstacle (matching the LAB_0A71 BCLR logic
+ * that clears the upward-movement flag when word2 >= SECSTRT_13).
+ * extra is the fourth word; its role is ancillary and not used by the C
+ * collision engine.
+ */
+typedef struct {
+    int16_t x_left;   /* screen X left edge  (word 0 of entry) */
+    int16_t x_right;  /* screen X right edge (word 1 of entry) */
+    int16_t y_depth;  /* Y depth threshold   (word 2 of entry) */
+    int16_t extra;    /* reserved            (word 3 of entry) */
+} MoonTerrainObstacle;
+
+/**
+ * MoonTerrainObject - one visual placement record from a .t terrain file.
+ *
+ * Mirrors the 6-byte records in the LAB_0A83 visual display buffer
+ * (copied from the decompressed .t data by LAB_0A6D, rendered by SECSTRT_12
+ * in mog.asm).
+ *
+ * sprite_bank selects the Amiga sprite source:
+ *   0x03 → LAB_05C1 (knight/character sprites)
+ *   0x04 → LAB_0D92 (terrain/decoration sprites)
+ *   other → LAB_0D92 (terrain/decoration sprites, default)
+ * sprite_idx is the low byte of the type word and indexes the sprite within
+ * the selected bank.
+ * x and y are the screen-space coordinates where the sprite is drawn.
+ */
+typedef struct {
+    uint8_t  sprite_bank; /* high byte of type word: 0x03, 0x04, or other  */
+    uint8_t  sprite_idx;  /* low  byte of type word: index within the bank  */
+    int16_t  x;           /* screen X position                              */
+    int16_t  y;           /* screen Y position                              */
+} MoonTerrainObject;
+
+/**
+ * MoonTerrain - a fully parsed .t terrain file.
+ *
+ * .t files (FO1.t–FO8.t, Sw1.t–Sw8.t, GL1.t–GL8.t, Wa1.t–Wa8.t) are
+ * LZSS-compressed binary files loaded by LAB_0A6D in mog.asm.  Each file
+ * describes one combat arena variant for a given terrain type (Forest,
+ * Swamp, Glade, or Water).  Eight variants per terrain type are cycled
+ * in sequence across encounters.
+ *
+ * Decompressed layout (mog.asm LAB_0A6D, lines 19091–19118):
+ *
+ *   [N: uint16_be]                  ← number of obstacle entries
+ *   [N × 8 bytes: obstacles]        ← collision table (see MoonTerrainObstacle)
+ *   [2400 bytes: visual objects]    ← 6-byte records copied to LAB_0A83
+ *
+ * n_obstacles / obstacles: collision entries read directly from the file by
+ *   LAB_0A71.  Used to block combatant movement through terrain objects.
+ *
+ * n_objects / objects: visual placement records parsed from the 2400-byte
+ *   block.  Each record specifies which sprite to draw and where.  The
+ *   list is terminated by a record whose type high byte is 0xFF.
+ *
+ * Files are optional — if absent the collision subsystem uses a full-width
+ *   fallback entry (matching the LAB_0A6C default written by the original
+ *   game when no file is present).
+ */
+typedef struct {
+    int                  n_obstacles; /* number of collision entries        */
+    MoonTerrainObstacle *obstacles;   /* array of n_obstacles entries       */
+    int                  n_objects;   /* number of visual placement records */
+    MoonTerrainObject   *objects;     /* array of n_objects entries         */
+} MoonTerrain;
+
+/**
+ * moon_terrain_load - load and parse a .t terrain file.
+ * @name: filename relative to the asset directory (e.g. "FO1.t").
+ * Returns a newly allocated MoonTerrain on success, or NULL if the file
+ * cannot be found, read, or parsed.
+ * The caller must free the result with moon_terrain_free().
+ */
+MoonTerrain *moon_terrain_load(const char *name);
+
+/** moon_terrain_free - release a MoonTerrain obtained from moon_terrain_load(). */
+void moon_terrain_free(MoonTerrain *terrain);
 
 /* ------------------------------------------------------------------ */
 /* Generic raw file access                                             */
