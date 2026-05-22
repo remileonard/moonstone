@@ -2,14 +2,20 @@
  * libmoon_assets — Moonstone asset loading library
  *
  * Loads and decompresses the original Mindscape/Amiga Moonstone assets
- * without any file conversion: .cel, .PIV, .stile, .cmp, .ob
+ * without any file conversion: .cel, .PIV, .stile, .cmp, .ob, collide.hit,
+ * .a, and terrain .t files.
  *
  * File formats supported:
- *   - CEL  : sprite sheets (LZSS compressed, proprietary Mindscape header)
- *   - PIV  : background bitmaps (proprietary Mindscape, LZSS body)
- *   - STILE: tile maps (2-bit RLE)
- *   - CMP  : ProTracker modules (RNC ProPack 1 compressed)
- *   - OB   : character sprite sheets (same format as CEL, LZSS compressed)
+ *   - CEL     : sprite sheets (LZSS compressed, proprietary Mindscape header)
+ *   - PIV     : background bitmaps (proprietary Mindscape, LZSS body)
+ *   - STILE   : tile maps (2-bit RLE)
+ *   - CMP     : ProTracker modules (RNC ProPack 1 compressed)
+ *   - OB      : character sprite sheets (same format as CEL, LZSS compressed)
+ *   - HIT     : hitbox definitions (ASCII text, collide.hit)
+ *   - SFX     : raw 8-bit PCM audio sample banks (.a files, no header)
+ *   - TERRAIN : combat arena terrain data (.t files — FO/Sw/GL/Wa families,
+ *               LZSS compressed; contain obstacle collision table and visual
+ *               object placement records for the combat background)
  *
  * All multi-byte values in Mindscape files are big-endian (Amiga/68000).
  */
@@ -236,6 +242,236 @@ MoonOb *moon_ob_load(const char *name);
 
 /** moon_ob_free - release a MoonOb obtained from moon_ob_load(). */
 void moon_ob_free(MoonOb *ob);
+
+/* ------------------------------------------------------------------ */
+/* HIT — collide.hit hitbox definitions                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * MoonHitPoint - a single hit-test point within an animation frame.
+ *
+ * Coordinates are unsigned offsets from the sprite's screen-space origin.
+ * The original parser (LAB_03D8 in mog.asm) stores them as plain bytes
+ * after reading 3-digit ASCII decimal values.
+ */
+typedef struct {
+    uint8_t dx; /* x offset from sprite origin (0–255) */
+    uint8_t dy; /* y offset from sprite origin (0–255) */
+} MoonHitPoint;
+
+/**
+ * MoonHitFrame - hit-test data for one animation frame.
+ *
+ * Mirrors the binary block produced by LAB_03D2 in mog.asm:
+ *   [n_points:1] [type:1] [max_dx:1] [max_dy:1]
+ *   [dx₀:1][dy₀:1] … [dx_{n-1}:1][dy_{n-1}:1]
+ *
+ * When n_points == 0 the frame has no active hitbox; points is NULL.
+ */
+typedef struct {
+    uint8_t       n_points; /* number of hit points (0 = no hitbox this frame) */
+    uint8_t       type;     /* hit type/weight byte (TT field in collide.hit)   */
+    uint8_t       max_dx;   /* maximum dx seen across all points of this frame  */
+    uint8_t       max_dy;   /* maximum dy seen across all points of this frame  */
+    MoonHitPoint *points;   /* array of n_points entries; NULL when n_points==0 */
+} MoonHitFrame;
+
+/**
+ * MoonHitSprite - hitbox data for one named sprite.
+ *
+ * The name matches the sprite filename used as a key in collide.hit
+ * (e.g. "TroggSpear2.cel", "be1.c").  frame_count frames are listed
+ * sequentially, one entry per animation frame.
+ */
+typedef struct {
+    char          name[64];    /* null-terminated sprite filename key */
+    int           frame_count; /* number of animation frames described */
+    MoonHitFrame *frames;      /* array of frame_count MoonHitFrame entries */
+} MoonHitSprite;
+
+/**
+ * MoonHit - the complete parsed collide.hit file.
+ *
+ * Contains one MoonHitSprite per named section found in the ASCII text file.
+ * The index table LAB_0A51 (sprite_ptr, hitbox_data_ptr pairs) is not
+ * reproduced here; callers look up by sprite name via moon_hit_find().
+ */
+typedef struct {
+    int            sprite_count; /* number of sprite sections in the file */
+    MoonHitSprite *sprites;      /* array of sprite_count entries          */
+} MoonHit;
+
+/**
+ * moon_hit_load - parse a collide.hit ASCII text file.
+ * @name: filename relative to the asset directory (typically "collide.hit").
+ * Returns a newly allocated MoonHit, or NULL on error.
+ * The caller must free the result with moon_hit_free().
+ */
+MoonHit *moon_hit_load(const char *name);
+
+/**
+ * moon_hit_find - look up a sprite by name within a MoonHit.
+ * @hit:  a MoonHit obtained from moon_hit_load().
+ * @name: sprite filename key (e.g. "TroggSpear2.cel").
+ * Returns a pointer to the matching MoonHitSprite, or NULL if not found.
+ * The returned pointer is owned by @hit; do not free it separately.
+ */
+const MoonHitSprite *moon_hit_find(const MoonHit *hit, const char *name);
+
+/** moon_hit_free - release a MoonHit obtained from moon_hit_load(). */
+void moon_hit_free(MoonHit *hit);
+
+/* ------------------------------------------------------------------ */
+/* SFX — raw PCM audio sample banks (.a files)                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * MoonSfx - a raw PCM audio sample bank loaded from a .a file.
+ *
+ * .a files are flat binary blobs of 8-bit signed PCM audio data in
+ * Amiga Paula native format.  There is NO file header: the file begins
+ * directly with sample data.
+ *
+ * A single bank may contain several concatenated samples.  The sample
+ * boundaries (start offset and length in words) are NOT stored in the
+ * file — they are encoded in the LAB_10A3 descriptor table hardcoded in
+ * the game binary (mog.asm line 31115).  Each 14-byte descriptor entry
+ * in that table has the form:
+ *
+ *   +0  [2] flags  : $0001 = play-once SFX, $FFFF = looping sample
+ *   +2  [2] pad    : $0000
+ *   +4  [2] length : sample length in 16-bit words (bytes = length * 2)
+ *   +6  [4] pcm    : file-relative offset into the .a bank
+ *                    (patched to absolute address at load time by LAB_0FD4)
+ *   +10 [4] periods: pointer to the ProTracker period table (LAB_0FD3)
+ *
+ * To access sample i within the bank:
+ *   uint8_t *start = sfx->data + descriptor[i].pcm_offset;
+ *   size_t   bytes = (size_t)descriptor[i].length_words * 2;
+ *
+ * One bank is loaded per combat encounter:
+ *
+ *   kn.a — player knight SFX (always loaded; LAB_05C7 buffer)
+ *   Re.a — background-music PCM replay samples (LAB_05C9 buffer)
+ *   Wz.a — Wizard / Mythral SFX (LAB_05CA buffer)
+ *   Ra.a — Ratman SFX (LAB_05CB buffer)
+ *   He.a — enemy knight SFX (LAB_05C8 shared enemy buffer)
+ *   Be.a / Ba.a / Dr.a / To.a / Tr.a / Wn.a / Gu.a / Mu.a
+ *        — per-creature SFX, all sharing LAB_05C8 (only one loaded at a time)
+ *
+ * The .a files are NOT present in the repository; they must be extracted
+ * from the original Moonstone floppy disk image by the user.  If
+ * moon_sfx_load() cannot find the file it returns NULL and the game
+ * should continue silently without the affected sounds.
+ */
+typedef struct {
+    size_t   size; /* byte count of the raw PCM sample bank */
+    uint8_t *data; /* raw 8-bit signed PCM data (no header, owned by MoonSfx) */
+} MoonSfx;
+
+/**
+ * moon_sfx_load - load a raw .a PCM sample bank from the asset directory.
+ * @name: filename relative to the asset directory (e.g. "kn.a").
+ * Returns a newly allocated MoonSfx on success, or NULL if the file
+ * cannot be found or read (missing .a files are silently ignored).
+ * The caller must free the result with moon_sfx_free().
+ */
+MoonSfx *moon_sfx_load(const char *name);
+
+/** moon_sfx_free - release a MoonSfx obtained from moon_sfx_load(). */
+void moon_sfx_free(MoonSfx *sfx);
+
+/* ------------------------------------------------------------------ */
+/* TERRAIN — combat arena terrain data (.t files)                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * MoonTerrainObstacle - one collision entry from a .t terrain file.
+ *
+ * Mirrors the 8-byte entries stored at the start of the decompressed .t
+ * data (after the 2-byte count word), as read by LAB_0A71 in mog.asm.
+ *
+ * x_left / x_right are the screen-space horizontal bounds of the obstacle.
+ * y_depth is the vertical depth threshold: a combatant whose Y position
+ * is less than y_depth and whose X falls in [x_left, x_right] is blocked
+ * from moving further into the obstacle (matching the LAB_0A71 BCLR logic
+ * that clears the upward-movement flag when word2 >= SECSTRT_13).
+ * extra is the fourth word; its role is ancillary and not used by the C
+ * collision engine.
+ */
+typedef struct {
+    int16_t x_left;   /* screen X left edge  (word 0 of entry) */
+    int16_t x_right;  /* screen X right edge (word 1 of entry) */
+    int16_t y_depth;  /* Y depth threshold   (word 2 of entry) */
+    int16_t extra;    /* reserved            (word 3 of entry) */
+} MoonTerrainObstacle;
+
+/**
+ * MoonTerrainObject - one visual placement record from a .t terrain file.
+ *
+ * Mirrors the 6-byte records in the LAB_0A83 visual display buffer
+ * (copied from the decompressed .t data by LAB_0A6D, rendered by SECSTRT_12
+ * in mog.asm).
+ *
+ * sprite_bank selects the Amiga sprite source:
+ *   0x03 → LAB_05C1 (knight/character sprites)
+ *   0x04 → LAB_0D92 (terrain/decoration sprites)
+ *   other → LAB_0D92 (terrain/decoration sprites, default)
+ * sprite_idx is the low byte of the type word and indexes the sprite within
+ * the selected bank.
+ * x and y are the screen-space coordinates where the sprite is drawn.
+ */
+typedef struct {
+    uint8_t  sprite_bank; /* high byte of type word: 0x03, 0x04, or other  */
+    uint8_t  sprite_idx;  /* low  byte of type word: index within the bank  */
+    int16_t  x;           /* screen X position                              */
+    int16_t  y;           /* screen Y position                              */
+} MoonTerrainObject;
+
+/**
+ * MoonTerrain - a fully parsed .t terrain file.
+ *
+ * .t files (FO1.t–FO8.t, Sw1.t–Sw8.t, GL1.t–GL8.t, Wa1.t–Wa8.t) are
+ * LZSS-compressed binary files loaded by LAB_0A6D in mog.asm.  Each file
+ * describes one combat arena variant for a given terrain type (Forest,
+ * Swamp, Glade, or Water).  Eight variants per terrain type are cycled
+ * in sequence across encounters.
+ *
+ * Decompressed layout (mog.asm LAB_0A6D, lines 19091–19118):
+ *
+ *   [N: uint16_be]                  ← number of obstacle entries
+ *   [N × 8 bytes: obstacles]        ← collision table (see MoonTerrainObstacle)
+ *   [2400 bytes: visual objects]    ← 6-byte records copied to LAB_0A83
+ *
+ * n_obstacles / obstacles: collision entries read directly from the file by
+ *   LAB_0A71.  Used to block combatant movement through terrain objects.
+ *
+ * n_objects / objects: visual placement records parsed from the 2400-byte
+ *   block.  Each record specifies which sprite to draw and where.  The
+ *   list is terminated by a record whose type high byte is 0xFF.
+ *
+ * Files are optional — if absent the collision subsystem uses a full-width
+ *   fallback entry (matching the LAB_0A6C default written by the original
+ *   game when no file is present).
+ */
+typedef struct {
+    int                  n_obstacles; /* number of collision entries        */
+    MoonTerrainObstacle *obstacles;   /* array of n_obstacles entries       */
+    int                  n_objects;   /* number of visual placement records */
+    MoonTerrainObject   *objects;     /* array of n_objects entries         */
+} MoonTerrain;
+
+/**
+ * moon_terrain_load - load and parse a .t terrain file.
+ * @name: filename relative to the asset directory (e.g. "FO1.t").
+ * Returns a newly allocated MoonTerrain on success, or NULL if the file
+ * cannot be found, read, or parsed.
+ * The caller must free the result with moon_terrain_free().
+ */
+MoonTerrain *moon_terrain_load(const char *name);
+
+/** moon_terrain_free - release a MoonTerrain obtained from moon_terrain_load(). */
+void moon_terrain_free(MoonTerrain *terrain);
 
 /* ------------------------------------------------------------------ */
 /* Generic raw file access                                             */

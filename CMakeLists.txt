@@ -23,6 +23,9 @@ add_library(moon_assets STATIC
     libmoon_assets/src/stile.c
     libmoon_assets/src/mod.c
     libmoon_assets/src/ob.c
+    libmoon_assets/src/hit.c
+    libmoon_assets/src/sfx.c
+    libmoon_assets/src/terrain.c
     libmoon_assets/src/rnc1.c
     libmoon_assets/src/lzss_cel.c
     libmoon_assets/src/rle_stile.c
@@ -35,10 +38,10 @@ target_include_directories(moon_assets
 )
 
 # ---------------------------------------------------------------
-# SDL2 (required) and SDL2_mixer (optional) for tools
+# SDL2 and SDL2_mixer (both required) for tools
 # ---------------------------------------------------------------
 find_package(SDL2 REQUIRED)
-find_package(SDL2_mixer QUIET)
+find_package(SDL2_mixer REQUIRED)
 
 # ---------------------------------------------------------------
 # CLI tools

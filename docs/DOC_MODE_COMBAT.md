@@ -54,7 +54,7 @@ du jeu interactif. Les états pertinents pour le combat sont :
 | `1`        | STATE_PVP | Combat PvP chevalier vs chevalier         | `LAB_04D7`  |
 | `2`        | STATE_PVE | Combat contre une créature PvE            | `LAB_04D6`  |
 | `3`        | STATE_MYS | Sorcier Mythral (Mystic)                  | `LAB_058F`  |
-| `5`        | STATE_ARENA | Combat d'arène en ville                 | `LAB_0522`  |
+| `5`        | STATE_SHOP | Boutique d'achat d'armes/armures en ville       | `LAB_0522`  |
 | `10` (0xa) | STATE_GOD | Vallée des Dieux (boss)                   | `LAB_0590`  |
 
 La fonction `LAB_04CF` (`mog.asm#L10547`) est le **point d'entrée principal**
@@ -200,7 +200,7 @@ des chaînes de texte d'UI (items, stats) propres à chaque état de combat :
 
 | Label       | État `LAB_068F` | Rôle                                              |
 |-------------|-----------------|---------------------------------------------------|
-| `LAB_0692`  | Arène (5)       | Table UI arène — textes d'items/options spéciaux  |
+| `LAB_0692`  | Tous états  | Table textes côté joueur — stats (Strength/Endurance/Constitution/Life points/Gold) + noms d'items ; les 3 premiers entrées ("Increase Strength/Endurance/Constitution") remplacent optionnellement les tiles quand le chevalier a assez d'or et que la stat n'est pas à 5 |
 | `LAB_0693`  | Temple (9)      | Table UI temple — textes de soin / skill          |
 | `LAB_0694`  | PvP (1)         | Table UI combat chevalier vs chevalier            |
 | `LAB_0695`  | —               | Table UI auxiliaire                               |
@@ -296,16 +296,15 @@ LAB_01A3:
 |------------------------|------------|-----------------------------------------|------------------------------------------------|
 | `0x00`                 | `LAB_0188` | Chevalier ennemi (Hefalump)             | `He1.ob`, `He2.ob`, `He3.ob` (`LAB_0123`)     |
 | `0x04`                 | `LAB_019A` | Mudmen                                  | `Mudmen1.cel`, `Mudmen2.cel` (`LAB_011E`)      |
-| `0x08`                 | `LAB_01A0` | Balok (grande créature / boss)          | `Balok1.cel`, `Balok2.cel`, `Balok3.cel` (`LAB_011F`) |
+| `0x08`                 | `LAB_01A0` | Démon / Gardien                         | `Demon1.cel`…`Demon4.cel` (`LAB_0125` → `LAB_07B0..B3`) |
 | `0x0c`                 | `LAB_0164` | Créature générique (Ratmen/TroggAxe)    | `Ratmen1.cel`, `Ratmen2.cel` (via `LAB_0116`) |
-| `0x14`                 | `LAB_0168` | TroggAxe                                | `TroggAxe1.cel`, `TroggAxe2.cel` (`LAB_011A`) |
-| `0x1c`                 | `LAB_016A` | TroggSpear                              | `TroggSpear1.cel`, `TroggSpear2.cel` (`LAB_011A`) |
-| `0x20`                 | `LAB_0175` | Démons                                  | `Demon1.cel`…`Demon4.cel`                      |
-| `0x24`                 | `LAB_018C` | Ratmen (variante)                       | `Ratmen1.cel`, `Ratmen2.cel` (`LAB_011C`)     |
-| `0x30`                 | `LAB_0196` | Troll                                   | `Troll1.cel`, `Troll2.cel` (`LAB_011F`)        |
-| `0x40`                 | `LAB_019E` | Démon/Sélène                            | `Sel.cel`, `Demon4.cel` (`LAB_0126`)           |
-| `0x09`                 | `LAB_019A` | Mudmen (variante `LAB_08C4=8`)         | `Mudmen1.cel`, `Mudmen2.cel`                   |
-| `0x04` (LSB)           | `LAB_0192` | Dragon                                  | `Dragon1.cel`, `Dragon2.cel` (`LAB_0121`)      |
+| `0x14`                 | `LAB_0192` | Dragon                                  | `Dragon1.cel`, `Dragon2.cel` (`LAB_0121` → `LAB_0780`) |
+| `0x18`                 | `LAB_0168` | TroggAxe                                | `TroggAxe1.cel`, `TroggAxe2.cel` (`LAB_011A` → `LAB_0778`) |
+| `0x1c`                 | `LAB_016A` | TroggAxe variante (même sprites, frames différentes) | `TroggAxe1.cel`, `TroggAxe2.cel` (`LAB_011A` → `LAB_0778`) |
+| `0x20`                 | `LAB_0175` | TroggSpear                              | `TroggSpear1.cel`, `TroggSpear2.cel` (`LAB_0118` → `LAB_077A`) |
+| `0x24`                 | `LAB_018C` | Ratmen                                  | `Ratmen1.cel`, `Ratmen2.cel` (`LAB_011C` → `LAB_077C`) |
+| `0x30`                 | `LAB_0196` | Balok                                   | `Balok1.cel`, `Balok2.cel`, `Balok3.cel` (`LAB_011F` → `LAB_0785`) |
+| `0x40`                 | `LAB_019E` | Troll                                   | `Troll1.cel`, `Troll2.cel` (`LAB_0126` → `LAB_07B4`) |
 
 ### 3.4 Initialisation du chevalier joueur : `LAB_01A4`
 
@@ -640,38 +639,157 @@ chaque type de créature (table `LAB_07C0`, `mog.asm#L13887`) :
 | 22    | `gll5.t`  | `LAB_07D7` | Grognement/impact type 5            |
 | 23    | `gll6.t`  | `LAB_07D8` | Grognement/impact type 6            |
 
-#### Sons des armes du joueur (tables `LAB_07B6`…`LAB_07B9`)
+#### Données de terrain du combat (tables `LAB_07B6`…`LAB_07B9`)
 
-Quatre catégories de sons d'armes sont sélectionnées selon l'arme équipée :
+Les fichiers `FO?.t`, `Sw?.t`, `GL?.t` et `Wa?.t` sont des **fichiers de données
+de terrain** — ils ne contiennent PAS de sons.  Chaque fichier décrit la géométrie
+visuelle et les obstacles de collision pour un champ de bataille.
 
-| Table      | Fichiers      | Arme correspondante          |
-|------------|---------------|------------------------------|
-| `LAB_07B9` | `FO1.t`…`FO8.t` | Dague / attaque de base     |
-| `LAB_07B8` | `Sw1.t`…`Sw8.t` | Épée longue / Broad Sword   |
-| `LAB_07B7` | `GL1.t`…`GL8.t` | Claymore                    |
-| `LAB_07B6` | `Wa1.t`…`Wa8.t` | Sword of Sharpness           |
+Le terrain est sélectionné selon le groupe de nœuds (`pve_node_group`) :
 
-Chaque table contient 8 pointeurs vers des fichiers son `.t` ; le moteur
-sélectionne l'un d'eux de façon cyclique (compteur `LAB_0AA5` modulo 8)
-pour varier les sons d'attaque.
+| Table      | Fichiers        | Groupe de nœuds | Terrain        |
+|------------|-----------------|-----------------|----------------|
+| `LAB_07B9` | `FO1.t`…`FO8.t` | 0 — fol (ouest) | Forêt (Forest) |
+| `LAB_07B7` | `GL1.t`…`GL8.t` | 1 — wal (nord)  | Clairière (Glade) |
+| `LAB_07B8` | `Sw1.t`…`Sw8.t` | 2 — swl (central) | Marais (Swamp) |
+| `LAB_07B6` | `Wa1.t`…`Wa8.t` | 3 — gll (nord-ouest) | Eau (Water) |
 
-#### Sons de combat spéciaux
+Huit variantes par terrain sont sélectionnées en rotation (compteurs
+`LAB_05EB`/`LAB_05E9`/`LAB_05E8`/`LAB_05EA`, incrémentés mod 8 après chaque combat).
 
-| Fichier   | Label     | Rôle                                       |
-|-----------|-----------|--------------------------------------------|
-| `kn.a`    | `SECSTRT_17` | Son du chevalier joueur (marche/cri)    |
-| `Be.a`    | `LAB_0AB7` | Son de créature Be (Ratmen/Ours)           |
-| `Ba.a`    | `LAB_0AB8` | Son de Balok                               |
-| `Dr.a`    | `LAB_0AB9` | Son du Dragon                              |
-| `To.a`    | `LAB_0ABA` | Son du Troll                               |
-| `Tr.a`    | `LAB_0ABB` | Son du TroggAxe/TroggSpear                 |
-| `Wn.a`    | `LAB_0ABC` | Son du Sorcier (Wn = Wyvern ?)             |
-| `Gu.a`    | `LAB_0ABD` | Son du garde (Guard)                       |
-| `Wz.a`    | `LAB_0ABE` | Son du Wizard (Mythral)                    |
-| `Ra.a`    | `LAB_0ABF` | Son du Ratman                              |
-| `Mu.a`    | `LAB_0AC0` | Son du Mudman                              |
-| `Re.a`    | `LAB_0AC1` | Module de replay (SoundTracker engine)     |
-| `He.a`    | `LAB_0AC2` | Son du Hefalump (chevalier ennemi)         |
+##### Format binaire des fichiers `.t` de terrain
+
+Les fichiers sont compressés LZSS (même décompresseur `LAB_0CC0` que CEL/PIV).
+Après décompression (`LAB_0A6D`, `mog.asm` ligne 19091) :
+
+```
+[N: uint16 big-endian]      ← nombre d'entrées obstacles de collision
+[N × 8 octets]              ← table obstacles :
+    x_left  (int16 BE)      ← bord gauche de la zone bloquante (pixels)
+    x_right (int16 BE)      ← bord droit
+    y_depth (int16 BE)      ← seuil de profondeur
+    extra   (int16 BE)      ← réservé
+[2400 octets]               ← enregistrements visuels (6 octets chacun) :
+    type    (uint16 BE)     ← banque sprite (0x03=chevalier, 0x04=décor)
+                              octet haut 0xFF = fin de liste
+    x       (int16 BE)      ← position X écran
+    y       (int16 BE)      ← position Y écran
+```
+
+La collision est vérifiée par `LAB_0A71` : un obstacle bloque le mouvement
+quand `obs.y_depth >= sprite.y + 47` ET que la plage X du sprite chevauche
+`[obs.x_left, obs.x_right]`.
+
+#### Sons de combat spéciaux — banques PCM `.a`
+
+##### Format des fichiers `.a`
+
+Les fichiers `.a` sont des **banques de samples PCM bruts** en format
+natif Amiga Paula :
+
+- **Pas d'en-tête** — le fichier commence directement par les données PCM.
+- **PCM 8-bit signé**, mono, compatible avec les registres DMA Paula
+  (`AUDxLC`/`AUDxLEN`/`AUDxPER`).
+- **Plusieurs samples concaténés** dans le même fichier ; les frontières
+  entre samples (offset de début et longueur) ne sont **pas** stockées
+  dans le fichier — elles sont encodées dans la table de descripteurs
+  `LAB_10A3` en dur dans le binaire du jeu (`mog.asm#L31115`).
+
+##### Structure d'un descripteur de sample (`LAB_10A3`, 14 octets par entrée)
+
+```
++0  [2] flags   : $0001 = son joué une fois (SFX),
+                  $FFFF = sample en boucle (musique replay)
++2  [2] réservé : $0000
++4  [2] length  : longueur du sample en mots 16-bit
+                  (octets = length × 2)
++6  [4] pcm     : offset relatif dans la banque .a
+                  (après relocalisation par LAB_0FD4 : adresse absolue Amiga)
++10 [4] periods : pointeur vers la table de périodes ProTracker (LAB_0FD3)
+```
+
+##### Procédures de chargement
+
+| Routine      | `mog.asm` | Rôle                                                |
+|--------------|-----------|-----------------------------------------------------|
+| `LAB_0AA7`   | #L19329   | Init audio combat : installe les IRQ VBL + DMA audio, charge `Re.a` |
+| `LAB_0AAA`…`LAB_0AB4` | #L19338–19421 | Un loader par type de créature (appelle `LAB_0AB5`) |
+| `LAB_0AB5`   | #L19423   | Dispatcher commun : ouvre le fichier via `LAB_0BB5`, lit *N* octets dans le buffer destination, ferme |
+| `LAB_0BB5`   | #L20884   | Ouvre un fichier par hachage de son nom dans le répertoire disque |
+| `LAB_0FD4`   | #L29138   | Relocalisation post-chargement : ajoute l'adresse du buffer au champ `+6` de chaque descripteur `LAB_10A3` |
+
+##### Allocation des buffers
+
+Quatre buffers sont pré-alloués en mémoire Amiga :
+
+| Buffer      | Rôle                                   |
+|-------------|----------------------------------------|
+| `LAB_05C7`  | Banque `kn.a` (chevalier joueur)       |
+| `LAB_05C8`  | Banque ennemi partagée (un seul type à la fois) |
+| `LAB_05C9`  | Banque `Re.a` (samples replay/musique) |
+| `LAB_05CA`  | Banque `Wz.a` (Wizard/Mythral)         |
+| `LAB_05CB`  | Banque `Ra.a` (Ratman)                 |
+
+##### Table des fichiers `.a`
+
+| Fichier | Label        | Buffer      | Taille (octets) | Créature / Rôle                  |
+|---------|--------------|-------------|-----------------|----------------------------------|
+| `kn.a`  | `SECSTRT_17` | `LAB_05C7`  | 0x57F8 = 22 520 | Chevalier joueur                 |
+| `Be.a`  | `LAB_0AB7`   | `LAB_05C8`  | 0x57BE = 22 462 | TroggWarBeast (Berzerker/Bête)   |
+| `Ba.a`  | `LAB_0AB8`   | `LAB_05C8`  | 0xBDCC = 48 588 | Balok                            |
+| `Dr.a`  | `LAB_0AB9`   | `LAB_05C8`  | 0xC140 = 49 472 | Dragon                           |
+| `To.a`  | `LAB_0ABA`   | `LAB_05C8`  | 0xBBC8 = 48 072 | Troll                            |
+| `Tr.a`  | `LAB_0ABB`   | `LAB_05C8`  | 0xAB28 = 43 816 | Trogg (TroggAxe / TroggSpear)    |
+| `Wn.a`  | `LAB_0ABC`   | `LAB_05C8`  | 0x4EF4 = 20 212 | Créature inconnue (Wyvern ?)     |
+| `Gu.a`  | `LAB_0ABD`   | `LAB_05C8`  | 0xB27C = 45 692 | Garde (Guard)                    |
+| `Wz.a`  | `LAB_0ABE`   | `LAB_05CA`  | 0xD6D8 = 54 872 | Wizard / Mythral                 |
+| `Ra.a`  | `LAB_0ABF`   | `LAB_05CB`  | 0xD508 = 54 536 | Ratman                           |
+| `Mu.a`  | `LAB_0AC0`   | `LAB_05C8`  | 0xB690 = 46 736 | Mudman                           |
+| `Re.a`  | `LAB_0AC1`   | `LAB_05C9`  | 0xD924 = 55 588 | Samples replay (musique de fond) |
+| `He.a`  | `LAB_0AC2`   | `LAB_05C8`  | 0x2F78 = 12 152 | Chevalier ennemi (Enemy Knight)  |
+
+> **Note** : `LAB_05C8` est un buffer **partagé** entre toutes les créatures
+> génériques — un seul fichier ennemi est chargé à la fois selon le type
+> de créature du combat en cours.
+>
+> Les fichiers `.a` **ne sont pas inclus dans le dépôt** ; ils doivent être
+> extraits par l'utilisateur depuis l'image disquette originale Moonstone.
+
+##### Relocalisation `LAB_10A3` par `LAB_0FD4`
+
+`LAB_0FD4` parcourt des sous-plages de `LAB_10A3` et ajoute l'adresse
+Amiga du buffer correspondant au champ `+6` de chaque descripteur :
+
+| Sous-plage                     | Buffer utilisé | Banque .a              |
+|--------------------------------|----------------|------------------------|
+| `LAB_10A3` → `LAB_10A4`        | `LAB_05C7`     | `kn.a` (joueur)        |
+| `LAB_10A4` → `LAB_10A7`        | `LAB_05C8`     | ennemi courant         |
+| `LAB_10A7` → `LAB_10A8`        | `LAB_05CB`     | `Ra.a` (Ratman)        |
+| `LAB_10A8` → `LAB_10A9`        | `LAB_05C8`     | ennemi courant         |
+| `LAB_10A5`, `LAB_10A6` (spéciaux) | `LAB_05C7` | `kn.a` (offsets fixes) |
+| `LAB_10A9` → `LAB_10AA`        | `LAB_05C9`     | `Re.a` (replay)        |
+| `LAB_10AA` → `LAB_10AB`        | `LAB_05CA`     | `Wz.a` (Wizard)        |
+| `LAB_10AB` → `LAB_10AC`        | `LAB_05C8`     | ennemi courant         |
+| `LAB_10AC` → `LAB_10AD`        | `LAB_05C9`     | `Re.a` (replay)        |
+| `LAB_10AD` → `LAB_10AE`        | `LAB_05C8`     | ennemi courant         |
+
+##### Chargement C : `moon_sfx_load()`
+
+```c
+/* Charger la banque du joueur */
+MoonSfx *kn = moon_sfx_load("kn.a");
+
+/* Accéder au sample #1 de kn.a (offset 0x0068, longueur 0x0506 mots) */
+if (kn) {
+    uint8_t *pcm   = kn->data + 0x0068;
+    size_t   bytes = 0x0506 * 2; /* = 2572 octets */
+    /* passer pcm à SDL_QueueAudio ou équivalent */
+    moon_sfx_free(kn);
+}
+```
+
+`moon_sfx_load()` retourne `NULL` sans erreur si le fichier `.a` est absent
+(les fichiers `.a` sont optionnels).
 
 ### 6.3 Moteur de lecture sonore : `LAB_0F8C`
 
@@ -857,7 +975,7 @@ du chevalier.
 | `ch.piv`      | PIV   | `LAB_07AF` | Fond de combat (320×200, 5 plans)       |
 | `message.piv` | PIV   | `LAB_07AE` | Fond écran de messages / butin          |
 | `co.stile`    | STILE | —          | Tileset décors de combat (RLE 2 bits)   |
-| `bold.f`      | CEL   | `LAB_078B` | Police de caractères bold (HUD/textes)  |
+| `bold.f`      | CEL   | `LAB_078B` | Police de caractères bold (textes butin/inventaire) |
 | `Small.font`  | font  | `LAB_078C` | Police de caractères petite             |
 | `vmusic.cmp`  | CMP   | —          | Module SoundTracker musique de combat   |
 

@@ -6,7 +6,7 @@
 
 #include <SDL2/SDL.h>
 #ifdef HAVE_SDL2_MIXER
-#include <SDL2/SDL_mixer.h>
+#include "SDL_mixer.h"
 #endif
 
 #include <stdio.h>
@@ -30,6 +30,15 @@ static uint32_t s_last_frame_ticks = 0;
 static Mix_Music *s_music    = NULL;
 static uint8_t   *s_mod_buf  = NULL;  /* owned copy of MOD data for SDL_RWops */
 static size_t     s_mod_len  = 0;
+
+/* SFX channel pool — mirrors Amiga Paula's 4 DMA audio channels.
+ * We halt each channel before reuse so the previous Mix_Chunk can be
+ * freed safely.  Mix_HaltChannel() acquires the audio lock internally,
+ * ensuring the mixer thread has finished reading the old chunk data
+ * before we free it.                                                  */
+#define SFX_CHANNELS 4
+static Mix_Chunk *s_sfx_slots[SFX_CHANNELS];
+static int        s_sfx_next = 0;
 #endif
 
 /* ------------------------------------------------------------------ */
@@ -55,6 +64,7 @@ int hal_init(const char *title, int scale)
         fprintf(stderr, "SDL_mixer warning: %s\n", Mix_GetError());
         /* non-fatal — continue without audio */
     }
+    Mix_AllocateChannels(SFX_CHANNELS);
     Mix_VolumeMusic(MIX_MAX_VOLUME);
 #endif
 
@@ -107,6 +117,7 @@ int hal_init(const char *title, int scale)
 void hal_quit(void)
 {
 #ifdef HAVE_SDL2_MIXER
+    hal_sfx_stop_all();
     hal_music_stop();
     Mix_CloseAudio();
     free(s_mod_buf);
@@ -306,6 +317,109 @@ void hal_music_set_volume(int vol)
     Mix_VolumeMusic(vol);
 #else
     (void)vol;
+#endif
+}
+
+/* ------------------------------------------------------------------ */
+/* Sound effects                                                       */
+/* ------------------------------------------------------------------ */
+
+#ifdef HAVE_SDL2_MIXER
+/*
+ * build_mix_chunk — wrap raw Amiga 8-bit signed PCM in a Mix_Chunk.
+ *
+ * WAV 8-bit format uses UNSIGNED samples (0–255).  The Amiga uses SIGNED
+ * 8-bit (-128–127), so every byte is offset by 128 before being wrapped
+ * in the WAV container.  SDL_mixer then resamples to the output format
+ * (44100 Hz, signed 16-bit stereo) automatically.
+ */
+static Mix_Chunk *build_mix_chunk(const uint8_t *pcm, size_t len, int freq_hz)
+{
+    /* 44-byte RIFF PCM WAV header */
+    uint32_t data_size   = (uint32_t)len;
+    uint32_t chunk_size  = 36u + data_size;
+    uint32_t byte_rate   = (uint32_t)freq_hz; /* 1 ch × 1 byte/sample */
+
+    uint8_t hdr[44];
+    /* RIFF chunk */
+    memcpy(hdr,     "RIFF", 4);
+    hdr[4]  = (uint8_t)(chunk_size);
+    hdr[5]  = (uint8_t)(chunk_size >> 8);
+    hdr[6]  = (uint8_t)(chunk_size >> 16);
+    hdr[7]  = (uint8_t)(chunk_size >> 24);
+    memcpy(hdr + 8, "WAVE", 4);
+    /* fmt  sub-chunk */
+    memcpy(hdr + 12, "fmt ", 4);
+    hdr[16] = 16; hdr[17] = 0; hdr[18] = 0; hdr[19] = 0; /* chunk size */
+    hdr[20] = 1;  hdr[21] = 0;                             /* PCM */
+    hdr[22] = 1;  hdr[23] = 0;                             /* mono */
+    hdr[24] = (uint8_t)freq_hz;        hdr[25] = (uint8_t)(freq_hz >> 8);
+    hdr[26] = (uint8_t)(freq_hz >> 16); hdr[27] = (uint8_t)(freq_hz >> 24);
+    hdr[28] = (uint8_t)byte_rate;       hdr[29] = (uint8_t)(byte_rate >> 8);
+    hdr[30] = (uint8_t)(byte_rate >> 16); hdr[31] = (uint8_t)(byte_rate >> 24);
+    hdr[32] = 1;  hdr[33] = 0; /* block align */
+    hdr[34] = 8;  hdr[35] = 0; /* bits per sample */
+    /* data sub-chunk */
+    memcpy(hdr + 36, "data", 4);
+    hdr[40] = (uint8_t)data_size;        hdr[41] = (uint8_t)(data_size >> 8);
+    hdr[42] = (uint8_t)(data_size >> 16); hdr[43] = (uint8_t)(data_size >> 24);
+
+    /* Allocate WAV = header + unsigned 8-bit PCM */
+    uint8_t *wav = (uint8_t *)malloc(44u + len);
+    if (!wav) return NULL;
+    memcpy(wav, hdr, 44);
+    /* Convert signed 8-bit → unsigned 8-bit (add 128) */
+    for (size_t i = 0; i < len; i++)
+        wav[44 + i] = (uint8_t)((int)(int8_t)pcm[i] + 128);
+
+    SDL_RWops *rw = SDL_RWFromMem(wav, (int)(44u + len));
+    Mix_Chunk *chunk = rw ? Mix_LoadWAV_RW(rw, 1 /* freesrc */) : NULL;
+    /* SDL_RWFromMem does NOT take ownership of wav; free it ourselves.
+     * Mix_LoadWAV_RW has already decoded the WAV into its own buffer. */
+    free(wav);
+    return chunk;
+}
+#endif /* HAVE_SDL2_MIXER */
+
+int hal_sfx_play(const uint8_t *pcm, size_t len, int freq_hz)
+{
+#ifdef HAVE_SDL2_MIXER
+    if (!pcm || len == 0) return -1;
+    if (freq_hz <= 0) freq_hz = 8363;
+
+    Mix_Chunk *chunk = build_mix_chunk(pcm, len, freq_hz);
+    if (!chunk) return -1;
+
+    int ch = s_sfx_next;
+    s_sfx_next = (ch + 1) % SFX_CHANNELS;
+
+    /* Halt the channel first so SDL_mixer is done reading the old chunk,
+     * then free the old chunk safely before assigning the new one.      */
+    Mix_HaltChannel(ch);
+    if (s_sfx_slots[ch]) {
+        Mix_FreeChunk(s_sfx_slots[ch]);
+        s_sfx_slots[ch] = NULL;
+    }
+    s_sfx_slots[ch] = chunk;
+    Mix_PlayChannel(ch, chunk, 0);
+    return 0;
+#else
+    (void)pcm; (void)len; (void)freq_hz;
+    return -1;
+#endif
+}
+
+void hal_sfx_stop_all(void)
+{
+#ifdef HAVE_SDL2_MIXER
+    for (int i = 0; i < SFX_CHANNELS; i++) {
+        Mix_HaltChannel(i);
+        if (s_sfx_slots[i]) {
+            Mix_FreeChunk(s_sfx_slots[i]);
+            s_sfx_slots[i] = NULL;
+        }
+    }
+    s_sfx_next = 0;
 #endif
 }
 

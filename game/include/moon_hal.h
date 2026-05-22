@@ -140,6 +140,36 @@ void hal_music_resume(void);
 void hal_music_set_volume(int vol);
 
 /* ------------------------------------------------------------------ */
+/* Sound effects                                                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * hal_sfx_play — play a raw 8-bit signed mono PCM sample.
+ *
+ * Mirrors Amiga Paula playback (LAB_0F8C in mog.asm).  The sample data
+ * is in the Amiga native format: signed 8-bit PCM, no header.  The HAL
+ * converts it to the SDL audio format and plays it on an available SFX
+ * channel.
+ *
+ * @pcm    : pointer to 8-bit signed PCM data.
+ * @len    : number of bytes.
+ * @freq_hz: playback frequency in Hz.  Use 8363 for the default Amiga
+ *           PAL period (428 = C-3: 3546895 / 428 ≈ 8287 Hz; the game
+ *           consistently uses 8363 as the base rate).
+ *
+ * Returns 0 on success, -1 if audio is not available or the call fails.
+ * Gracefully no-ops when SDL2_mixer is not compiled in.
+ */
+int hal_sfx_play(const uint8_t *pcm, size_t len, int freq_hz);
+
+/**
+ * hal_sfx_stop_all — stop all currently playing SFX and free resources.
+ *
+ * Call at scene transitions or when SFX assets are about to be freed.
+ */
+void hal_sfx_stop_all(void);
+
+/* ------------------------------------------------------------------ */
 /* Palette fade helpers                                                */
 /* ------------------------------------------------------------------ */
 

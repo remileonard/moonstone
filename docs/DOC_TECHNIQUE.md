@@ -1498,7 +1498,7 @@ Les différents services accessibles via les nœuds de la carte correspondent à
 
 | État | Lieu          | Contenu                                                     | Entrée           |
 |------|---------------|-------------------------------------------------------------|------------------|
-| `5`  | Arène         | Combat contre adversaire dans l'arène d'une ville           | `LAB_0522` (HUD) |
+| `5`  | Boutique (achat) | Boutique d'achat d'armes et d'armures — textes "Buy X for Y GP" (LAB_0695) | `LAB_0522`  |
 | `6`  | Boutique/Carte| Inventaire, gemmes, navigation items                        | `LAB_04FE`+`LAB_051F` |
 | `8`  | Armurier      | Achat d'armure (`0x1c`/`0x1d`/`0x1e`) et épée              | `LAB_04DB`       |
 | `9`  | Temple        | Soins (restaure HP au max) et monte/descend en skill        | `LAB_04D4`       |
@@ -1741,7 +1741,13 @@ Voir **DOC_MODE_OVERWORLD §1.7** pour la description complète de la structure 
 - Les statistiques initiales des chevaliers (HP max, vitesse, attaque)
 - Les emplacements d'inventaire (4 slots reliques + slots équipement)
 
-#### Barres de vie / statut HUD
+#### Barres de score — overworld uniquement (`program.asm`, `LAB_0032`)
+
+> **Note importante** : ces barres appartiennent à la **carte overworld**
+> (`program.asm`). **Il n'y a aucun HUD affiché pendant le combat** dans
+> `mog.asm`. L'affichage des stats (skill, or, items) après un combat se
+> fait dans l'**écran de butin post-combat** via `LAB_04F8` (`mog.asm`),
+> pas pendant la phase de combat active.
 
 ```text
 LAB_0032():
@@ -1750,7 +1756,7 @@ LAB_0032():
     bar_slot[2] ← D0=23, couleur LAB_01CA    → 3e indicateur (or / énergie ?)
 ```
 
-Ces 3 barres sont des **fade-animations couleur** dans la copper list (via `LAB_057A`), positionnées au bas de l'écran. Leur valeur numérique est mise à jour à chaque appel de `LAB_003C` (appelé depuis la boucle principale quand `LAB_00D1 = 1`).
+Ces 3 barres sont des **fade-animations couleur** dans la copper list (via `LAB_057A`), positionnées au bas de l'écran overworld. Leur valeur numérique est mise à jour à chaque appel de `LAB_003C` (appelé depuis la boucle principale quand `LAB_00D1 = 1`).
 
 ---
 
@@ -2013,7 +2019,7 @@ LAB_04CF:
 | `1`    | PvP             | Duel entre deux chevaliers joueurs                                           | LAB_068B=k0, LAB_068D=k1     | `LAB_0694`      |
 | `2`    | Créature        | Combat contre créature à **position fixe** (`LAB_08C6` = ptr créature courant, table source = `LAB_05C6`) | LAB_068B=k0, LAB_068D=ennemi | `LAB_069A`+`LAB_0698` |
 | `3`    | Sorcier/Mystic  | Witch Doctor / Mythral the Mystic — échange moonstones ↔ skill              | LAB_068B=k0                  | `LAB_0696`      |
-| `5`    | Arène           | Combat dans l'arène d'une ville                                              | LAB_068B=k0                  | `LAB_0695`      |
+| `5`    | Boutique (achat) | Boutique d'achat d'armes, armures et items (textes "Buy X for Y GP")         | LAB_068B=k0                  | `LAB_0695`      |
 | `6`    | Carte/Inventaire| Carte overworld + interaction items/NPC                                      | LAB_068B=k0                  | `LAB_0695`+`LAB_0697` |
 | `8`    | Armurier        | Boutique armurier (achat épée, armure, dagues)                               | LAB_068B=k0                  | `LAB_0694`      |
 | `9`    | Temple          | Temple de guérison (soins, achat skill points)                               | LAB_068B=k0                  | `LAB_0693`      |
@@ -2064,25 +2070,25 @@ Table de triplets `(type:word, x:word, y:word)` terminée par `$FFFF`. Lue par `
 | 22         | `0x16`     | `LAB_00B0`    | Château de Godber — skill+1 si faction=1, puis état 9              |
 | 23         | `0x17`     | `LAB_00B0`    | Château de Jeffrey — skill+1 si faction=2, puis état 9             |
 | 24         | `0x18`     | `LAB_00B0`    | Château d'Edward — skill+1 si faction=3, puis état 9              |
-| 25         | `0x19`     | `LAB_0093`    | Ville avec armurier + arène + sorcier (menu 5 boutons)             |
-| 26         | `0x1a`     | `LAB_008A`    | Ville avec taverne + arène (menu 5 boutons)                        |
+| 25         | `0x19`     | `LAB_0093`    | Ville commerçante — boutique achat (état 5), soin/temple, boutique vente (état 6) (menu 5 boutons) |
+| 26         | `0x1a`     | `LAB_008A`    | Ville mixte — boutique achat (état 5), guérisseur (LAB_048E/HEA.piv), mystic (LAB_047C/MYS.piv) (menu 5 boutons) |
 | 27         | `0x1b`     | `LAB_00A1`    | Sorcier Mythral → état 3                                           |
 | 28         | `0x1c`     | `LAB_009D`    | **Vallée des Dieux** → état 10 (condition : `inventaire[20] == 0x0f`, les 4 Clefs de la Vallée) |
 | 30         | `0x1e`     | `LAB_007C`    | Temple de guérison → état 9                                        |
 | 33         | `0x21`     | `LAB_004F`    | Rencontre chevalier (duel PvP)                                     |
 
 **Menu d'une ville type 0x19 (`LAB_0093`) :**
-- Bouton 1 → état 5 (combat dans l'arène)
-- Bouton 2 → `LAB_04A6` (achat potion ou soin rapide)
-- Bouton 3 → `LAB_048E` (sorcier de guérison)
-- Bouton 4 → état 6 (boutique armurier)
+- Bouton 1 → état 5 (boutique achat armes/armures)
+- Bouton 2 → `LAB_04A6` (interaction à clarifier)
+- Bouton 3 → `LAB_048E` (guérisseur/temple — restaure HP et skill)
+- Bouton 4 → état 6 (boutique vente/échange)
 - Bouton 5 → quitter
 
 **Menu d'une ville type 0x1a (`LAB_008A`) :**
-- Bouton 1 → état 5 (arène)
-- Bouton 2 → `LAB_04A6` (achat)
-- Bouton 3 → `LAB_048E` (sorcier)
-- Bouton 4 → `LAB_047C` (taverne ?)
+- Bouton 1 → état 5 (boutique achat armes/armures)
+- Bouton 2 → `LAB_04A6` (interaction à clarifier)
+- Bouton 3 → `LAB_048E` (guérisseur/temple — charge `HEA.piv`)
+- Bouton 4 → `LAB_047C` (mystic — charge `MYS.piv`)
 - Bouton 5 → quitter
 
 **Vallée des Dieux (type 0x1c, `LAB_009D`) :**
@@ -2253,6 +2259,34 @@ typedef struct {
 
 MoonOb   *moon_ob_load(const char *name);
 void      moon_ob_free(MoonOb *ob);
+
+/* --- HIT (collide.hit — hitbox de combat) -------------------- */
+typedef struct {
+    uint8_t dx;  /* offset X du point d'impact (0–255) */
+    uint8_t dy;  /* offset Y du point d'impact (0–255) */
+} MoonHitPoint;
+
+typedef struct {
+    uint8_t       n_points; /* 0 = aucune hitbox pour cette frame */
+    uint8_t       type;     /* type/poids du coup (champ TT du fichier) */
+    uint8_t       max_dx;   /* max des dx de la frame (calculé au parsing) */
+    uint8_t       max_dy;   /* max des dy de la frame (calculé au parsing) */
+    MoonHitPoint *points;   /* tableau de n_points entrées (NULL si n_points=0) */
+} MoonHitFrame;
+
+typedef struct {
+    char          name[64];    /* nom du sprite (clé issue de collide.hit) */
+    int           frame_count;
+    MoonHitFrame *frames;      /* tableau de frame_count entrées */
+} MoonHitSprite;
+
+typedef struct {
+    int            sprite_count;
+    MoonHitSprite *sprites;
+} MoonHit;
+
+MoonHit  *moon_hit_load(const char *name);  /* ex: "collide.hit" */
+void      moon_hit_free(MoonHit *hit);
 ```
 
 #### 11.2.3 Implémentation des décompresseurs
@@ -2600,6 +2634,135 @@ Sur **~80 fichiers assets référencés** dans les binaires, seuls **~20** sont 
 |---|---|
 | ✅ Présent | `bg1a-8.piv`, `au1.cel`..`ov1.cel`, `music.cmp`, `kn1.ob`, `bold.f` |
 | ❌ Absent | `kn2-5.ob`, tous les `.cel` ennemis, `*.t`, `*.a`, `*.c`, `*.p`, `collide.hit` |
+
+---
+
+### C.4 Format de `collide.hit` — système de hitbox de combat
+
+`collide.hit` est un fichier texte ASCII chargé une fois à l'initialisation du
+combat par `LAB_03DA` (mog.asm, ligne 8340). Il définit les **points d'impact**
+de chaque sprite d'attaque ennemi/joueur : un ou plusieurs points par frame
+d'animation, exprimés en offsets depuis l'origine du sprite.
+
+#### C.4.1 Fonctions assembleur impliquées
+
+| Routine   | Ligne   | Rôle |
+|-----------|---------|------|
+| `LAB_03DA` | 8340 | Chargement de `collide.hit` en mémoire (via cache `LAB_0BB5`, tampon 9 000 octets) |
+| `LAB_03CE` | 8255 | Recherche et parse d'une section sprite dans le fichier chargé ; enregistre le sprite dans `LAB_0A51` puis charge le sprite CEL via `LAB_0CBB` |
+| `LAB_03D8` | 8321 | Lecture d'un entier décimal sur **3 chiffres ASCII** |
+| `LAB_03D9` | 8332 | Lecture d'un entier décimal sur **2 chiffres ASCII** |
+| `LAB_03D2` | 8280 | Boucle de parsing des lignes frame par frame ; construit la structure binaire en mémoire |
+| `LAB_03BE` | 8161 | Boucle de collision par frame : itère les 10 sprites actifs deux par deux |
+| `LAB_03DB` | 8354 | Test de collision entre deux sprites : lookup dans `LAB_0A51`, skip des frames précédentes, vérification AABB point-par-point |
+
+`LAB_03CE` est appelée lors du chargement de chaque type d'ennemi :
+
+| Sprite (A0 à l'appel) | Appelant | Type ennemi |
+|-----------------------|----------|-------------|
+| `kn4.ob`              | `LAB_0115` | Chevalier joueur (attaque) |
+| `TroggSpear2.cel`     | `LAB_0119` | Trogg Lancier |
+| `TroggAxe2.cel`       | `LAB_011B` | Trogg à la Hache |
+| `Ratmen1.cel`         | `LAB_011C` | Hommes-rats |
+| `Mudmen1.cel`         | `LAB_011E` | Hommes de boue |
+| `Balok1.cel`          | `LAB_011F` | Balok |
+| `Dragon1.cel`         | `LAB_0121` | Dragon (anim 1) |
+| `Dragon2.cel`         | `LAB_0121` | Dragon (anim 2) |
+| `be1.c`               | `LAB_0123` | War Beast |
+| `Demon2.cel`          | `LAB_0125` | Demon |
+| `Demon3.cel`          | `LAB_0125` | Demon (attaque) |
+| `Troll1.cel`          | `LAB_0126` | Troll (anim 1) |
+| `Troll2.cel`          | `LAB_0126` | Troll (anim 2) |
+
+#### C.4.2 Format du fichier texte
+
+Le fichier est organisé en **sections**, une par sprite. Chaque section :
+
+```
+<nom_du_sprite>\n
+<ligne_frame_0>\n
+<ligne_frame_1>\n
+...
+99\n
+```
+
+**Ligne frame — sans point de contact (`n = 0`) :**
+```
+00\n
+```
+
+**Ligne frame — avec `n` points de contact :**
+```
+CC TT XXX₁YYY₁XXX₂YYY₂…XXXₙYYYₙ\n
+```
+
+| Champ | Largeur | Description |
+|-------|---------|-------------|
+| `CC`  | 2 chiffres décimaux | Nombre de points de contact (`n`). Valeur `99` = fin de section. |
+| ` `   | 1 octet (espace)    | Séparateur |
+| `TT`  | 2 chiffres décimaux | Type/poids du coup (utilisé par la table `LAB_0A55`) |
+| ` `   | 1 octet (espace)    | Séparateur |
+| `XXX` | 3 chiffres décimaux | Offset X du point (non signé, 0–255) |
+| `YYY` | 3 chiffres décimaux | Offset Y du point (non signé, 0–255) |
+
+Les paires `XXX`/`YYY` se suivent **sans séparateur** entre elles.
+La ligne se termine par `\n` (0x0A).
+
+#### C.4.3 Structure binaire en mémoire (`LAB_0A4D`)
+
+Après parsing par `LAB_03D2`, chaque frame produit un bloc de taille variable :
+
+```
+[n:1] [type:1] [max_dx:1] [max_dy:1] [dx₀:1] [dy₀:1] … [dx_{n-1}:1] [dy_{n-1}:1]
+```
+
+- Si `n = 0` : **1 octet** (`0x00` seul).
+- Si `n > 0` : **4 + 2n octets**.
+- `max_dx` / `max_dy` : maximum des dx/dy observés sur tous les points de la frame,
+  calculé pendant le parsing et stocké aux octets 2–3 du bloc.
+
+Les frames se suivent directement en mémoire sans alignement.
+
+#### C.4.4 Table d'index `LAB_0A51`
+
+Capacité : **10 entrées** (21 longwords = `DS.L 21`, soit 10 paires + 1 longword sentinelle).
+Chaque entrée fait **8 octets** :
+
+```
+[sprite_ptr:4] [hitbox_data_ptr:4]
+```
+
+- `sprite_ptr` : pointeur vers la zone mémoire du sprite CEL chargé (clé de lookup).
+- `hitbox_data_ptr` : pointeur vers le premier octet du bloc binaire de frame 0.
+
+`LAB_0A4E` = pointeur d'écriture courant dans cette table.
+`LAB_0A4F` / `LAB_0A50` = sauvegardes des curseurs pour restauration lors d'un reload.
+
+#### C.4.5 Variables globales associées
+
+| Variable    | Taille | Rôle |
+|-------------|--------|------|
+| `SECSTRT_10` | long  | Taille en octets du fichier `collide.hit` chargé |
+| `LAB_0A4D`  | long   | Curseur d'écriture dans le tampon de données hitbox |
+| `LAB_0A52`  | word   | Coordonnée X du dernier point de contact détecté |
+| `LAB_0A53`  | word   | Coordonnée Y du dernier point de contact détecté |
+| `LAB_0A54`  | word   | Offset de flip horizontal (0 = non retourné, > 0 = retourné) |
+| `LAB_0A55`  | table  | Lookup « couches actives » : 8 entrées word (valeurs 1–4) indexées par le champ `type` |
+| `LAB_0A56`  | word   | Stride en octets d'une ligne du bitmap de sprite (calculé : `ceil(w/16)*2 * h`) |
+
+#### C.4.6 Algorithme de détection de collision (`LAB_03DB`)
+
+1. Vérifier le flag flip (bit 0 de `18(A1,D6.W)`) → initialiser `LAB_0A54`.
+2. Chercher `A1` (sprite attaquant) dans `LAB_0A51` → obtenir son `hitbox_data_ptr`.
+3. **Skip** des `D5` frames précédentes : pour chaque frame à sauter :
+   - Lire `n` (1 octet) ; si `n > 0` : avancer de `3 + 2n` octets supplémentaires.
+4. Pour la frame courante : si `n = 0` → pas de collision (retour 0).
+5. Pour chaque point `(dx, dy)` de la frame :
+   - Si sprite retourné : `dx_eff = LAB_0A54 − dx` ; sinon `dx_eff = dx`.
+   - Test AABB : `opponent.x + dx_eff ∈ [frame.x, frame.x + frame.w[`
+                 `opponent.y + dy_eff ∈ [frame.y, frame.y + frame.h[`
+   - Si overlap ET bit de pixel actif dans le bitmap (via `LAB_0A55` pour le nombre de couches) → collision.
+   - Stocker `(LAB_0A52, LAB_0A53)` = coordonnées de contact ; retourner 1.
 
 ---
 

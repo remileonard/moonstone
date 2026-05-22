@@ -116,6 +116,37 @@ typedef struct {
     int        node_type;
     int        node_target_knight; /* opponent index for PvP          */
 
+    /* PVE combat context — set by overworld when entering STATE_COMBAT
+     * from a creature node (node_type == 0x02).
+     *
+     * pve_creature_type : high word of LAB_07BD entry = offset into
+     *   LAB_08C8 handler table, which selects CEL file and AI behaviour:
+     *     0x00 → He (enemy knight, He1.ob/He2.ob/He3.ob)
+     *     0x04 → Mudmen (Mudmen1.cel / Mudmen2.cel)
+     *     0x08 → Balok  (Balok1.cel / Balok2.cel / Balok3.cel)
+     *     0x0c → Ratmen generic (Ratmen1.cel)
+     *     0x14 → Dragon (Dragon1.cel / Dragon2.cel)
+     *     0x18 → TroggAxe  (TroggAxe1.cel / TroggAxe2.cel)
+     *     0x1c → TroggSpear (TroggSpear1.cel / TroggSpear2.cel)
+     *     0x20 → Demon (Demon1.cel…Demon4.cel)
+     *     0x24 → Ratmen variant (Ratmen1.cel)
+     *     0x30 → Troll (Troll1.cel / Troll2.cel)
+     *     0x40 → Demon/Selene (Sel.cel / Demon4.cel)
+     *
+     * pve_node_group : which of the 4 overworld groups this node belongs
+     *   to (0=fol/west, 1=wal/north, 2=swl/central, 3=gll/northwest).
+     *   Determines the SFX group (fol?.t / wal?.t / swl?.t / gll?.t) AND
+     *   the terrain data file (FO?.t / GL?.t / Sw?.t / Wa?.t, tables
+     *   LAB_07B9/LAB_07B7/LAB_07B8/LAB_07B6 in mog.asm).
+     *   Also used as a hint for background palette selection.
+     *
+     * pve_node_defense : low word of LAB_07BD = creature defence value
+     *   used to scale combat difficulty independently of the knight level.
+     */
+    int        pve_creature_type;  /* LAB_08C8 byte offset (0x00..0x40) */
+    int        pve_node_group;     /* 0=fol, 1=wal, 2=swl, 3=gll       */
+    int        pve_node_defense;   /* creature defence value             */
+
     /* ------------------------------------------------------------------ */
     /* Dragon state (LAB_0617 / LAB_0DCB — mog.asm §4)                    */
     /* The dragon appears after round >= 2, flies autonomously and         */
