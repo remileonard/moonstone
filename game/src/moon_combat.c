@@ -147,6 +147,87 @@ typedef struct {
 } Combatant;
 
 /* ------------------------------------------------------------------ */
+/* SFX — per-combat sound state                                        */
+/*                                                                     */
+/* The original game (mog.asm LAB_07C0) used four families of .t      */
+/* files as individual PCM samples for combat events:                 */
+/*                                                                     */
+/*   fol1.t … fol6.t  — footstep sounds (player/enemy walking)       */
+/*   wal1.t … wal6.t  — impact/hit sounds (weapon connecting)         */
+/*   swl1.t … swl6.t  — sword-swing whoosh sounds (attack start)     */
+/*   gll1.t … gll6.t  — grunt/yell sounds (pain, death)              */
+/*                                                                     */
+/* Each file is a raw 8-bit signed PCM sample (no header), loaded     */
+/* via moon_sfx_load() and played with hal_sfx_play().  Files absent  */
+/* from the asset directory are silently skipped (moon_sfx_load       */
+/* returns NULL when the file is not found).                          */
+/*                                                                     */
+/* LAB_02E6 cycles footstep sounds through indices 4-8 (5 variants)   */
+/* in the original; we cycle through the six fol*.t files similarly.  */
+/* The .a creature banks (kn.a, He.a, etc.) are also loaded if        */
+/* available, but their sub-sample indexing is not implemented here   */
+/* — the .t files give full audio feedback for all combat events.     */
+/* ------------------------------------------------------------------ */
+
+#define SFX_VARIANTS   6          /* fol/wal/swl/gll each have 6 files */
+
+/* Per-combat SFX banks loaded at game_run_combat() entry             */
+static MoonSfx *s_sfx_fol[SFX_VARIANTS]; /* footstep:  fol1.t-fol6.t  */
+static MoonSfx *s_sfx_wal[SFX_VARIANTS]; /* hit impact: wal1.t-wal6.t */
+static MoonSfx *s_sfx_swl[SFX_VARIANTS]; /* sword swing: swl1.t-swl6.t */
+static MoonSfx *s_sfx_gll[SFX_VARIANTS]; /* grunt/death: gll1.t-gll6.t */
+
+/* Round-robin cursors (one per family) — match LAB_02E6 cycling      */
+static int s_sfx_fol_idx = 0;
+static int s_sfx_wal_idx = 0;
+static int s_sfx_swl_idx = 0;
+static int s_sfx_gll_idx = 0;
+
+/* Footstep throttle: one footstep sound every SFX_STEP_PERIOD frames */
+#define SFX_STEP_PERIOD  8
+static int s_sfx_step_tick = 0;
+
+/*
+ * sfx_play_cycle — play the next available SFX from a family array,
+ * cycling round-robin through the variants (mirrors LAB_02E6).
+ */
+static void sfx_play_cycle(MoonSfx *const *arr, int *idx)
+{
+    for (int i = 0; i < SFX_VARIANTS; i++) {
+        int j = (*idx + i) % SFX_VARIANTS;
+        if (arr[j]) {
+            hal_sfx_play(arr[j]->data, arr[j]->size, 8363);
+            *idx = (j + 1) % SFX_VARIANTS;
+            return;
+        }
+    }
+}
+
+/*
+ * sfx_load_family — load one family of .t files into dst[0..5].
+ * e.g. prefix="fol" → tries "fol1.t" … "fol6.t".
+ */
+static void sfx_load_family(MoonSfx **dst, const char *prefix)
+{
+    char name[16];
+    for (int i = 0; i < SFX_VARIANTS; i++) {
+        snprintf(name, sizeof(name), "%s%d.t", prefix, i + 1);
+        dst[i] = moon_sfx_load(name);
+    }
+}
+
+/*
+ * sfx_free_family — release all samples in a family.
+ */
+static void sfx_free_family(MoonSfx **arr)
+{
+    for (int i = 0; i < SFX_VARIANTS; i++) {
+        moon_sfx_free(arr[i]);
+        arr[i] = NULL;
+    }
+}
+
+/* ------------------------------------------------------------------ */
 /* Combat backgrounds                                                  */
 /* ------------------------------------------------------------------ */
 
@@ -1046,6 +1127,20 @@ void game_run_combat(GameCtx *ctx)
         s_anim_tick [i] = 0;
     }
 
+    /* ---------------------------------------------------------------- */
+    /* Load combat SFX families (LAB_07C0 in mog.asm)                  */
+    /* Files are optional — moon_sfx_load returns NULL if absent.      */
+    /* ---------------------------------------------------------------- */
+    sfx_load_family(s_sfx_fol, "fol");
+    sfx_load_family(s_sfx_wal, "wal");
+    sfx_load_family(s_sfx_swl, "swl");
+    sfx_load_family(s_sfx_gll, "gll");
+    s_sfx_fol_idx  = 0;
+    s_sfx_wal_idx  = 0;
+    s_sfx_swl_idx  = 0;
+    s_sfx_gll_idx  = 0;
+    s_sfx_step_tick = 0;
+
     static const uint32_t knight_colors[MAX_PLAYERS] = {
         0xFF4444FFu, 0xFFFF4444u, 0xFF44FF44u, 0xFFFFFF44u
     };
@@ -1097,6 +1192,9 @@ void game_run_combat(GameCtx *ctx)
                                               ? CSTATE_BLOCK : CSTATE_ATTACK;
                         player.state_timer  = resolve_attack_duration(at);
 
+                        /* Sword-swing whoosh (LAB_02AC: index 0x1d on ch0) */
+                        sfx_play_cycle(s_sfx_swl, &s_sfx_swl_idx);
+
                         /* Test hit against all active enemies */
                         for (int ei = 0; ei < MAX_COMBAT_ENEMIES; ei++) {
                             if (enemies[ei].state == CSTATE_DEAD) continue;
@@ -1108,6 +1206,8 @@ void game_run_combat(GameCtx *ctx)
                                     enemies[ei].hp -= dmg;
                                     if (enemies[ei].hp < 0) enemies[ei].hp = 0;
                                     enemies[ei].hit_flash = 6;
+                                    /* Hit-impact sound (LAB_02AC: wal family) */
+                                    sfx_play_cycle(s_sfx_wal, &s_sfx_wal_idx);
                                     if (enemies[ei].hp <= LOW_HP_THRESHOLD
                                         && enemies[ei].hp > 0) {
                                         enemies[ei].state       = CSTATE_STAGGER;
@@ -1143,6 +1243,17 @@ void game_run_combat(GameCtx *ctx)
                     if (joy_down) {
                         player.y += MOVE_SPEED;
                         player.state = CSTATE_WALK;
+                    }
+
+                    /* Footstep sounds, throttled to one every
+                     * SFX_STEP_PERIOD frames (mirrors LAB_02E6)        */
+                    if (player.state == CSTATE_WALK) {
+                        if (++s_sfx_step_tick >= SFX_STEP_PERIOD) {
+                            sfx_play_cycle(s_sfx_fol, &s_sfx_fol_idx);
+                            s_sfx_step_tick = 0;
+                        }
+                    } else {
+                        s_sfx_step_tick = 0;
                     }
                 }
             }
@@ -1182,6 +1293,8 @@ void game_run_combat(GameCtx *ctx)
                     player.hp -= dmg;
                     if (player.hp < 0) player.hp = 0;
                     player.hit_flash = 6;
+                    /* Hit-impact sound when player is struck            */
+                    sfx_play_cycle(s_sfx_wal, &s_sfx_wal_idx);
                     if (player.hp <= LOW_HP_THRESHOLD && player.hp > 0) {
                         player.state       = CSTATE_STAGGER;
                         player.state_timer = DUR_STAGGER;
@@ -1196,6 +1309,8 @@ void game_run_combat(GameCtx *ctx)
             if (e->hp <= 0 && e->state != CSTATE_DEAD) {
                 e->state = CSTATE_DEAD;
                 enemies_killed++;
+                /* Grunt / death cry when enemy is killed               */
+                sfx_play_cycle(s_sfx_gll, &s_sfx_gll_idx);
                 /* Spawn a replacement if the wave is not exhausted     */
                 if (enemies_spawned < enemies_total) {
                     spawn_enemy(e, ei, enemy_name, base_enemy_hp);
@@ -1230,7 +1345,11 @@ void game_run_combat(GameCtx *ctx)
             if (enemies[ei].hit_flash > 0) enemies[ei].hit_flash--;
 
         /* ---- Death check for player ---- */
-        if (player.hp <= 0) player.state = CSTATE_DEAD;
+        if (player.hp <= 0 && player.state != CSTATE_DEAD) {
+            player.state = CSTATE_DEAD;
+            /* Player death grunt */
+            sfx_play_cycle(s_sfx_gll, &s_sfx_gll_idx);
+        }
 
         /* ---- Victory check: all kills done and no living enemies ---- */
         int all_dead = 1;
@@ -1351,6 +1470,13 @@ void game_run_combat(GameCtx *ctx)
     }
 
 combat_cleanup:
+    /* Stop any playing SFX and release all loaded sample families      */
+    hal_sfx_stop_all();
+    sfx_free_family(s_sfx_fol);
+    sfx_free_family(s_sfx_wal);
+    sfx_free_family(s_sfx_swl);
+    sfx_free_family(s_sfx_gll);
+
     if (s_hit) { moon_hit_free(s_hit); s_hit = NULL; }
     moon_cel_free(knight_cel);
     if (enemy_cel != knight_cel)
