@@ -38,10 +38,10 @@ target_include_directories(moon_assets
 )
 
 # ---------------------------------------------------------------
-# SDL2 (required) and SDL2_mixer (optional) for tools
+# SDL2 and SDL2_mixer (both required) for tools
 # ---------------------------------------------------------------
 find_package(SDL2 REQUIRED)
-find_package(SDL2_mixer QUIET)
+find_package(SDL2_mixer REQUIRED)
 
 # ---------------------------------------------------------------
 # CLI tools

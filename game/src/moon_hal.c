@@ -6,7 +6,7 @@
 
 #include <SDL2/SDL.h>
 #ifdef HAVE_SDL2_MIXER
-#include <SDL2/SDL_mixer.h>
+#include "SDL2_mixer.h"
 #endif
 
 #include <stdio.h>
