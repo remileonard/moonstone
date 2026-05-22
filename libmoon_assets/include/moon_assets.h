@@ -2,7 +2,7 @@
  * libmoon_assets — Moonstone asset loading library
  *
  * Loads and decompresses the original Mindscape/Amiga Moonstone assets
- * without any file conversion: .cel, .PIV, .stile, .cmp, .ob
+ * without any file conversion: .cel, .PIV, .stile, .cmp, .ob, collide.hit
  *
  * File formats supported:
  *   - CEL  : sprite sheets (LZSS compressed, proprietary Mindscape header)
@@ -10,6 +10,7 @@
  *   - STILE: tile maps (2-bit RLE)
  *   - CMP  : ProTracker modules (RNC ProPack 1 compressed)
  *   - OB   : character sprite sheets (same format as CEL, LZSS compressed)
+ *   - HIT  : hitbox definitions (ASCII text, collide.hit)
  *
  * All multi-byte values in Mindscape files are big-endian (Amiga/68000).
  */
@@ -236,6 +237,84 @@ MoonOb *moon_ob_load(const char *name);
 
 /** moon_ob_free - release a MoonOb obtained from moon_ob_load(). */
 void moon_ob_free(MoonOb *ob);
+
+/* ------------------------------------------------------------------ */
+/* HIT — collide.hit hitbox definitions                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * MoonHitPoint - a single hit-test point within an animation frame.
+ *
+ * Coordinates are unsigned offsets from the sprite's screen-space origin.
+ * The original parser (LAB_03D8 in mog.asm) stores them as plain bytes
+ * after reading 3-digit ASCII decimal values.
+ */
+typedef struct {
+    uint8_t dx; /* x offset from sprite origin (0–255) */
+    uint8_t dy; /* y offset from sprite origin (0–255) */
+} MoonHitPoint;
+
+/**
+ * MoonHitFrame - hit-test data for one animation frame.
+ *
+ * Mirrors the binary block produced by LAB_03D2 in mog.asm:
+ *   [n_points:1] [type:1] [max_dx:1] [max_dy:1]
+ *   [dx₀:1][dy₀:1] … [dx_{n-1}:1][dy_{n-1}:1]
+ *
+ * When n_points == 0 the frame has no active hitbox; points is NULL.
+ */
+typedef struct {
+    uint8_t       n_points; /* number of hit points (0 = no hitbox this frame) */
+    uint8_t       type;     /* hit type/weight byte (TT field in collide.hit)   */
+    uint8_t       max_dx;   /* maximum dx seen across all points of this frame  */
+    uint8_t       max_dy;   /* maximum dy seen across all points of this frame  */
+    MoonHitPoint *points;   /* array of n_points entries; NULL when n_points==0 */
+} MoonHitFrame;
+
+/**
+ * MoonHitSprite - hitbox data for one named sprite.
+ *
+ * The name matches the sprite filename used as a key in collide.hit
+ * (e.g. "TroggSpear2.cel", "be1.c").  frame_count frames are listed
+ * sequentially, one entry per animation frame.
+ */
+typedef struct {
+    char          name[64];    /* null-terminated sprite filename key */
+    int           frame_count; /* number of animation frames described */
+    MoonHitFrame *frames;      /* array of frame_count MoonHitFrame entries */
+} MoonHitSprite;
+
+/**
+ * MoonHit - the complete parsed collide.hit file.
+ *
+ * Contains one MoonHitSprite per named section found in the ASCII text file.
+ * The index table LAB_0A51 (sprite_ptr, hitbox_data_ptr pairs) is not
+ * reproduced here; callers look up by sprite name via moon_hit_find().
+ */
+typedef struct {
+    int            sprite_count; /* number of sprite sections in the file */
+    MoonHitSprite *sprites;      /* array of sprite_count entries          */
+} MoonHit;
+
+/**
+ * moon_hit_load - parse a collide.hit ASCII text file.
+ * @name: filename relative to the asset directory (typically "collide.hit").
+ * Returns a newly allocated MoonHit, or NULL on error.
+ * The caller must free the result with moon_hit_free().
+ */
+MoonHit *moon_hit_load(const char *name);
+
+/**
+ * moon_hit_find - look up a sprite by name within a MoonHit.
+ * @hit:  a MoonHit obtained from moon_hit_load().
+ * @name: sprite filename key (e.g. "TroggSpear2.cel").
+ * Returns a pointer to the matching MoonHitSprite, or NULL if not found.
+ * The returned pointer is owned by @hit; do not free it separately.
+ */
+const MoonHitSprite *moon_hit_find(const MoonHit *hit, const char *name);
+
+/** moon_hit_free - release a MoonHit obtained from moon_hit_load(). */
+void moon_hit_free(MoonHit *hit);
 
 /* ------------------------------------------------------------------ */
 /* Generic raw file access                                             */
