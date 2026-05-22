@@ -175,24 +175,31 @@ static const char *combat_bg_for_node(int node_type)
  * creature_cel_for_type — primary CEL/OB filename for the given
  * creature type index (= byte offset into LAB_08C8 handler table).
  *
- * Mapping confirmed by tracing each handler in LAB_08C8 to its sprite
- * loading routine and the filename DC.B strings (LAB_0778..LAB_07B5):
+ * Complete mapping confirmed by tracing the LAB_08C8 fill (lines 4345-4358)
+ * and each handler to its sprite-loading routine and filename DC.B strings
+ * (LAB_0775..LAB_07B5).  Primary sprite (used here) + secondary sprite listed:
  *
- *   0x00 → be1.c          (Trogg War Beast — LAB_0188 → JSR LAB_0123
- *                          → LAB_077E="be1.c" / LAB_077F="be2.c" ;
- *                          3 bêtes à tuer, 1 à la fois ; groupe gll)
- *   0x04 → Mudmen1.cel    (Mudmen,        LAB_08C8+4  → LAB_019A → LAB_011E → LAB_0782)
- *   0x08 → Demon1.cel     (Demon/Gardien, LAB_08C8+8  → LAB_01A0 → LAB_0125 → LAB_07B0)
- *   0x0c → He1.ob         (Enemy Knight,  LAB_08C8+12 → LAB_0164 → LAB_0116 → LAB_0775)
- *   0x10 → He1.ob         (Enemy Knight,  LAB_08C8+16 → LAB_0164 → LAB_0116 → LAB_0775)
- *   0x14 → Dragon1.cel    (Dragon,        LAB_08C8+20 → LAB_0192 → LAB_0121 → LAB_0780)
- *   0x18 → TroggAxe1.cel  (TroggAxe,     LAB_08C8+24 → LAB_0168 → LAB_011A → LAB_0778)
- *   0x1c → TroggAxe1.cel  (TroggAxe var, LAB_08C8+28 → LAB_016A → LAB_011A → LAB_0778)
- *   0x20 → TroggSpear1.cel(TroggSpear,   LAB_08C8+32 → LAB_0175 → LAB_0118 → LAB_077A)
- *   0x24 → Ratmen1.cel    (Ratmen,       LAB_08C8+36 → LAB_018C → LAB_011C → LAB_077C)
- *   0x30 → Balok1.cel     (Balok,        LAB_08C8+48 → LAB_0196 → LAB_011F → LAB_0785)
- *   0x38 → He1.ob         (Enemy Knight, LAB_08C8+56 → LAB_0164 → LAB_0116 → LAB_0775)
- *   0x40 → Troll1.cel     (Troll,        LAB_08C8+64 → LAB_019E → LAB_0126 → LAB_07B4)
+ *   0x00 → be1.c / be2.c                    Trogg War Beast  LAB_0188→LAB_0123
+ *   0x04 → Mudmen1.cel / Mudmen2.cel         Mudmen           LAB_019A→LAB_011E
+ *   0x08 → Demon1.cel / Demon2..4.cel        Demon/Gardien    LAB_01A0→LAB_0125
+ *   0x0c → He1.ob / He2.ob / He3.ob          Enemy Knight     LAB_0164→LAB_0116
+ *   0x10 → He1.ob / He2.ob / He3.ob          Enemy Knight     LAB_0164→LAB_0116
+ *   0x14 → Dragon1.cel / Dragon2.cel         Dragon           LAB_0192→LAB_0121
+ *   0x18 → TroggAxe1.cel / TroggAxe2.cel     TroggAxe (fort)  LAB_0168→LAB_011A
+ *   0x1c → TroggAxe1.cel / TroggAxe2.cel     TroggAxe (faible)LAB_016A→LAB_011A
+ *   0x20 → TroggSpear1.cel / TroggSpear2.cel TroggSpear       LAB_0175→LAB_0118
+ *   0x24 → Ratmen1.cel / Ratmen2.cel         Ratmen           LAB_018C→LAB_011C
+ *   0x30 → Balok1.cel / Balok2.cel / Balok3  Balok            LAB_0196→LAB_011F
+ *   0x38 → He1.ob / He2.ob / He3.ob          Enemy Knight     LAB_0164→LAB_0116
+ *   0x40 → Troll1.cel / Troll2.cel           Troll            LAB_019E→LAB_0126
+ *
+ * Note: il n'existe PAS de TroggHammer dans le jeu original.  Les variantes
+ * Trogg du code assembleur sont uniquement : War Beast (0x00), Axe fort (0x18),
+ * Axe faible (0x1c) et Spear (0x20).  Les entrées 0x1c et 0x18 chargent les
+ * mêmes sprites (TroggAxe1/2.cel) ; la seule différence est les HP de départ
+ * (LAB_0169 : 100/90 PV pour 0x18 ; LAB_0170 : 70/65 PV pour 0x1c).
+ * Les trois entrées EnemyKnight (0x0c, 0x10, 0x38) pointent toutes vers le
+ * même gestionnaire LAB_0164 — c'est le design original du programmeur.
  */
 static const char *creature_cel_for_type(int ctype)
 {
@@ -204,12 +211,13 @@ static const char *creature_cel_for_type(int ctype)
     case 0x10: return "He1.ob";
     case 0x14: return "Dragon1.cel";
     case 0x18: return "TroggAxe1.cel";
-    case 0x1c: return "TroggAxe1.cel";  /* variant: same sprites, different frames */
+    case 0x1c: return "TroggAxe1.cel";  /* mêmes sprites que 0x18, HP inférieurs (LAB_0170) */
     case 0x20: return "TroggSpear1.cel";
+    case 0x24: return "Ratmen1.cel";
     case 0x30: return "Balok1.cel";
     case 0x38: return "He1.ob";
     case 0x40: return "Troll1.cel";
-    default:   return "Ratmen1.cel";    /* 0x24, and any unrecognised type */
+    default:   return "Ratmen1.cel";    /* ne devrait pas être atteint */
     }
 }
 
@@ -229,10 +237,11 @@ static const char *creature_name_for_type(int ctype)
     case 0x18: return "TROGGAXE";
     case 0x1c: return "TROGGAXE";
     case 0x20: return "TROGGSPEAR";
+    case 0x24: return "RATMEN";
     case 0x30: return "BALOK";
     case 0x38: return "ENEMY KNIGHT";
     case 0x40: return "TROLL";
-    default:   return "RATMEN";
+    default:   return "UNKNOWN";        /* ne devrait pas être atteint */
     }
 }
 
