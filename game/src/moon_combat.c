@@ -140,6 +140,10 @@ typedef struct {
     int          human;      /* 1 = player-controlled                */
     int          knight_idx; /* index into ctx->knights[]            */
     const char  *name;
+    /* Hitbox collision fields — used by the collide.hit engine       */
+    const char    *cel_name; /* sprite filename key for collide.hit  */
+    const MoonCel *cel;      /* current CEL (non-owning pointer)     */
+    int            is_knight;/* 1 = uses s_knight_ranges             */
 } Combatant;
 
 /* ------------------------------------------------------------------ */
@@ -358,6 +362,10 @@ static int s_anim_frame[ANIM_SLOTS];
 static int s_anim_tick [ANIM_SLOTS];
 #define COMBAT_ANIM_SPEED  4  /* ticks per animation frame */
 
+/* Parsed collide.hit data — loaded once at combat start, freed at end.
+ * NULL when the file is absent (fallback to geometric hit checks).   */
+static MoonHit *s_hit = NULL;
+
 /* ------------------------------------------------------------------ */
 /* Draw a combatant using CEL sprite (or rectangle fallback)          */
 /* ------------------------------------------------------------------ */
@@ -443,6 +451,171 @@ static void draw_combatant_cel(uint32_t *fb,
 /* ------------------------------------------------------------------ */
 /* Combat logic helpers                                                */
 /* ------------------------------------------------------------------ */
+
+/* Forward declaration — defined later in this file */
+static int check_hit(const Combatant *attacker, const Combatant *defender);
+
+/*
+ * combatant_abs_frame — compute the absolute CEL frame index for a
+ * combatant given its current state and animation sub-frame counter.
+ * slot = 0 for player, 1..MAX for enemies.
+ */
+static int combatant_abs_frame(const Combatant *c, int slot)
+{
+    const FrameRange *ranges     = c->is_knight ? s_knight_ranges : s_creature_ranges;
+    int               num_states = c->is_knight ? NUM_STATES_KNIGHT : NUM_STATES_CREATURE;
+    int               st         = (int)c->state;
+
+    if (st < 0 || st >= num_states)
+        st = CSTATE_IDLE;
+    const FrameRange *rng = &ranges[st];
+
+    int sub = s_anim_frame[slot];
+    if (c->state == CSTATE_DEAD) {
+        sub = (rng->count > 0) ? rng->count - 1 : 0;
+    } else if (rng->count > 0) {
+        sub %= rng->count;
+    } else {
+        sub = 0;
+    }
+    return rng->first + sub;
+}
+
+/*
+ * cel_pixel_hit — test whether pixel (px, py) in Amiga planar bitplane
+ * data of 'fr' is non-transparent (at least one bitplane has a set bit).
+ *
+ * Replicates the LAB_03E7 pixel test from mog.asm.
+ * px/py are relative to the sprite's top-left corner.
+ */
+static int cel_pixel_hit(const MoonCelFrame *fr, int px, int py)
+{
+    if (!fr || !fr->data) return 0;
+    int w = (int)fr->width;
+    int h = (int)fr->height;
+    if (px < 0 || px >= w || py < 0 || py >= h) return 0;
+
+    /* Amiga planar format: each row is padded to a 16-bit boundary.  */
+    int row_bytes  = ((w + 15) / 16) * 2;
+    int plane_bytes = row_bytes * h;
+    int byte_off   = py * row_bytes + (px >> 3);
+    int bit_mask   = 1 << (7 - (px & 7));   /* MSB = leftmost pixel  */
+
+    for (int p = 0; p < (int)fr->planes; p++) {
+        if (fr->data[p * plane_bytes + byte_off] & bit_mask)
+            return 1;
+    }
+    return 0;
+}
+
+/*
+ * check_hit_hitdata — pixel-accurate hitbox collision from collide.hit.
+ *
+ * Mirrors assembly routine LAB_03DB / LAB_03E1–LAB_03EA in mog.asm.
+ *
+ * Parameters:
+ *  atk           — attacker combatant
+ *  atk_cel_name  — sprite key used to look up collide.hit entry
+ *  atk_slot      — animation slot index (0=player, 1+n=enemy n)
+ *  def           — defender combatant
+ *  def_slot      — defender animation slot index
+ *
+ * Returns:
+ *   1  — collision detected
+ *   0  — no collision
+ *  -1  — collide.hit data unavailable for this sprite (caller: use fallback)
+ */
+static int check_hit_hitdata(const Combatant *atk, int atk_slot,
+                              const Combatant *def, int def_slot)
+{
+    if (!s_hit || !atk->cel || !def->cel) return -1;
+
+    /* Locate attacker hitbox data in collide.hit */
+    const MoonHitSprite *hs = moon_hit_find(s_hit, atk->cel_name);
+    if (!hs) return -1;
+
+    /* Absolute CEL frame index for attacker and defender */
+    int atk_fi = combatant_abs_frame(atk, atk_slot);
+    int def_fi = combatant_abs_frame(def, def_slot);
+
+    if (atk_fi < 0 || atk_fi >= hs->frame_count) return -1;
+    const MoonHitFrame *hf = &hs->frames[atk_fi];
+    if (hf->n_points == 0) return 0;   /* frame has no hitbox points  */
+
+    /* Defender frame dimensions */
+    if (def_fi < 0 || def_fi >= def->cel->frame_count) return -1;
+    const MoonCelFrame *def_fr = &def->cel->frames[def_fi];
+    int dw = (int)def_fr->width;
+    int dh = (int)def_fr->height;
+
+    /* Top-left corner of each sprite (c->x is horizontal centre,
+     * c->y is bottom edge).                                           */
+    int atk_tl_x = atk->x - (int)atk->cel->frames[atk_fi].width / 2;
+    int atk_tl_y = atk->y - (int)atk->cel->frames[atk_fi].height;
+
+    int def_tl_x = def->x - dw / 2;
+    int def_tl_y = def->y - dh;
+
+    /* Is the attacker horizontally flipped (facing left)?            */
+    int flipped   = (atk->facing < 0);
+    int flip_w    = (int)atk->cel->frames[atk_fi].width;
+
+    /* Broad-phase AABB test (LAB_03E1–LAB_03E3):
+     * attacker hitbox bounding box vs defender sprite bounding box.  */
+    int atk_min_x, atk_max_x;
+    if (!flipped) {
+        atk_min_x = atk_tl_x;
+        atk_max_x = atk_tl_x + (int)hf->max_dx;
+    } else {
+        atk_min_x = atk_tl_x + flip_w - (int)hf->max_dx;
+        atk_max_x = atk_tl_x + flip_w;
+    }
+    int atk_min_y = atk_tl_y;
+    int atk_max_y = atk_tl_y + (int)hf->max_dy;
+
+    /* No overlap → early out */
+    if (atk_max_x < def_tl_x || atk_min_x > def_tl_x + dw) return 0;
+    if (atk_max_y < def_tl_y || atk_min_y > def_tl_y + dh) return 0;
+
+    /* Fine-phase: per-point pixel test (LAB_03E4–LAB_03EA)          */
+    for (int i = 0; i < (int)hf->n_points; i++) {
+        int dx = (int)hf->points[i].dx;
+        int dy = (int)hf->points[i].dy;
+
+        if (flipped)
+            dx = flip_w - dx;
+
+        int abs_x = atk_tl_x + dx;
+        int abs_y = atk_tl_y + dy;
+
+        /* Must be inside the defender sprite bounding box */
+        if (abs_x < def_tl_x || abs_x >= def_tl_x + dw) continue;
+        if (abs_y < def_tl_y || abs_y >= def_tl_y + dh) continue;
+
+        /* Pixel test in defender's planar bitmap */
+        int px = abs_x - def_tl_x;
+        int py = abs_y - def_tl_y;
+        if (cel_pixel_hit(def_fr, px, py))
+            return 1;
+    }
+    return 0;
+}
+
+/*
+ * combat_check_hit — collision check wrapper.
+ *
+ * Uses the pixel-accurate collide.hit engine when data is available;
+ * falls back to the geometric check_hit() when not.
+ */
+static int combat_check_hit(const Combatant *atk, int atk_slot,
+                             const Combatant *def, int def_slot)
+{
+    int result = check_hit_hitdata(atk, atk_slot, def, def_slot);
+    if (result >= 0)
+        return result;
+    /* Fallback to geometric check */
+    return check_hit(atk, def);
+}
 
 /*
  * check_hit — test whether the attacker's current attack lands on the
@@ -826,6 +999,46 @@ void game_run_combat(GameCtx *ctx)
         enemy_cel = knight_cel;
 
     /* ---------------------------------------------------------------- */
+    /* Load collide.hit hitbox data (LAB_0A57 in mog.asm)              */
+    /* NULL if the file is unavailable — geometric fallback is used.   */
+    /* ---------------------------------------------------------------- */
+    s_hit = moon_hit_load("collide.hit");
+    if (!s_hit) s_hit = moon_hit_load("COLLIDE.HIT");
+
+    /* Determine the CEL name used by the player for collide.hit lookup.
+     * We use the same precedence as the CEL load above.               */
+    const char *player_cel_name = "dw1.cel";
+    {
+        int ki = ctx->current_knight;
+        static const char *s_fob_names[MAX_PLAYERS] = {
+            "kn1.ob", "kn2.ob", "kn3.ob", "kn4.ob"
+        };
+        if (ki >= 0 && ki < MAX_PLAYERS) {
+            /* kn1.ob is a 5-byte stub in the release data set; the
+             * collide.hit key we want is the actual loaded name.      */
+            if (knight_cel)
+                player_cel_name = s_fob_names[ki];
+        }
+    }
+
+    /* Assign CEL data to player combatant for collision engine        */
+    player.cel_name  = player_cel_name;
+    player.cel       = knight_cel;
+    player.is_knight = 1;
+
+    /* Assign CEL data to initially-spawned enemies                    */
+    {
+        int to_spawn = (enemies_simul < enemies_total) ? enemies_simul : enemies_total;
+        const MoonCel  *ecl   = enemy_is_knight ? knight_cel : enemy_cel;
+        const char     *ename = enemy_is_knight ? player_cel_name : enemy_cel_name;
+        for (int i = 0; i < to_spawn; i++) {
+            enemies[i].cel_name  = ename;
+            enemies[i].cel       = ecl;
+            enemies[i].is_knight = enemy_is_knight;
+        }
+    }
+
+    /* ---------------------------------------------------------------- */
     /* Reset per-combat animation counters                              */
     /* ---------------------------------------------------------------- */
     for (int i = 0; i < ANIM_SLOTS; i++) {
@@ -888,7 +1101,7 @@ void game_run_combat(GameCtx *ctx)
                         for (int ei = 0; ei < MAX_COMBAT_ENEMIES; ei++) {
                             if (enemies[ei].state == CSTATE_DEAD) continue;
                             if (enemies[ei].hp    <= 0)            continue;
-                            if (check_hit(&player, &enemies[ei])) {
+                            if (combat_check_hit(&player, 0, &enemies[ei], 1 + ei)) {
                                 int blocked = (enemies[ei].state == CSTATE_BLOCK);
                                 if (!blocked) {
                                     int dmg = resolve_attack_damage(at);
@@ -962,7 +1175,7 @@ void game_run_combat(GameCtx *ctx)
                 ai_update(e, &player, knight_strength);
 
             /* Resolve AI attack hitting the player */
-            if (e->state == CSTATE_ATTACK && check_hit(e, &player)) {
+            if (e->state == CSTATE_ATTACK && combat_check_hit(e, 1 + ei, &player, 0)) {
                 int blocked = (player.state == CSTATE_BLOCK);
                 if (!blocked) {
                     int dmg = resolve_attack_damage(e->attack_type);
@@ -987,6 +1200,10 @@ void game_run_combat(GameCtx *ctx)
                 if (enemies_spawned < enemies_total) {
                     spawn_enemy(e, ei, enemy_name, base_enemy_hp);
                     enemies_spawned++;
+                    /* Restore collision fields cleared by spawn_enemy()  */
+                    e->cel_name  = enemy_is_knight ? player_cel_name : enemy_cel_name;
+                    e->cel       = enemy_is_knight ? knight_cel : enemy_cel;
+                    e->is_knight = enemy_is_knight;
                     /* Reset animation slot for this enemy slot          */
                     s_anim_frame[1 + ei] = 0;
                     s_anim_tick [1 + ei] = 0;
@@ -1134,6 +1351,7 @@ void game_run_combat(GameCtx *ctx)
     }
 
 combat_cleanup:
+    if (s_hit) { moon_hit_free(s_hit); s_hit = NULL; }
     moon_cel_free(knight_cel);
     if (enemy_cel != knight_cel)
         moon_cel_free(enemy_cel);
