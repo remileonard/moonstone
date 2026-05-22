@@ -178,34 +178,38 @@ static const char *combat_bg_for_node(int node_type)
  * Mapping confirmed by tracing each handler in LAB_08C8 to its sprite
  * loading routine and the filename DC.B strings (LAB_0778..LAB_07B5):
  *
- *   0x00 → He1.ob         (enemy knight NPC — LAB_0188 ; duel unique,
- *                          pas une vague ; positions fixes région gll)
+ *   0x00 → be1.c          (Trogg War Beast — LAB_0188 → JSR LAB_0123
+ *                          → LAB_077E="be1.c" / LAB_077F="be2.c" ;
+ *                          3 bêtes à tuer, 1 à la fois ; groupe gll)
  *   0x04 → Mudmen1.cel    (Mudmen,        LAB_08C8+4  → LAB_019A → LAB_011E → LAB_0782)
  *   0x08 → Demon1.cel     (Demon/Gardien, LAB_08C8+8  → LAB_01A0 → LAB_0125 → LAB_07B0)
- *   0x0c → Ratmen1.cel    (generic,       LAB_08C8+12 → LAB_0164 → LAB_0116)
- *   0x10 → Ratmen1.cel    (generic alt,   LAB_08C8+16 → LAB_0164 → LAB_0116)
+ *   0x0c → He1.ob         (Enemy Knight,  LAB_08C8+12 → LAB_0164 → LAB_0116 → LAB_0775)
+ *   0x10 → He1.ob         (Enemy Knight,  LAB_08C8+16 → LAB_0164 → LAB_0116 → LAB_0775)
  *   0x14 → Dragon1.cel    (Dragon,        LAB_08C8+20 → LAB_0192 → LAB_0121 → LAB_0780)
  *   0x18 → TroggAxe1.cel  (TroggAxe,     LAB_08C8+24 → LAB_0168 → LAB_011A → LAB_0778)
  *   0x1c → TroggAxe1.cel  (TroggAxe var, LAB_08C8+28 → LAB_016A → LAB_011A → LAB_0778)
  *   0x20 → TroggSpear1.cel(TroggSpear,   LAB_08C8+32 → LAB_0175 → LAB_0118 → LAB_077A)
  *   0x24 → Ratmen1.cel    (Ratmen,       LAB_08C8+36 → LAB_018C → LAB_011C → LAB_077C)
  *   0x30 → Balok1.cel     (Balok,        LAB_08C8+48 → LAB_0196 → LAB_011F → LAB_0785)
- *   0x38 → Ratmen1.cel    (generic,      LAB_08C8+56 → LAB_0164)
+ *   0x38 → He1.ob         (Enemy Knight, LAB_08C8+56 → LAB_0164 → LAB_0116 → LAB_0775)
  *   0x40 → Troll1.cel     (Troll,        LAB_08C8+64 → LAB_019E → LAB_0126 → LAB_07B4)
  */
 static const char *creature_cel_for_type(int ctype)
 {
     switch (ctype) {
-    case 0x00: return "He1.ob";
+    case 0x00: return "be1.c";
     case 0x04: return "Mudmen1.cel";
     case 0x08: return "Demon1.cel";
+    case 0x0c: return "He1.ob";
+    case 0x10: return "He1.ob";
     case 0x14: return "Dragon1.cel";
     case 0x18: return "TroggAxe1.cel";
     case 0x1c: return "TroggAxe1.cel";  /* variant: same sprites, different frames */
     case 0x20: return "TroggSpear1.cel";
     case 0x30: return "Balok1.cel";
+    case 0x38: return "He1.ob";
     case 0x40: return "Troll1.cel";
-    default:   return "Ratmen1.cel";    /* 0x0c, 0x10, 0x24, 0x38 */
+    default:   return "Ratmen1.cel";    /* 0x24, and any unrecognised type */
     }
 }
 
@@ -216,14 +220,17 @@ static const char *creature_cel_for_type(int ctype)
 static const char *creature_name_for_type(int ctype)
 {
     switch (ctype) {
-    case 0x00: return "ENEMY KNIGHT";
+    case 0x00: return "TROGG WAR BEAST";
     case 0x04: return "MUDMEN";
     case 0x08: return "DEMON";
+    case 0x0c: return "ENEMY KNIGHT";
+    case 0x10: return "ENEMY KNIGHT";
     case 0x14: return "DRAGON";
     case 0x18: return "TROGGAXE";
     case 0x1c: return "TROGGAXE";
     case 0x20: return "TROGGSPEAR";
     case 0x30: return "BALOK";
+    case 0x38: return "ENEMY KNIGHT";
     case 0x40: return "TROLL";
     default:   return "RATMEN";
     }
@@ -709,10 +716,21 @@ void game_run_combat(GameCtx *ctx)
     int enemies_spawned    = 0;   /* creatures spawned so far          */
 
     /* For non-PVE combat (PvP, Valley) always use a single enemy      */
-    /* For type 0x00 (ENEMY KNIGHT NPC) also force single opponent:    *
-     * LAB_0188 sets LAB_05EC=3 (rounds) not a creature wave.          */
-    if (ctx->node_type != 0x02 ||
-        (ctx->node_type == 0x02 && ctx->pve_creature_type == 0x00)) {
+    if (ctx->node_type != 0x02) {
+        enemies_total  = 1;
+        enemies_simul  = 1;
+    }
+    /* Type 0x00 (TROGG WAR BEAST) : LAB_0188 sets LAB_05EC=3 and      *
+     * LAB_05ED=1 → 3 beasts must be killed, one at a time.            */
+    else if (ctx->pve_creature_type == 0x00) {
+        enemies_total  = 3;
+        enemies_simul  = 1;
+    }
+    /* Types 0x0c/0x10/0x38 (ENEMY KNIGHT) : LAB_0164 sets             *
+     * LAB_05EC=1 and LAB_05ED=1 → single duel.                        */
+    else if (ctx->pve_creature_type == 0x0c ||
+             ctx->pve_creature_type == 0x10 ||
+             ctx->pve_creature_type == 0x38) {
         enemies_total  = 1;
         enemies_simul  = 1;
     }

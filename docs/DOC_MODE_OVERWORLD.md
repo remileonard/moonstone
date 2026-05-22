@@ -543,7 +543,7 @@ Pour accéder à la **Vallée des Dieux** (`0x1c`), le joueur doit avoir
 `inventaire[20] == 0x0f` : les 4 bits (un par Chevalier Noir / groupe de
 créatures) tous à 1, ce qui signifie qu'il a collecté les 4 clefs.
 
-#### Nœuds de type `0x00` — Rencontres Chevalier Ennemi IA
+#### Nœuds de type `0x00` — Rencontres Trogg War Beast
 
 Parmi les 24 entrées du tableau `LAB_07BD`, trois ont le type `0x00`
 (handler `LAB_0188`). Elles se trouvent **toutes dans le groupe `gll`**
@@ -561,15 +561,16 @@ boucle `LAB_0DA3`) comme tous les autres nœuds vivants.
 
 Quand le joueur approche d'un nœud `0x00`, **`LAB_0188`** est appelé (à la
 place de `LAB_018C` / `LAB_019A` / etc. pour les autres créatures). Ce
-handler configure un duel contre un chevalier ennemi IA (sprite `He1.ob`) :
+handler configure un combat contre un **Trogg War Beast** (sprites `be1.c` /
+`be2.c`, chargés par `LAB_0123` → `LAB_077E` / `LAB_077F`) :
 
 ```asm
 LAB_0188:
   MOVEQ  #3, D0
   JSR    LAB_016F         ; préparation scène (musique, graphiques)
-  JSR    LAB_0123         ; charge He1.ob (fichier LAB_077E)
-  MOVE.W #$0001, LAB_05ED ; compteur joueur 1
-  MOVE.W #$0003, LAB_05EC ; 3 rounds à remporter
+  JSR    LAB_0123         ; charge be1.c (LAB_077E) et be2.c (LAB_077F)
+  MOVE.W #$0001, LAB_05ED ; 1 joueur
+  MOVE.W #$0003, LAB_05EC ; 3 bêtes à tuer (compteur, décrémenté à chaque mort)
   MOVE.W #$0000, LAB_05EE
   ...
   LEA    LAB_07BB, A0     ; données de défilement du fond d'arène
@@ -577,17 +578,20 @@ LAB_0188:
 ```
 
 Différences clés par rapport aux créatures ordinaires :
-- `LAB_05EC = 3` : le joueur doit remporter **3 rounds** (pas une vague de
-  créatures).
-- L'adversaire utilise le sprite **`He1.ob`** (chevalier) et non un sprite de
-  créature.
-- Il n'y a **pas de multi-spawn** : un seul adversaire à la fois.
+- `LAB_05EC = 3` : le joueur doit tuer **3 War Beasts** successifs (pas une
+  vague simultanée — `LAB_05ED = 1` signifie 1 ennemi à la fois).
+- Les sprites sont **`be1.c`** et **`be2.c`** (fichiers Trogg War Beast),
+  **pas** `He1.ob` (qui est le sprite du chevalier ennemi IA, utilisé pour
+  les types `0x0c`/`0x10`/`0x38`).
+- Les **Chevaliers Noirs** sont des entités IA entièrement séparées avec
+  des positions dynamiques ; ils ne correspondent à aucun nœud de
+  `s_pve_nodes[]`.
 
 **Portage C** (`moon_overworld.c`, `moon_combat.c`) : les nœuds type `0x00`
-restent dans `s_pve_nodes[]` avec `node_type = 0x02`. Lorsque
-`pve_creature_type == 0x00`, `moon_combat.c` force
-`enemies_total = enemies_simul = 1` pour reproduire le duel unique de
-`LAB_0188` (au lieu d'une vague scalée sur la force du chevalier).
+sont nommés `"TROGG WAR BEAST"` dans `s_pve_nodes[]` avec `node_type = 0x02`.
+Lorsque `pve_creature_type == 0x00`, `moon_combat.c` fixe
+`enemies_total = 3` et `enemies_simul = 1` pour reproduire fidèlement
+le comportement de `LAB_0188` (3 bêtes à tuer, une à la fois).
 
 
 
@@ -1352,7 +1356,7 @@ l'Amiga (ASM) et l'implémentation actuelle en C (`moon_overworld.c`).
 | **Chevaliers noirs — attaque**      | `LAB_0DF8` : 20 % chance de poursuivre un joueur     | `BK_ATTACK_CHANCE = 25 %` (légère différence)        | ✅ Approximatif |
 | **Chevaliers noirs — stats**        | skill=5, hp=20, épée longue, armure rembourrée        | strength=2, constitution=2, hp=30 (valeurs différentes) | ⚠️ Différent |
 | **Combat BK ↔ joueur**              | `LAB_004F`, transfert items après victoire           | `STATE_COMBAT`, `node_type=0x01`                     | ✅ Équivalent |
-| **Combat joueur ↔ chevalier ennemi IA (type 0x00)** | `LAB_0188` : duel 3 rounds, sprite He1.ob, région gll | `node_type=0x02`, `pve_creature_type=0x00`, `enemies_total=1` | ✅ Équivalent |
+| **Combat joueur ↔ Trogg War Beast (type 0x00)** | `LAB_0188` : 3 bêtes successives, sprites be1.c/be2.c, groupe gll | `node_type=0x02`, `pve_creature_type=0x00`, `enemies_total=3`, `enemies_simul=1` | ✅ Équivalent |
 | **Combat joueur ↔ créature**        | `LAB_005B`, pillage multi-items, cycle créatures     | `STATE_COMBAT`, `node_type=0x02`, clef unique         | ⚠️ Simplifié |
 | **Pillage tombe (`0x21`)**          | `LAB_004F` : récupère l'équipement du mort           | Non implémenté                                       | ❌ Absent |
 | **Village natal**                   | `LAB_00B0` : skill +1 si bonne faction               | `STATE_VILLAGE`                                      | ✅ Délégué à moon_village.c |
