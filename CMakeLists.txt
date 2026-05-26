@@ -30,6 +30,7 @@ add_library(moon_assets STATIC
     libmoon_assets/src/lzss_cel.c
     libmoon_assets/src/rle_stile.c
     libmoon_assets/src/packbits_piv.c
+    libmoon_assets/src/testmap.c
 )
 
 target_include_directories(moon_assets
