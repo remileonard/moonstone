@@ -13,52 +13,55 @@
 
 ### 1.1 Fond d'écran (PIV)
 
-| Label       | Fichier      | Rôle                                              |
-|-------------|--------------|---------------------------------------------------|
-| `LAB_00CB`  | `dw1.PIV`    | **Fond principal de la carte overworld** (320×200, 5 plans, 32 couleurs). Copié dans les deux buffers de double-buffer au démarrage de chaque tour. |
-| `LAB_00C7`  | —            | Pointeur vers le premier buffer de fond (double-buffer A). |
-| `LAB_00C8`  | —            | Pointeur vers le second buffer de fond (double-buffer B). |
+| Label       | Fichier        | Rôle                                                                         |
+|-------------|----------------|------------------------------------------------------------------------------|
+| `LAB_07AF`  | `ch.piv`       | **Fond principal de la carte overworld**. Chargé au démarrage par `LAB_012C` via `LAB_0BB5`, stocké dans la zone mémoire `56(LAB_05B9)`, taille 0x25f6 octets. |
+| `LAB_07AE`  | `message.piv`  | Fond PIV de la zone de messages/texte. Chargé par `LAB_012C` au même démarrage. |
 
-Les fichiers `.PIV` sont dans le format propriétaire Mindscape :
-- `word[0]` = nombre de plans (4 ou 5)
-- `long[1]` = taille compressée du body
-- 32 mots de palette Amiga 12-bit (`$0RGB`)
-- Body : stream **LZSS** (même algorithme que les sprites `.CEL`)
+Le fichier `ch.piv` est chargé une seule fois à l'initialisation du mode overworld (appel de `LAB_012C` dans `SECSTRT_0`). Il n'y a pas de `dw1.PIV` dans `mog.asm`.
 
-### 1.2 Fichiers CEL et OB — inventaire overworld
+### 1.2 Fichiers de sprites — inventaire overworld
 
-#### Table d'assets `LAB_0276` — chargée par la boucle de jeu overworld
+D'après `mog.asm`, les fichiers de sprites suivants sont chargés au démarrage de l'overworld :
 
-La table `LAB_0276` (10 pointeurs longs) est peuplée en mémoire au
-chargement. Le second chargement (contexte mog / overworld interactif,
-`program.asm#L3544-L3620`) place les fichiers suivants :
+#### Fichier `mi.c` — sprites overworld principaux (chargé par `LAB_0128`)
 
-| Slot (offset) | Fichier     | Frames | Rôle                                                       |
-|---------------|-------------|--------|------------------------------------------------------------|
-| `[0]`         | `dg1.cel`   | 55     | **Dragon volant sur la carte** — toutes les frames de vol du dragon overworld |
-| `[4]`         | `li1.cel`   | 30     | Sprites icônes des lieux (villages, temples, châteaux)     |
-| `[8]`         | `ha1.cel`   | 22     | Sprites de type Hawk / décoration de carte                 |
-| `[12]`        | `co1.cel`   | 25     | Sprites icônes complémentaires (co-icônes, repères)        |
-| `[16]`        | `da1.cel`   | 52     | Sprites de dégâts / décoration animée                      |
-| `[20]`        | `ov1.cel`   | 4      | **Icônes de nœuds de la carte** (overworld node icons)     |
+`mi.c` (label `LAB_070E`, `mog.asm#L13332`) est **le fichier de sprites principal** de
+la carte overworld. Il est chargé une seule fois à l'initialisation (`SECSTRT_0`) par
+`LAB_0128` via le chargeur CEL `LAB_0CBB`. Les données sont stockées en mémoire chip RAM
+à l'adresse pointée par `LAB_0664`.
 
-> **Note :** le fichier `ov1.cel` (label `LAB_016A`, préfixe ASCII `0x6F 0x76` = `'ov'`)
-> ne contient que 4 frames ; il représente les icônes statiques des nœuds
-> interactifs de la carte. `dg1.cel` (55 frames) fournit l'animation complète
-> du dragon en vol.
+Utilisation des frames de `mi.c` (confirmée dans `mog.asm`) :
 
-#### Fichiers `.ob` — sprites des chevaliers (carte et combat)
+| Frame (D0) | Usage                                               | Référence mog.asm |
+|------------|-----------------------------------------------------|-------------------|
+| `faction + 5` | Sprite du chevalier vivant (faction 0..4 → frames 5..9) | `LAB_0079` L1179 |
+| `42` (0x2A) | Sprite du chevalier mort                           | `LAB_0079` L1183 |
+| `31` (0x1F) | Icône générique de créature PvE                    | `LAB_0077` L1148 |
+| `= type nœud` | Highlight/icône du nœud statique (ex. 0x19, 0x1a) | `LAB_006F` L1064 |
+| `20` (0x14) | Dimensions hitbox pour la détection dragon          | `LAB_0074` L1131 |
+| `34..41` (0x22..0x29) | Frames d'animation du dragon en vol    | `LAB_08FD..LAB_0904` |
 
-| Fichier   | Label      | Joueur          | Rôle                                  |
-|-----------|------------|-----------------|---------------------------------------|
-| `kn1.ob`  | `LAB_076F` | SIR RICHARD (bleu)  | Sprite chevalier sur la carte     |
-| `kn2.ob`  | `LAB_0770` | SIR GODBER (rouge)  | Sprite chevalier sur la carte     |
-| `kn3.ob`  | `LAB_0771` | SIR JEFFREY (vert)  | Sprite chevalier sur la carte     |
-| `kn4.ob`  | `LAB_0772` | SIR EDWARD (jaune)  | Sprite chevalier sur la carte     |
-| `Kn5.ob`  | `LAB_0773` | Chevalier Noir IA   | Sprite chevalier ennemi sur carte |
+La fonction `LAB_0066` (`mog.asm#L985`) lit les dimensions de hitbox du sprite en
+utilisant `LAB_0664` : offset 14 = largeur, offset 16 = hauteur (stride de 10 octets
+par frame dans la table de frames).
 
-Format `.ob` = identique à `.cel` : en-tête 10 octets + table frames +
-corps LZSS (`LAB_049C`).
+La fonction `LAB_0CDA` est le dessinateur de sprites (blitter). Elle est appelée avec
+`A0 = LAB_0664`, `D0 = numéro de frame`, `D1 = X`, `D2 = Y`.
+
+#### Fichier `ki.cel` — chargé par `LAB_0128`
+
+`ki.cel` (label `LAB_0784`, `mog.asm#L13718`) est chargé au même moment que `mi.c` par
+`LAB_0128`, dans la zone mémoire `48(LAB_05B9)`. Son rôle exact sur la carte overworld
+n'est pas entièrement identifié dans `mog.asm` ; il est chargé en mémoire mais les
+appels explicites dans la boucle overworld utilisent `LAB_0664` (`mi.c`).
+
+#### Fichiers `bold.f` et `Small.font` — polices (chargés par `LAB_012C`)
+
+| Fichier       | Label      | Rôle                   |
+|---------------|------------|------------------------|
+| `bold.f`      | `LAB_078B` | Police principale      |
+| `Small.font`  | `LAB_078C` | Police secondaire/petite |
 
 #### Fichiers CEL de combat du Dragon — chargés par `LAB_0121`
 
@@ -70,48 +73,8 @@ contre le dragon (appel `JSR LAB_0121`, `mog.asm#L3969`) :
 | `Dragon1.cel`  | `LAB_0780` | —      | Sprites d'attaque / phase de combat dragon (animation 1) |
 | `Dragon2.cel`  | `LAB_0781` | —      | Sprites d'attaque / phase de combat dragon (animation 2) |
 
-Ces deux fichiers sont distincts de `dg1.cel` : ils ne servent que pour
+Ces deux fichiers sont distincts de `mi.c` : ils ne servent que pour
 la scène de combat, pas pour le vol du dragon sur la carte.
-
-#### Scripts d'animation de la carte (bytecode)
-
-| Label      | Nom inféré                  | Fichier CEL source | Usage overworld                                      |
-|------------|-----------------------------|---------------------|------------------------------------------------------|
-| `LAB_00E7` | `map_all_node_positions`    | ~145 entrées × 6 octets | Table complète des positions des nœuds/icônes |
-| `LAB_00E8` | `anim_map_selected_node`    | `ov1.cel` frames 1..6   | Animation du nœud de destination sélectionné  |
-| `LAB_00E9` | `anim_map_ui_frame`         | `ov1.cel` frames 7..18  | Cadre UI permanent de la carte, affiché en fond |
-| `LAB_00EA` | `anim_map_idle_overlay`     | `ov1.cel` frames 0/1/2  | Overlay idle : icône du chevalier courant       |
-| `LAB_00E6` | `anim_overworld_hud`        | 12 icônes + barres      | HUD overworld (barres HP/XP/reliques)           |
-| `LAB_00D7` | `anim_map_knight_walk_r`    | `kn*.ob` sub_frames `0x10..0x20` | Animation de marche droite du chevalier |
-| `LAB_00D8` | `anim_map_knight_walk_l`    | `kn*.ob`                | Animation de marche gauche sur la carte         |
-| `LAB_00D9` | `anim_map_knight_walk_r2`   | `kn*.ob`                | Suite du parcours de chemin (segment suivant)   |
-| `LAB_00DA` | `anim_map_knight_path_cont` | `kn*.ob`                | Continuation de déplacement sur un chemin       |
-
-#### Format d'une entrée de `LAB_00E7` (6 octets)
-
-```
-byte 0 = 0x00        → index CEL (0 = premier slot : icône chevalier)
-byte 1 = N           → sous-frame N (direction/type d'icône, 0..7)
-byte 2 = X_signed    → colonne écran en pixels (signé)
-byte 3 = flags       → drapeaux d'affichage
-word 4 = Y_signed    → ligne écran en pixels (signée)
-```
-
-La table contient environ **36 nœuds distincts** (lieux) et ~70 chemins
-bidirectionnels. Chaque chemin est dupliqué (A→B et B→A) pour dessiner le
-chevalier quel que soit son sens de déplacement.
-
-### 1.3 Animation table des nœuds
-
-`LAB_003A` est une table de 10 pointeurs vers `LAB_00E7` :
-
-```asm
-LAB_003A:
-    DC.L LAB_00E7   ; × 10
-```
-
-Cette table est jouée comme un script d'animation dans `scene_overworld()`
-pour positionner les icônes de nœuds sur la carte.
 
 ### 1.4 Musique
 
@@ -138,7 +101,7 @@ du chevalier en continu) ; il n'y a pas de graphe d'arêtes prédéfini.
 La détection d'événement se fait par **proximité** : `LAB_006B` parcourt
 `LAB_069F` à chaque frame et appelle `LAB_0067` pour chaque nœud.
 Si la distance chevalier-nœud ≤ seuil, le type du nœud est dispatché
-vers `LAB_0E45` qui appelle le gestionnaire approprié.
+vers `LAB_007B` qui appelle le gestionnaire approprié.
 
 En plus des 9 nœuds statiques, deux catégories de nœuds **dynamiques**
 sont ajoutées au runtime dans le buffer `SECSTRT_2` :
@@ -556,8 +519,8 @@ Parmi les 24 entrées du tableau `LAB_07BD`, trois ont le type `0x00`
 | 23     | 96 | 88 | $00600058 |
 
 Ces entrées **sont de vraies positions de carte** (présentes dans `LAB_07BE`)
-et **sont affichées** avec l'icône générique de créature (frame 20 de `li1.cel`,
-boucle `LAB_0DA3`) comme tous les autres nœuds vivants.
+et **sont affichées** avec l'icône générique de créature (frame 31 de `mi.c`,
+boucle `LAB_0077`) comme tous les autres nœuds vivants.
 
 Quand le joueur approche d'un nœud `0x00`, **`LAB_0188`** est appelé (à la
 place de `LAB_018C` / `LAB_019A` / etc. pour les autres créatures). Ce
@@ -617,73 +580,113 @@ choisir sa prochaine cible de déplacement.
 
 ## 2. Boucle de rendu
 
-### 2.1 Entrée de scène : `scene_overworld()` = `LAB_0037`
+### 2.1 Boucle de rendu principale : `LAB_0037` (mog.asm)
+
+`LAB_0037` ([mog.asm#L606](../amiga_asm/mog.asm)) est la boucle de rendu de la
+carte overworld. Elle est appelée à chaque frame depuis `LAB_0036` (la fonction
+principale de tour). Elle appelle dans l'ordre :
 
 ```text
-scene_overworld() [program.asm#L648] :
-
-1. Init pool d'entités :
-   JSR LAB_01E4          → vider les 40 slots d'entités (40 × 42 octets)
-
-2. Charger le fond :
-   JSR LAB_0258          → appliquer palette noire (fondu)
-   JSR LAB_0263          → copier le PIV dw1 dans les 2 buffers de double-buffer
-
-3. Spawner les entités de carte :
-   a. MOVEA.L #LAB_00E9,A0 ; JSR LAB_0015
-      → spawner le cadre UI de la carte (18 sprites permanents)
-   b. MOVEA.L #LAB_00EA,A0 ; JSR LAB_0015
-      → spawner l'overlay idle (icône chevalier courant, boucle infinie)
-
-4. Configurer l'animation de nœuds :
-   MOVE.W #$0005, LAB_00EF    ; afficher 5 icônes chevaliers
-   MOVE.W #$000f, LAB_00F0    ; offset du second groupe (track 15)
-   MOVE.L #LAB_003A, LAB_0029+2   ; table = 10 × LAB_00E7 (positions nœuds)
-   MOVE.W #$000a, LAB_0029        ; 10 frames d'animation à jouer
-
-5. Boucle d'animation non-interactive (41 frames) :
-   BSR LAB_001F          → jouer la boucle interne de sélection de frame
-   BSR LAB_0038          → 40 frames additionnels (overworld_frame_loop)
-
-6. Phase interactive — déplacement du joueur courant :
-   → voir §3 Gestion des joueurs
-
-7. Détection d'événement (collision sur un nœud) :
-   LAB_006B parcourt LAB_069F → appelle LAB_0067 pour chaque nœud
-   Si D5=2 (correspondance position) → dispatcher LAB_0E45
-   → Déclenchement de l'événement selon le type de nœud
-   → Retour via LAB_00B2 → SECSTRT_36 → reprise de la carte
-
-8. Passer au joueur suivant → retour à l'étape 1
+LAB_0037 [mog.asm#L606] :
+   JSR LAB_031D   → sauvegarde état courant
+   JSR LAB_0322   → mise à jour des entités animées (table LAB_0649, 10 slots)
+   JSR LAB_0328   → mise à jour et tri des entités (animation bytecode)
+   JSR LAB_0416   → synchronisation VBL (attente balayage vertical)
+   JSR LAB_03BE   → détection de collisions entre sprites d'entités
+   JSR LAB_039E   → rendu des sprites via le blitter (table LAB_063E)
+   JSR LAB_003E   → gestion audio de proximité (son selon distance chevalier)
+   TST.W LAB_06FC → test flag spécial
+   BEQ → LAB_0038 (boucle input)
+   JSR LAB_0B46   → (si flag actif)
 ```
 
-### 2.2 Boucle interne de frame : `overworld_frame_loop()` = `LAB_0038`
+Puis `LAB_0038` est la boucle d'input interactive :
 
-Cette sous-boucle joue exactement **40 frames** de mise à jour de la carte
-avant de rendre la main au contrôle interactif du joueur. Elle appelle :
-- `LAB_01E8` — mise à jour des scripts d'animation (tick de tous les sprites)
-- `LAB_01EC` — rendu des sprites via le blitter
-- `LAB_0262` — flip du double-buffer (affichage à l'écran)
+```text
+LAB_0038 [mog.asm#L620] :
+   JSR LAB_004B   → lecture joystick / input
+   JSR LAB_031F   → mise à jour compteur de déplacement
+   LEA LAB_05E4,A2
+   TST.B 8(A2)    → flag déplacement en cours ?
+   BNE → LAB_0037 (re-boucler si en mouvement)
+   SUBI.B #1,16(A2)  → décrémenter compteur de budget de déplacement
+   BNE → LAB_0037    (re-boucler si budget non épuisé)
+   ; → fin du tour, passe au joueur suivant
+```
 
-### 2.3 Double-buffer
+### 2.2 Scan des nœuds : `LAB_0069`
 
-Le rendu utilise deux buffers bitmap identiques au format Amiga 5-plans :
-- `LAB_00C7` = buffer A (affiché)
-- `LAB_00C8` = buffer B (en cours de dessin)
+`LAB_0069` ([mog.asm#L1041](../amiga_asm/mog.asm)) est appelé pour construire la
+liste des nœuds actifs détectés près du chevalier courant :
 
-À chaque VBL, les pointeurs sont échangés (`LAB_0416` = sync VBL). Le fond
-PIV est copié dans les deux buffers au démarrage pour que le premier flip
-n'affiche pas de frame vide.
+```text
+LAB_0069 :
+   Effacer SECSTRT_2 (buffer de nœuds dynamiques)
+   A0 ← LAB_069F  ; table des 9 nœuds statiques
+   A1 ← LAB_0633  ; chevalier courant
+   Boucle LAB_006B :
+     Pour chaque nœud (type, X, Y) dans LAB_069F :
+       Si type < 0 ($FFFF) → fin de table, passer aux chevaliers
+       BSR LAB_0067  → test de proximité (hitbox via LAB_0664/mi.c)
+       Si D5 ≠ 2 → nœud trop loin, continuer
+       Filtre village (0x15..0x18) : vérifier faction == chevalier
+       LAB_006F :
+         JSR LAB_0CDA avec A0=LAB_0664, D0=type_nœud  ; dessiner highlight
+         Stocker (X, Y, type) dans SECSTRT_2
+   Boucle LAB_0070 :
+     Pour chaque autre chevalier (LAB_0613..LAB_0616) :
+       Si chevalier courant : ignorer
+       BSR LAB_0067  → test de proximité
+       Si D5=2 : BSR LAB_0079 (dessiner sprite chevalier via mi.c)
+       Ajouter à SECSTRT_2 : type 0x01 (vivant) ou 0x21 (mort)
+   Boucle LAB_0074 (si dragon actif, LAB_0667 ≠ 0) :
+     Pour chaque chevalier :
+       Tester proximité avec dragon (frame 0x14 pour hitbox)
+       Si D5=2 : stocker chevalier dans LAB_069E (liste cibles dragon)
+       BSR LAB_0079  → dessiner highlight autour du chevalier
+   Boucle LAB_0076/0077 :
+     Pour chaque créature vivante (LAB_05C6, 24 entrées) :
+       Si 10(créature) < 0 : créature vaincue, ignorer
+       BSR LAB_0067 avec D0=31 (frame créature)
+       Si D5=2 :
+         JSR LAB_0CDA avec D0=31, A0=LAB_0664  ; dessiner icône créature
+         Ajouter à SECSTRT_2 : type 0x02
+```
 
-### 2.4 Variables de timing
+### 2.3 Dispatcher de nœuds : `LAB_007B`
 
-| Variable    | Rôle                                                     |
-|-------------|----------------------------------------------------------|
-| `LAB_00D0`  | Délai cible en ticks par frame (4 = rapide, 6 = normal, 8 = lent) |
-| `LAB_0028`  | Compteur de frames dans la boucle courante               |
-| `LAB_0029`  | Nombre max de frames de la boucle (longueur d'animation) |
-| `LAB_0026+2`| Index de frame courant (itérateur sur la table d'animation) |
-| `LAB_0123`  | Mode courant : 0 = overworld, 4 = combat actif           |
+Quand un nœud est détecté dans `SECSTRT_2`, `LAB_007B` est appelé avec le type
+en D0 :
+
+```text
+LAB_007B [mog.asm#L1193] :
+   (dispatch switch étendu)
+   0x15..0x18 → LAB_00B0  : villages des 4 factions
+   0x19       → LAB_0093  : Highwood
+   0x1a       → LAB_008A  : Waterdeep
+   0x1b       → LAB_00A1  : Stonehenge
+   0x1c       → LAB_009D  : Vallée des Dieux
+   0x1e       → LAB_007C  : Math le Sorcier
+   0x21       → LAB_004F  : tombe pillable
+```
+
+### 2.4 Double-buffer
+
+À chaque VBL, la synchronisation est assurée par `LAB_0416`. Le fond
+`ch.piv` est copié en mémoire à l'initialisation (zone `56(LAB_05B9)`, taille 0x25f6).
+
+### 2.5 Variables de contrôle de tour
+
+| Variable    | Rôle (confirmé dans mog.asm)                                |
+|-------------|-------------------------------------------------------------|
+| `LAB_0633`  | Pointeur vers le chevalier courant                          |
+| `LAB_0667`  | Flag dragon actif (0 = inactif, 1 = actif)                  |
+| `LAB_06C0`  | Compteur de rounds global (dragon apparaît à round ≥ 2)     |
+| `LAB_06C1`  | Cycle de créatures (mod 8)                                  |
+| `LAB_065E`  | Flag combat en cours (skip collision si ≠ 0)                |
+| `LAB_065C`  | Flag transition (skip collision si ≠ 0)                     |
+| `LAB_0655`  | Compteur de budget de déplacement                           |
+| `LAB_0665`  | Valeur initiale du budget de déplacement                    |
 
 ---
 
@@ -709,24 +712,14 @@ Avant la partie, l'option **« Select Knight »** (`LAB_06BF`) permet à chaque
 joueur de choisir son chevalier parmi les quatre disponibles.
 
 Au début de chaque tour overworld, le jeu détermine quel joueur doit jouer
-en consultant l'ordre de tour interne. Les joueurs jouent séquentiellement,
-l'un après l'autre. Les chevaliers contrôlés par l'IA (` enemy_flag = 0xFF`)
-sont traités dans le tour IA `LAB_0036` (`ai_turn_encounter()`).
+en consultant l'ordre de tour interne via `LAB_0036` (`mog.asm#L588`). Les
+joueurs jouent séquentiellement, l'un après l'autre. Quand la faction courante
+est 4 (chevalier noir IA), le tour IA est traité par `LAB_0DAD`.
 
-**Spawn des entités joueurs** dans `scene_overworld()` :
-
-```asm
-LAB_0015:                          ; spawn joueur 1
-    MOVEA.L #LAB_0276, A2          ; table d'assets (8 CEL de chevalier)
-    MOVE.W  #$00a0, D0             ; X de base = 160
-    MOVE.W  #$0000, D1             ; Y de base = 0
-    MOVE.W  #$0064, D2             ; Y absolu = 100
-    ADD.W   LAB_00EF, D2           ; + offset joueur courant
-    MOVE.W  #$0001, D3             ; slot = 1
-    JSR     LAB_01DA               ; créer l'entité dans le pool
-```
-
-`LAB_0016` fait de même pour le joueur 2 avec `LAB_00F0`.
+**Initialisation du chevalier courant** (confirmée dans `mog.asm`) :
+- `LAB_0633` = pointeur vers la structure du chevalier courant
+- `LAB_0036` = fonction principale de tour : appelle `LAB_0037` (rendu) puis
+  `LAB_0038` (input) puis `LAB_0039` (fin de tour, passage au joueur suivant)
 
 #### Implémentation C (`game_run_overworld`)
 
@@ -775,19 +768,16 @@ graphe d'arêtes). L'algorithme de déplacement (`LAB_0E0C`) est :
 2. Le moteur calcule un vecteur vers la destination courante (autre joueur,
    nœud retenu ou position libre), à partir du Bresenham simplifié de
    `LAB_0E0C`.
-3. Une animation de déplacement est jouée :
-   - Déplacement vers la droite → `LAB_00D7` (`anim_map_knight_walk_r`, `kn*.ob`)
-   - Déplacement vers la gauche → `LAB_00D8` (`anim_map_knight_walk_l`)
-   - Continuation → `LAB_00D9` / `LAB_00DA`
+3. Le sprite du chevalier est dessiné via `LAB_0079` → `LAB_0CDA` avec
+   `A0=LAB_0664` (`mi.c`) et `D0 = faction + 5` (frame du sprite courant).
 4. La position du chevalier est mise à jour :
    - `126(knight)` = X overworld (position courante)
    - `128(knight)` = Y overworld (position courante)
 5. À chaque frame, `LAB_006B` balaie `LAB_069F` pour tester si le chevalier
    est proche d'un nœud interactif (`LAB_0067` retourne D5=2 si match).
 
-`LAB_00E7` (table de ~145 entrées en `program.asm`) contient les
-**scripts de rendu du fond de carte** (positions d'icônes), non les
-chemins navigables. Il n'existe pas de liste d'adjacence.
+Il n'existe pas de liste d'adjacence ni de table de scripts de chemin dans `mog.asm` ;
+le mouvement est libre sur la carte.
 
 #### Déplacement — implémentation C
 
@@ -819,14 +809,14 @@ le joueur joue jusqu'à épuisement du budget ou action volontaire (SPACE).
 
 ### 3.3 Actions du joueur sur la carte
 
-Quand un chevalier arrive sur un nœud interactif, le dispatcher `LAB_0E45`
+Quand un chevalier arrive sur un nœud interactif, le dispatcher `LAB_007B`
 est appelé avec le type du nœud :
 
 ```text
-LAB_0E45 (dispatcher de nœuds — ASM) :
+LAB_007B (dispatcher de nœuds — ASM) :
   type 0x01 / 0x21 → LAB_004F  : Rencontre avec un autre chevalier (duel PvP)
   type 0x02        → LAB_005B  : Rencontre créature (combat PvE aléatoire)
-  autres types     → LAB_007B  : Switch étendu (châteaux, villes, dragon…)
+  autres types     → Switch étendu dans LAB_007B (châteaux, villes, dragon…)
 ```
 
 Après le traitement de l'événement, le retour s'effectue toujours vers
@@ -950,7 +940,7 @@ LAB_0DCF → LAB_0DD1 :
 
   Animation cycling :
     12(dragon) = (12(dragon) + 1) & 0x0F   ; cycle 0..15
-    LAB_061D = LAB_08FC[12(dragon)]        ; sélectionner la frame dg1.cel
+    LAB_061D = LAB_08FC[12(dragon)]        ; sélectionner la frame mi.c
 ```
 
 **C** (`dragon_update`) — Logique équivalente :
@@ -959,7 +949,7 @@ LAB_0DCF → LAB_0DD1 :
 - `dragon_x += dragon_vx` (+2 ou −2) ; rebond aux bords (±350/−20, wrap Y).
 - Poursuite verticale (phase 2) : `dragon_y` ± `DG_SPEED_Y` (1 px/tick).
 - Animation : cycle `dragon_frame` 0..7 toutes les `DG_ANIM_SPEED` (4) ticks
-  → frame `dg1.cel` = `DG_FRAME_BASE + dragon_frame` = 34..41.
+  → frame `mi.c` = `DG_FRAME_BASE + dragon_frame` = 34..41.
 - Collision : cercle de rayon `DG_PROXIMITY = 18 px` autour de chaque chevalier.
 - Le dragon est mis à jour **chaque tick** de la boucle principale,
   indépendamment du tour en cours (humain ou chevalier noir).
@@ -969,19 +959,19 @@ LAB_0DCF → LAB_0DD1 :
 ```text
 LAB_08FC: 16 paires d'entrées (32 pointeurs) = frames 0..15 × 2
 
-LAB_08FD : $0022 FB 00 $FFEF FFFF  → frame dg1.cel #0x22 (34), Y-offset $FB
-LAB_08FE : $0023 F8 00 $FFEF FFFF  → frame dg1.cel #0x23 (35)
-LAB_08FF : $0024 F6 00 $FFEF FFFF  → frame dg1.cel #0x24 (36)
-LAB_0900 : $0025 F7 00 $FFEF FFFF  → frame dg1.cel #0x25 (37)
-LAB_0901 : $0026 FA 00 $FFEF FFFF  → frame dg1.cel #0x26 (38)
-LAB_0902 : $0027 FA 00 $FFEF FFFF  → frame dg1.cel #0x27 (39)
-LAB_0903 : $0028 FB 00 $FFEF FFFF  → frame dg1.cel #0x28 (40)
-LAB_0904 : $0029 FC 00 $FFEF FFFF  → frame dg1.cel #0x29 (41)
+LAB_08FD : $0022 FB 00 $FFEF FFFF  → frame mi.c #0x22 (34), Y-offset $FB
+LAB_08FE : $0023 F8 00 $FFEF FFFF  → frame mi.c #0x23 (35)
+LAB_08FF : $0024 F6 00 $FFEF FFFF  → frame mi.c #0x24 (36)
+LAB_0900 : $0025 F7 00 $FFEF FFFF  → frame mi.c #0x25 (37)
+LAB_0901 : $0026 FA 00 $FFEF FFFF  → frame mi.c #0x26 (38)
+LAB_0902 : $0027 FA 00 $FFEF FFFF  → frame mi.c #0x27 (39)
+LAB_0903 : $0028 FB 00 $FFEF FFFF  → frame mi.c #0x28 (40)
+LAB_0904 : $0029 FC 00 $FFEF FFFF  → frame mi.c #0x29 (41)
 (frames 8..15 répètent les mêmes 8 entrées → animation en boucle)
 ```
 
-Le dragon utilise donc les **frames 34 à 41** du fichier `dg1.cel`
-(sur 55 frames totales) pour son animation de vol sur la carte.
+Le dragon utilise donc les **frames 34 à 41** du fichier `mi.c`
+pour son animation de vol sur la carte.
 
 ### 4.3 Détection de collision — `LAB_0DD8` (ASM) / `dragon_update` (C)
 
@@ -1089,7 +1079,7 @@ Le dragon utilise la même structure que les chevaliers (`KnightStruct`,
 | `10(dragon)`   | `0x03`      | State = 3 (vol actif)                          |
 | `12(dragon)`   | `0x00`      | Frame counter animation (0..15, cycle)         |
 | `38(dragon)`   | `LAB_0671`  | Pointeur buffer de rendu (5 longs)             |
-| `46(dragon)`   | `LAB_08FC`  | Table d'animation (frames `dg1.cel` 34..41)    |
+| `46(dragon)`   | `LAB_08FC`  | Table d'animation (frames `mi.c` 34..41)       |
 | `54(dragon)`   | `4`         | knight_id = 4 (dragon = IA faction 4)          |
 | `73(dragon)`   | `≥ 0`       | Vie (< 0 = mort, dragon inactif)               |
 | `77(dragon)`   | `0x28`      | Stride animation                               |
@@ -1143,13 +1133,12 @@ Le nombre de chevaliers noirs est `bk_count = 4 − human_count`.
 principale appelle `LAB_0036` pour faire jouer chaque Chevalier Noir :
 
 ```text
-LAB_0036 [program.asm] :
-    LAB_011E = 2         → mode cinématique / transition
-    Charger fond LAB_01D2
-    Spawner LAB_00E6     → sprites HUD overworld + barres de score
-    LAB_011E = 4         → mode overworld interactif
-    Jouer l'animation du tour IA
-    → Détecter collisions sur les nœuds (même pipeline que les joueurs)
+LAB_0036 [mog.asm#L588] :
+    Charge le chevalier courant dans LAB_0633
+    Appelle LAB_0037 (boucle de rendu)
+    Puis LAB_0038 (boucle d'input)
+    Puis LAB_0039 (fin de tour, passage au suivant)
+    Si faction=4 → LAB_0DAD (tour IA chevalier noir)
 ```
 
 **C** — Il n'y a **pas** de phase IA séparée. Les chevaliers noirs participent
@@ -1174,9 +1163,8 @@ Ordre de jeu (C) :
 1. **Sélection du prochain nœud cible** : l'IA consulte le graphe de nœuds
    et sélectionne un nœud adjacent selon une heuristique de poursuite
    (se rapproche du chevalier joueur le plus proche).
-2. **Déplacement** : même animation de marche que les joueurs
-   (`LAB_00D7` / `LAB_00D8` / `LAB_00D9` / `LAB_00DA`), mais déclenchée
-   automatiquement sans input joystick.
+2. **Déplacement** : le sprite du chevalier noir est dessiné via `LAB_0079`/`LAB_0CDA`
+   (frame `mi.c` faction+5), déplacé automatiquement sans input joystick.
 3. **Détection de collision** : à chaque frame, `LAB_006B` + `LAB_0067`
    testent si le Chevalier Noir est sur un nœud. Si son nœud coïncide avec
    la position d'un joueur (type `0x01` ou `0x21`), un duel PvP est
@@ -1304,27 +1292,36 @@ au round suivant que quand **tous** les `knights[]` (humains + BK) ont
 
 | Symbole / Label  | Fichier                | Rôle dans l'overworld                          |
 |------------------|------------------------|------------------------------------------------|
-| `LAB_0037`       | `program.asm#L648`     | Point d'entrée `scene_overworld()`             |
-| `LAB_0038`       | `program.asm`          | Boucle de 40 frames overworld                  |
-| `LAB_0036`       | `program.asm`          | Tour IA (`ai_turn_encounter`)                  |
+| `LAB_0037`       | `mog.asm#L606`         | Boucle de rendu principale (render loop)       |
+| `LAB_0038`       | `mog.asm`              | Boucle d'input interactive                     |
+| `LAB_0036`       | `mog.asm#L588`         | Fonction principale de tour                    |
+| `LAB_0039`       | `mog.asm`              | Passage au joueur suivant (fin de tour)        |
 | `LAB_006B`       | `mog.asm`              | Scanner de nœuds (collision détection)         |
 | `LAB_0067`       | `mog.asm`              | Test de position sur un nœud (retourne D5=2)   |
-| `LAB_0E45`       | `mog.asm`              | Dispatcher d'événements de nœud                |
-| `LAB_069F`       | `mog.asm#L1037`        | Table des nœuds : `(type, x, y)` × N + `$FFFF`|
-| `LAB_00E7`       | `program.asm#L2215`    | Positions d'affichage des ~145 nœuds           |
-| `LAB_003A`       | `program.asm#L760`     | Table d'animation : 10 × `LAB_00E7`           |
-| `LAB_0276`       | `program.asm`          | Table d'assets des chevaliers (8 CEL)          |
+| `LAB_007B`       | `mog.asm#L1193`        | Dispatcher d'événements de nœud                |
+| `LAB_069F`       | `mog.asm#L12975`       | Table des nœuds : `(type, x, y)` × 9 + `$FFFF`|
+| `LAB_0664`       | `mog.asm`              | Pointeur chip RAM vers sprites `mi.c` chargés  |
+| `LAB_070E`       | `mog.asm#L13332`       | Nom du fichier sprites overworld : `"mi.c"`    |
+| `LAB_0128`       | `mog.asm#L2720`        | Charge `ki.cel` + `mi.c` via `LAB_0CBB`        |
+| `LAB_012C`       | `mog.asm#L2772`        | Charge `ch.piv`, `message.piv`, polices        |
+| `LAB_07AF`       | `mog.asm#L13805`       | Nom du fichier fond de carte : `"ch.piv"`      |
+| `LAB_0784`       | `mog.asm#L13718`       | Nom du fichier sprites complémentaires : `"ki.cel"` |
+| `LAB_0CBB`       | `mog.asm#L22768`       | Chargeur de sprites CEL/OB                     |
+| `LAB_0CDA`       | `mog.asm#L23157`       | Dessinateur de sprites (blitter)               |
 | `LAB_0613..0617` | `mog.asm`              | Structs des 5 chevaliers (4 joueurs + IA boss) |
 | `LAB_05E4`       | `mog.asm`              | Tableau des 4 pointeurs chevaliers actifs      |
-| `LAB_068B`       | `mog.asm`              | Pointeur vers le chevalier courant             |
+| `LAB_0633`       | `mog.asm`              | Pointeur vers le chevalier courant             |
 | `LAB_068F`       | `mog.asm`              | Registre d'état de la machine à états          |
 | `LAB_08C0`       | `mog.asm`              | Données comportement IA des Chevaliers Noirs   |
 | `LAB_08C6`       | `mog.asm`              | Table de structs des créatures ennemies        |
-| `LAB_01E4`       | `program.asm`          | Reset du pool d'entités (40 × 42 octets)       |
-| `LAB_0049`       | `program.asm`          | Lecture joystick (JOY0DAT / JOY1DAT)           |
-| `LAB_00C0/C1`    | `program.asm`          | Résultats joystick joueurs 1 et 2              |
-| `LAB_00CB`       | `program.asm`          | Pointeur vers `dw1.PIV` (fond de la carte)     |
+| `LAB_0049`       | `mog.asm`              | Lecture joystick (JOY0DAT / JOY1DAT)           |
 | `LAB_009D`       | `mog.asm`              | Gestionnaire nœud Dragon (type `0x1c`)         |
+| `LAB_0DCB`       | `mog.asm#L25049`       | Initialisation du dragon                       |
+| `LAB_0DCF`       | `mog.asm#L25107`       | Handler de mouvement du dragon                 |
+| `LAB_0DD8`       | `mog.asm#L25163`       | Détection de collision dragon-chevalier        |
+| `LAB_08FC`       | `mog.asm#L16550`       | Table d'animation dragon (frames 34..41 mi.c)  |
+| `LAB_0E0C`       | `mog.asm#L25432`       | Algorithme de déplacement Bresenham            |
+| `LAB_0DAD`       | `mog.asm#L24779`       | Tour IA (chevaliers noirs)                     |
 | `LAB_0DCA`       | `mog.asm`              | Séquence de fin de partie (victoire dragon)    |
 
 ---
@@ -1336,17 +1333,17 @@ l'Amiga (ASM) et l'implémentation actuelle en C (`moon_overworld.c`).
 
 | Fonctionnalité                      | ASM (Amiga)                                          | C (portage SDL2)                                      | Statut  |
 |-------------------------------------|------------------------------------------------------|-------------------------------------------------------|---------|
-| **Fond de carte**                   | `dw1.PIV` double-buffer 5 plans                      | `dw1.PIV` décodé → `uint32_t[GAME_W*GAME_H]`         | ✅ Équivalent |
+| **Fond de carte**                   | `ch.piv` double-buffer 5 plans (LAB_07AF/LAB_012C)    | `ch.piv` décodé → `uint32_t[GAME_W*GAME_H]`          | ✅ Équivalent |
 | **Nœuds statiques**                 | `LAB_069F` : table triplets `(type,x,y)` + `$FFFF`  | `s_nodes[]` : 9 entrées identiques                   | ✅ Équivalent |
 | **Nœuds PVE créatures**             | `LAB_05C6` : 24 entrées × 20 octets, stride dynamique | `s_pve_nodes[]` : 24 entrées, positions fixes        | ✅ Équivalent |
 | **Mouvement joueur**                | Joystick libre, déplacement pixel par pixel, `LAB_0E0C` | SDL2, 2 px/tick, `steps_remaining` (endurance×20)  | ✅ Équivalent (budget en px vs frames) |
-| **Animations de marche**            | Scripts `LAB_00D7/D8/D9/DA`, frames `.ob` interpolées | Cycle simple 8 frames `s_kn_frame`, pas d'interpolation | ⚠️ Partiel |
+| **Animations de marche**            | Sprites `mi.c` frames 5..9 (faction+5) via `LAB_0079`/`LAB_0CDA` | Cycle simple 8 frames `s_kn_frame`, pas d'interpolation | ⚠️ Partiel |
 | **Budget de déplacement**           | 40 frames par tour (`LAB_0038`)                      | `endurance × 20` pixels par tour                     | ✅ Équivalent (sémantique différente) |
 | **Fin de tour joueur**              | Après 40 frames ou arrivée sur un nœud               | SPACE / FIRE / steps_remaining = 0                   | ✅ Équivalent |
-| **Interaction nœud**                | `LAB_006B` + `LAB_0067` + `LAB_0E45` dispatcher      | `check_static_node` + `check_pve_node` inline        | ✅ Équivalent |
-| **HUD overworld**                   | `LAB_00E6` : barres HP/XP/reliques, 12 icônes        | Texte simple `render_text` (nom, HP, or, steps)      | ⚠️ Simplifié |
+| **Interaction nœud**                | `LAB_006B` + `LAB_0067` + `LAB_007B` dispatcher      | `check_static_node` + `check_pve_node` inline        | ✅ Équivalent |
+| **HUD overworld**                   | Non documenté — aucune barre HUD overworld dans mog.asm | Texte simple `render_text` (nom, HP, or, steps)   | ⚠️ Simplifié |
 | **Dragon — apparition**             | Round ≥ 2, `LAB_0DCB`, pool d'entités Amiga          | Round ≥ 2, `dragon_init`, champs `GameCtx`           | ✅ Équivalent |
-| **Dragon — vol**                    | `LAB_0DCF` handler/frame, 2 phases, table `LAB_08FC` | `dragon_update()` par tick, même logique 2 phases    | ✅ Équivalent |
+| **Dragon — vol**                    | `LAB_0DCF` handler/frame, 2 phases, table `LAB_08FC` (mi.c frames 34..41) | `dragon_update()` par tick, même logique 2 phases    | ✅ Équivalent |
 | **Dragon — collision**              | Masques `LAB_08FA` par joueur                        | Cercle `DG_PROXIMITY = 18 px` sur tous les knights[] | ✅ Équivalent |
 | **Parchemin du Wyrm**               | `LAB_0992` / `LAB_0E26` : redirige dragon            | Non implémenté (pas d'inventaire interactif)         | ❌ Absent |
 | **Talisman du Wyrm**                | `LAB_098E`                                           | Non implémenté                                       | ❌ Absent |
