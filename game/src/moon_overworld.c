@@ -193,6 +193,18 @@ static const int s_start_y[MAX_PLAYERS] = { 11,  11, 187, 192 };
  * All overworld drawing calls go through this one CEL. */
 static MoonCel *s_mi_cel   = NULL;
 
+/* ki.cel — moon phase / UI sprite file (LAB_0784, loaded by LAB_0128).
+ * Used for the inter-round moon phase screen (LAB_012B/012C).
+ * Frames 45-49 = moon disk phases (LAB_06C2 table: "-/.010./").
+ * Frames 73-75 = decorative screen borders drawn at fixed positions. */
+static MoonCel *s_ki_cel   = NULL;
+
+/*
+ * Moon phase frame table (LAB_06C2 in mog.asm: DC.B "-/.010./").
+ * 8 entries mapping round % 8 → ki.cel frame index for the moon disk.
+ */
+static const int s_moon_phase_frames[8] = { 45, 47, 46, 48, 49, 48, 46, 47 };
+
 static uint32_t s_ov_palette[MAX_PALETTE];
 
 /* Dragon animation constants (uses mi.c frames 34–41, LAB_08FC) */
@@ -259,6 +271,9 @@ static void load_map_background(void)
     /* mi.c — single overworld sprite file (LAB_070E/LAB_0664).
      * Loaded once by LAB_0128 via CEL loader LAB_0CBB. */
     s_mi_cel = moon_cel_load("mi.c");
+
+    /* ki.cel — moon phase / UI sprite file (LAB_0784, loaded by LAB_0128). */
+    s_ki_cel = moon_cel_load("ki.cel");
 
     s_map_loaded = 1;
 }
@@ -602,6 +617,71 @@ static void handle_static_node(GameCtx *ctx, int node_idx)
 }
 
 /* ------------------------------------------------------------------ */
+/* Moon phase screen (LAB_012B / LAB_012C)                            */
+/* ------------------------------------------------------------------ */
+
+/*
+ * show_moon_phase_screen — display ch.piv with ki.cel overlays.
+ *
+ * Mirrors the original LAB_012C (full screen, mog.asm:2772):
+ *   - Background : ch.piv (loaded fresh)
+ *   - Decorative : ki.cel frame 73 at (5,20), frame 74 at (22,181),
+ *                  frame 75 at (110,190)  — LAB_012C fixed blits
+ *   - Moon disk  : ki.cel frame from s_moon_phase_frames[round%8]
+ *                  at (119,12) — LAB_012B variable blit
+ *
+ * Waits for the player to press fire/enter before returning.
+ * If ctx->state is changed to STATE_QUIT the caller must exit.
+ */
+static void show_moon_phase_screen(GameCtx *ctx)
+{
+    /* Load ch.piv — background for the moon phase screen. */
+    MoonPiv *ch = moon_piv_load("ch.piv");
+    if (!ch) return;
+
+    uint32_t ch_palette[MAX_PALETTE];
+    uint32_t ch_fb[GAME_W * GAME_H];
+
+    render_piv_full(ch, ch_fb);
+    int pal_size = 1 << ch->planes;
+    if (pal_size > MAX_PALETTE) pal_size = MAX_PALETTE;
+    render_build_palette(ch->palette, pal_size, ch_palette);
+    moon_piv_free(ch);
+
+    if (s_ki_cel) {
+        /* Decorative border / icon frames (LAB_012C fixed blits) */
+        if (73 < s_ki_cel->frame_count)
+            render_cel(s_ki_cel, 73, ch_palette, ch_fb,  5,  20, BLIT_MASK);
+        if (74 < s_ki_cel->frame_count)
+            render_cel(s_ki_cel, 74, ch_palette, ch_fb, 22, 181, BLIT_MASK);
+        if (75 < s_ki_cel->frame_count)
+            render_cel(s_ki_cel, 75, ch_palette, ch_fb, 110, 190, BLIT_MASK);
+
+        /* Moon disk: frame from LAB_06C2 table, drawn at (119,12) */
+        int moon_fr = s_moon_phase_frames[ctx->round % 8];
+        if (moon_fr < s_ki_cel->frame_count)
+            render_cel(s_ki_cel, moon_fr, ch_palette, ch_fb, 119, 12, BLIT_MASK);
+    }
+
+    /* Display and wait for fire/enter (mirrors LAB_0432 / LAB_0D2B wait loop). */
+    hal_present(ch_fb);
+    MoonInput in;
+    memset(&in, 0, sizeof(in));
+    /* Flush any held buttons first */
+    while (hal_poll(&in) &&
+           (in.joy[0].fire || in.enter || in.joy[0].up || in.joy[0].down ||
+            in.joy[0].left || in.joy[0].right))
+        hal_present(ch_fb);
+
+    while (1) {
+        hal_present(ch_fb);
+        if (!hal_poll(&in)) continue;
+        if (in.quit || in.escape) { ctx->state = STATE_QUIT; return; }
+        if (in.joy[0].fire || in.enter) break;
+    }
+}
+
+/* ------------------------------------------------------------------ */
 /* Draw helpers                                                        */
 /* ------------------------------------------------------------------ */
 
@@ -705,61 +785,6 @@ static void draw_overworld(GameCtx *ctx)
                              s_knight_dot_colors[i]);
         }
     }
-
-    /* ---- HUD (top bar) ---- */
-    Knight *k = &ctx->knights[ctx->current_knight];
-    char hud[128];
-    render_fill_rect(ctx->fb, 0, 0, GAME_W, 9, 0xAA000000u);
-    if (k->is_black_knight) {
-        snprintf(hud, sizeof(hud), "BLACK KNIGHT  Steps:%d", k->steps_remaining);
-        render_text(ctx->fb, hud, 2, 1, 0xFF880000u);
-    } else {
-        snprintf(hud, sizeof(hud),
-                 "%s  HP:%d  GOLD:%d  Keys:%d/4  Steps:%d",
-                 (const char *[]){ "RICHARD","GODBER","JEFFREY","EDWARD" }[k->id],
-                 k->hp, k->gold, __builtin_popcount(k->keys & 0x0f),
-                 k->steps_remaining);
-        render_text(ctx->fb, hud, 2, 1, s_knight_dot_colors[ctx->current_knight]);
-    }
-
-    /* ---- Node name tooltip ---- */
-    for (int n = 0; n < NUM_NODES; n++) {
-        int dx = k->map_x - s_nodes[n].x;
-        int dy = k->map_y - s_nodes[n].y;
-        if (dx * dx + dy * dy <= NODE_PROXIMITY * NODE_PROXIMITY) {
-            render_fill_rect(ctx->fb, 0, GAME_H - 10, GAME_W, 10, 0xAA000000u);
-            render_text_centered(ctx->fb, s_nodes[n].name,
-                                 GAME_H - 9, 0xFFFFFF88u);
-            break;
-        }
-    }
-    /* PVE node tooltip */
-    for (int n = 0; n < NUM_PVE_NODES; n++) {
-        if (!s_pve_nodes[n].alive) continue;
-        int dx = k->map_x - s_pve_nodes[n].x;
-        int dy = k->map_y - s_pve_nodes[n].y;
-        if (dx * dx + dy * dy <= NODE_PROXIMITY * NODE_PROXIMITY) {
-            render_fill_rect(ctx->fb, 0, GAME_H - 10, GAME_W, 10, 0xAA000000u);
-            render_text_centered(ctx->fb, s_pve_nodes[n].name,
-                                 GAME_H - 9, 0xFFFF8844u);
-            break;
-        }
-    }
-
-    /* ---- Turn action hint (bottom, human players only) ---- */
-    if (!k->is_black_knight) {
-        if (k->steps_remaining > 0) {
-            render_fill_rect(ctx->fb, 0, GAME_H - 20, GAME_W, 9, 0x88000000u);
-            render_text_centered(ctx->fb,
-                                 "FIRE=Interact  I=Inventory  SPACE=Pass turn",
-                                 GAME_H - 20, 0xFF888888u);
-        } else {
-            render_fill_rect(ctx->fb, 0, GAME_H - 20, GAME_W, 9, 0x88000000u);
-            render_text_centered(ctx->fb,
-                                 "No steps left.  FIRE=Interact  SPACE=End turn",
-                                 GAME_H - 20, 0xFFAA6666u);
-        }
-    } /* end !is_black_knight hints */
 }
 
 /* ------------------------------------------------------------------ */
@@ -791,6 +816,12 @@ void game_run_overworld(GameCtx *ctx)
     }
 
     load_map_background();
+
+    /* ---- Moon phase screen before each round (LAB_012B/012C) ----
+     * Loads ch.piv as background, overlays ki.cel moon/UI frames,
+     * and waits for the player to press fire before the round begins. */
+    show_moon_phase_screen(ctx);
+    if (ctx->state != STATE_OVERWORLD) return;
 
     /* ---- Begin new round: reset turn flags and movement budgets ---- */
     for (int i = 0; i < MAX_PLAYERS; i++) {

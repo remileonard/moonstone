@@ -52,9 +52,24 @@ La fonction `LAB_0CDA` est le dessinateur de sprites (blitter). Elle est appelé
 #### Fichier `ki.cel` — chargé par `LAB_0128`
 
 `ki.cel` (label `LAB_0784`, `mog.asm#L13718`) est chargé au même moment que `mi.c` par
-`LAB_0128`, dans la zone mémoire `48(LAB_05B9)`. Son rôle exact sur la carte overworld
-n'est pas entièrement identifié dans `mog.asm` ; il est chargé en mémoire mais les
-appels explicites dans la boucle overworld utilisent `LAB_0664` (`mi.c`).
+`LAB_0128`, dans la zone mémoire `48(LAB_05B9)`. Il est utilisé exclusivement pour
+**l'écran des phases de la lune** affiché entre chaque tour (`LAB_012B` / `LAB_012C`).
+
+Frames de `ki.cel` utilisées dans l'overworld :
+
+| Frame | Position (x, y) | Rôle                                                           | Référence           |
+|-------|-----------------|----------------------------------------------------------------|---------------------|
+| 45    | (119, 12)       | Phase de lune 0 — « nouvelle lune »                           | `LAB_06C2[0]` = `'-'` (0x2D) |
+| 46    | (119, 12)       | Phase de lune 2/6 — croissant/décroissant                      | `LAB_06C2[2]` = `'.'` (0x2E) |
+| 47    | (119, 12)       | Phase de lune 1/7 — premier/dernier quartier                   | `LAB_06C2[1]` = `'/'` (0x2F) |
+| 48    | (119, 12)       | Phase de lune 3/5 — gibbeuse croissante/décroissante           | `LAB_06C2[3]` = `'0'` (0x30) |
+| 49    | (119, 12)       | Phase de lune 4 — pleine lune                                  | `LAB_06C2[4]` = `'1'` (0x31) |
+| 73    | (5, 20)         | Élément décoratif gauche/haut (bord d'écran)                  | `LAB_012C` frame 0x49 |
+| 74    | (22, 181)       | Élément décoratif bas-gauche                                   | `LAB_012C` frame 0x4a |
+| 75    | (110, 190)      | Élément décoratif bas-centre                                   | `LAB_012C` frame 0x4b |
+
+La séquence des phases (table `LAB_06C2` : `DC.B "-/.010./"`) couvre 8 tours :
+`round % 8` → frames `{45, 47, 46, 48, 49, 48, 46, 47}` (nouvelle → pleine → nouvelle).
 
 #### Fichiers `bold.f` et `Small.font` — polices (chargés par `LAB_012C`)
 
@@ -1333,7 +1348,9 @@ l'Amiga (ASM) et l'implémentation actuelle en C (`moon_overworld.c`).
 
 | Fonctionnalité                      | ASM (Amiga)                                          | C (portage SDL2)                                      | Statut  |
 |-------------------------------------|------------------------------------------------------|-------------------------------------------------------|---------|
-| **Fond de carte**                   | `ch.piv` double-buffer 5 plans (LAB_07AF/LAB_012C)    | `ch.piv` décodé → `uint32_t[GAME_W*GAME_H]`          | ✅ Équivalent |
+| **Fond de carte**                   | `"Test"` image 8, 320×200 5 bitplanes (LAB_013A/LAB_0142) | `moon_testmap_load_piv("Test", 8)` → `uint32_t[GAME_W*GAME_H]` | ✅ Équivalent |
+| **Écran phase de lune**             | `LAB_012C` au démarrage + `LAB_012B` tous les 4 tours | `show_moon_phase_screen()` au début de **chaque** tour, `ch.piv` + ki.cel frames 45-49/73-75 | ✅ Équivalent (fréquence plus élevée) |
+| **HUD overworld**                   | Absent dans mog.asm (pas de barre HUD sur la carte)  | Supprimé — conformément à l'original                  | ✅ Conforme |
 | **Nœuds statiques**                 | `LAB_069F` : table triplets `(type,x,y)` + `$FFFF`  | `s_nodes[]` : 9 entrées identiques                   | ✅ Équivalent |
 | **Nœuds PVE créatures**             | `LAB_05C6` : 24 entrées × 20 octets, stride dynamique | `s_pve_nodes[]` : 24 entrées, positions fixes        | ✅ Équivalent |
 | **Mouvement joueur**                | Joystick libre, déplacement pixel par pixel, `LAB_0E0C` | SDL2, 2 px/tick, `steps_remaining` (endurance×20)  | ✅ Équivalent (budget en px vs frames) |
@@ -1341,7 +1358,7 @@ l'Amiga (ASM) et l'implémentation actuelle en C (`moon_overworld.c`).
 | **Budget de déplacement**           | 40 frames par tour (`LAB_0038`)                      | `endurance × 20` pixels par tour                     | ✅ Équivalent (sémantique différente) |
 | **Fin de tour joueur**              | Après 40 frames ou arrivée sur un nœud               | SPACE / FIRE / steps_remaining = 0                   | ✅ Équivalent |
 | **Interaction nœud**                | `LAB_006B` + `LAB_0067` + `LAB_007B` dispatcher      | `check_static_node` + `check_pve_node` inline        | ✅ Équivalent |
-| **HUD overworld**                   | Non documenté — aucune barre HUD overworld dans mog.asm | Texte simple `render_text` (nom, HP, or, steps)   | ⚠️ Simplifié |
+| **HUD overworld**                   | Absent dans mog.asm (pas de barre HUD sur la carte)  | Supprimé — conformément à l'original                  | ✅ Conforme |
 | **Dragon — apparition**             | Round ≥ 2, `LAB_0DCB`, pool d'entités Amiga          | Round ≥ 2, `dragon_init`, champs `GameCtx`           | ✅ Équivalent |
 | **Dragon — vol**                    | `LAB_0DCF` handler/frame, 2 phases, table `LAB_08FC` (mi.c frames 34..41) | `dragon_update()` par tick, même logique 2 phases    | ✅ Équivalent |
 | **Dragon — collision**              | Masques `LAB_08FA` par joueur                        | Cercle `DG_PROXIMITY = 18 px` sur tous les knights[] | ✅ Équivalent |
