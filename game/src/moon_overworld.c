@@ -15,16 +15,17 @@
  *  6. Valley of Gods (0x1c) → requires all 4 keys (handled in
  *     moon_valley.c)
  *
- * The map is displayed using dw1.PIV (320×200 background).
+ * The map is displayed using ch.piv (LAB_07AF — 320×200 background).
  * Sprite assets (DOC_MODE_OVERWORLD.md §1.2):
- *   ov1.cel  — 4 frames — overworld node icons
- *   li1.cel  — 30 frames — location/place icons
- *   dg1.cel  — 55 frames — dragon flying on map
- *   ha1.cel  — 22 frames — hawk / map decoration
- *   co1.cel  — 25 frames — complementary icons
- *   da1.cel  — 52 frames — damage/animated decoration
- *   kn1..4.ob — knight sprites per faction (kn1.ob is a stub)
- *   Kn5.ob   — black knight sprite (LAB_0773)
+ *   mi.c — single overworld sprite file (LAB_070E/LAB_0664), loaded by
+ *           LAB_0128 via CEL loader LAB_0CBB.  Frame assignments:
+ *     faction+5 (5..8)  — knight alive sprite per faction
+ *     9                 — black knight (faction 4+5)
+ *     42                — dead knight
+ *     31                — generic PvE creature icon
+ *     = node_type       — static node highlight (LAB_006F)
+ *     20                — dragon hitbox dimensions
+ *     34..41            — dragon flight animation (LAB_08FC)
  */
 
 #include "moon_overworld.h"
@@ -183,23 +184,16 @@ static const int s_start_x[MAX_PLAYERS] = { 18, 286,   0, 303 };
 static const int s_start_y[MAX_PLAYERS] = { 11,  11, 187, 192 };
 
 /* ------------------------------------------------------------------ */
-/* CEL / OB sprite assets                                              */
+/* CEL sprite assets                                                   */
 /* ------------------------------------------------------------------ */
 
-static const char *s_knight_ob_names[MAX_PLAYERS] = {
-    "kn1.ob", "kn2.ob", "kn3.ob", "kn4.ob"
-};
-
-static MoonCel *s_ov_cel   = NULL;
-static MoonCel *s_li_cel   = NULL;
-static MoonCel *s_dg_cel   = NULL;
-static MoonCel *s_ha_cel   = NULL;
-static MoonCel *s_kn_ob[MAX_PLAYERS];
-static MoonCel *s_kn5_ob   = NULL; /* black knight sprite (Kn5.ob) */
+/* mi.c — single overworld sprite file (LAB_070E/LAB_0664).
+ * All overworld drawing calls go through this one CEL. */
+static MoonCel *s_mi_cel   = NULL;
 
 static uint32_t s_ov_palette[MAX_PALETTE];
 
-/* Dragon animation constants (uses dg1.cel frames 34–41) */
+/* Dragon animation constants (uses mi.c frames 34–41, LAB_08FC) */
 #define DG_FRAME_BASE    34
 #define DG_FRAME_COUNT    8
 #define DG_ANIM_SPEED     4
@@ -224,11 +218,6 @@ static uint32_t s_ov_palette[MAX_PALETTE];
 static const int s_bk_start_x[BK_MAX] = { 15, 300, 160, 160 };
 static const int s_bk_start_y[BK_MAX] = { 100, 100,  20, 180 };
 
-/* Walk animation */
-static int s_kn_frame  = 0;
-static int s_kn_tick   = 0;
-#define KN_ANIM_SPEED  6
-
 /* ------------------------------------------------------------------ */
 /* Rendering                                                           */
 /* ------------------------------------------------------------------ */
@@ -240,8 +229,8 @@ static void load_map_background(void)
 {
     if (s_map_loaded) return;
 
-    MoonPiv *piv = moon_piv_load("dw1.PIV");
-    if (!piv) piv = moon_piv_load("dw1.piv");
+    /* ch.piv — overworld map background (LAB_07AF / LAB_012C) */
+    MoonPiv *piv = moon_piv_load("ch.piv");
     if (piv) {
         render_piv_full(piv, s_map_bg);
         int pal_size = 1 << piv->planes;
@@ -258,66 +247,11 @@ static void load_map_background(void)
                              7, 7, 0xFF888888u);
     }
 
-    s_ov_cel = moon_cel_load("ov1.cel");
-    if (!s_ov_cel) s_ov_cel = moon_cel_load("ov1.CEL");
-
-    s_li_cel = moon_cel_load("li1.cel");
-    if (!s_li_cel) s_li_cel = moon_cel_load("li1.CEL");
-
-    s_dg_cel = moon_cel_load("dg1.cel");
-    if (!s_dg_cel) s_dg_cel = moon_cel_load("dg1.CEL");
-
-    s_ha_cel = moon_cel_load("ha1.cel");
-    if (!s_ha_cel) s_ha_cel = moon_cel_load("ha1.CEL");
-
-    for (int i = 0; i < MAX_PLAYERS; i++) {
-        s_kn_ob[i] = NULL;
-        MoonOb *ob = moon_ob_load(s_knight_ob_names[i]);
-        if (ob && ob->frame_count > 0)
-            s_kn_ob[i] = (MoonCel *)ob;
-        else
-            moon_ob_free(ob);
-    }
-
-    /* Black knight sprite (Kn5.ob) */
-    {
-        MoonOb *ob = moon_ob_load("Kn5.ob");
-        if (!ob) ob = moon_ob_load("kn5.ob");
-        if (ob && ob->frame_count > 0)
-            s_kn5_ob = (MoonCel *)ob;
-        else
-            moon_ob_free(ob);
-    }
+    /* mi.c — single overworld sprite file (LAB_070E/LAB_0664).
+     * Loaded once by LAB_0128 via CEL loader LAB_0CBB. */
+    s_mi_cel = moon_cel_load("mi.c");
 
     s_map_loaded = 1;
-}
-
-/* li1.cel frame for a given static node type */
-static int node_li_frame(int node_type)
-{
-    switch (node_type) {
-    case 0x15: return  0;
-    case 0x16: return  4;
-    case 0x17: return  8;
-    case 0x18: return 12;
-    case 0x19: return 16;
-    case 0x1a: return 20;
-    case 0x1b: return 24;
-    case 0x1c: return 28;
-    case 0x1e: return  2;
-    default:   return  0;
-    }
-}
-
-static int node_icon_frame(int node_type)
-{
-    switch (node_type) {
-    case 0x15: case 0x16: case 0x17: case 0x18: return 0;
-    case 0x19: case 0x1a:                        return 2;
-    case 0x1b: case 0x1c:                        return 3;
-    case 0x1e:                                   return 3;
-    default:                                     return 0;
-    }
 }
 
 /* ------------------------------------------------------------------ */
@@ -662,21 +596,14 @@ static void handle_static_node(GameCtx *ctx, int node_idx)
 /* Draw helpers                                                        */
 /* ------------------------------------------------------------------ */
 
+/* draw_node_icon — draw the highlight for a static node.
+ * Uses mi.c frame = node_type (LAB_006F: JSR LAB_0CDA, A0=LAB_0664, D0=type). */
 static void draw_node_icon(GameCtx *ctx, int nx, int ny, int type)
 {
-    if (s_li_cel && s_li_cel->frame_count > 0) {
-        int fr = node_li_frame(type);
-        if (fr >= s_li_cel->frame_count) fr = 0;
-        render_cel(s_li_cel, fr, s_ov_palette, ctx->fb,
-                   nx - (int)s_li_cel->frames[fr].width  / 2,
-                   ny - (int)s_li_cel->frames[fr].height / 2,
-                   BLIT_MASK);
-    } else if (s_ov_cel && s_ov_cel->frame_count > 0) {
-        int fr = node_icon_frame(type);
-        if (fr >= s_ov_cel->frame_count) fr = 0;
-        render_cel(s_ov_cel, fr, s_ov_palette, ctx->fb,
-                   nx - (int)s_ov_cel->frames[fr].width  / 2,
-                   ny - (int)s_ov_cel->frames[fr].height / 2,
+    if (s_mi_cel && type < s_mi_cel->frame_count) {
+        render_cel(s_mi_cel, type, s_ov_palette, ctx->fb,
+                   nx - (int)s_mi_cel->frames[type].width  / 2,
+                   ny - (int)s_mi_cel->frames[type].height / 2,
                    BLIT_MASK);
     } else {
         render_fill_rect(ctx->fb, nx - 2, ny - 2, 5, 5, 0xFF888844u);
@@ -687,72 +614,62 @@ static void draw_overworld(GameCtx *ctx)
 {
     memcpy(ctx->fb, s_map_bg, sizeof(s_map_bg));
 
-    /* Walk animation tick */
-    s_kn_tick++;
-    if (s_kn_tick >= KN_ANIM_SPEED) {
-        s_kn_tick  = 0;
-        s_kn_frame = (s_kn_frame + 1) & 7;
-    }
-
     /* ---- Static node icons ---- */
     for (int n = 0; n < NUM_NODES; n++)
         draw_node_icon(ctx, s_nodes[n].x, s_nodes[n].y, s_nodes[n].type);
 
     /* ---- PVE creature nodes (type 0x02) ----
-     * Global map display mirrors LAB_0DA3 (mog.asm): MOVE.W #$0014,D0 →
-     * frame 20 of li1.cel is the generic creature icon on the full map.
-     * (Frame 31 is used only in LAB_0077 for the proximity-highlight pass.)
-     * All 24 nodes, including type 0x00 (TROGG WAR BEAST), are displayed with
-     * the generic creature icon when alive — confirmed by LAB_0077 which
-     * iterates all 24 entries without type filtering.
+     * LAB_0077 (mog.asm#L1147): D0 ← #31 → JSR LAB_0CDA (A0=LAB_0664/mi.c).
+     * Frame 31 of mi.c is the generic creature icon for all 24 nodes,
+     * including type 0x00 (TROGG WAR BEAST).
      */
     for (int n = 0; n < NUM_PVE_NODES; n++) {
         if (!s_pve_nodes[n].alive) continue;
         int nx = s_pve_nodes[n].x;
         int ny = s_pve_nodes[n].y;
-        if (s_li_cel && s_li_cel->frame_count > 0) {
-            /* frame 20 (0x14): generic creature map icon (LAB_0DA3) */
-            int fr = 20;
-            if (fr >= s_li_cel->frame_count) fr = s_li_cel->frame_count - 1;
-            render_cel(s_li_cel, fr, s_ov_palette, ctx->fb,
-                       nx - (int)s_li_cel->frames[fr].width  / 2,
-                       ny - (int)s_li_cel->frames[fr].height / 2,
+        if (s_mi_cel && 31 < s_mi_cel->frame_count) {
+            /* frame 31 (0x1F): generic creature icon (LAB_0077) */
+            render_cel(s_mi_cel, 31, s_ov_palette, ctx->fb,
+                       nx - (int)s_mi_cel->frames[31].width  / 2,
+                       ny - (int)s_mi_cel->frames[31].height / 2,
                        BLIT_MASK);
         } else {
-            /* Fallback: small red diamond when CEL is unavailable */
+            /* Fallback: small red diamond when mi.c is unavailable */
             render_fill_rect(ctx->fb, nx - 3, ny - 3, 7, 7, 0xFFAA2200u);
             render_fill_rect(ctx->fb, nx - 1, ny - 1, 3, 3, 0xFFFF4400u);
         }
     }
 
-    /* ---- Dragon ---- */
-    if (ctx->dragon_active && s_dg_cel && s_dg_cel->frame_count > 0) {
+    /* ---- Dragon ----
+     * Animation: mi.c frames 34..41 (LAB_08FC table, LAB_0DCF handler). */
+    if (ctx->dragon_active) {
         int cel_frame = DG_FRAME_BASE + (ctx->dragon_frame % DG_FRAME_COUNT);
-        if (cel_frame >= s_dg_cel->frame_count)
-            cel_frame = s_dg_cel->frame_count - 1;
-        int fw = (int)s_dg_cel->frames[cel_frame].width;
-        int fh = (int)s_dg_cel->frames[cel_frame].height;
-        render_cel(s_dg_cel, cel_frame, s_ov_palette, ctx->fb,
-                   ctx->dragon_x - fw / 2, ctx->dragon_y - fh / 2,
-                   BLIT_MASK);
-    } else if (ctx->dragon_active) {
-        /* Fallback purple diamond */
-        render_fill_rect(ctx->fb,
-                         ctx->dragon_x - 4, ctx->dragon_y - 4,
-                         9, 9, 0xFF880088u);
+        if (s_mi_cel && cel_frame < s_mi_cel->frame_count) {
+            int fw = (int)s_mi_cel->frames[cel_frame].width;
+            int fh = (int)s_mi_cel->frames[cel_frame].height;
+            render_cel(s_mi_cel, cel_frame, s_ov_palette, ctx->fb,
+                       ctx->dragon_x - fw / 2, ctx->dragon_y - fh / 2,
+                       BLIT_MASK);
+        } else {
+            /* Fallback purple diamond */
+            render_fill_rect(ctx->fb,
+                             ctx->dragon_x - 4, ctx->dragon_y - 4,
+                             9, 9, 0xFF880088u);
+        }
     }
 
-    /* ---- Black knights ---- */
+    /* ---- Black knights ----
+     * Black knight faction=4 → mi.c frame 4+5=9 (LAB_0079/LAB_0CDA). */
     for (int i = 0; i < MAX_PLAYERS; i++) {
         Knight *bk = &ctx->knights[i];
         if (!bk->active || !bk->is_black_knight || bk->dead) continue;
         int bx = bk->map_x;
         int by = bk->map_y;
-        if (s_kn5_ob && s_kn5_ob->frame_count > 0) {
-            int fr = s_kn_frame % s_kn5_ob->frame_count;
-            int fw = (int)s_kn5_ob->frames[fr].width;
-            int fh = (int)s_kn5_ob->frames[fr].height;
-            render_cel(s_kn5_ob, fr, s_ov_palette, ctx->fb,
+        int fr = 4 + 5; /* faction 4 + 5 = frame 9 */
+        if (s_mi_cel && fr < s_mi_cel->frame_count) {
+            int fw = (int)s_mi_cel->frames[fr].width;
+            int fh = (int)s_mi_cel->frames[fr].height;
+            render_cel(s_mi_cel, fr, s_ov_palette, ctx->fb,
                        bx - fw / 2, by - fh, BLIT_MASK);
         } else {
             /* Fallback: dark red 5×5 dot */
@@ -760,18 +677,19 @@ static void draw_overworld(GameCtx *ctx)
         }
     }
 
-    /* ---- Player knights (skip black knights, drawn separately above) ---- */
+    /* ---- Player knights (skip black knights, drawn separately above) ----
+     * Faction 0..3 → mi.c frame faction+5 = 5..8 (LAB_0079/LAB_0CDA). */
     for (int i = 0; i < MAX_PLAYERS; i++) {
         Knight *k = &ctx->knights[i];
         if (!k->active || k->dead || k->is_black_knight) continue;
         int kx = k->map_x, ky = k->map_y;
 
-        if (s_kn_ob[i] && s_kn_ob[i]->frame_count > 0) {
-            int fr  = s_kn_frame % s_kn_ob[i]->frame_count;
-            int fw  = (int)s_kn_ob[i]->frames[fr].width;
-            int fh  = (int)s_kn_ob[i]->frames[fr].height;
+        int fr = (int)k->id + 5; /* faction 0..3 → frames 5..8 */
+        if (s_mi_cel && fr < s_mi_cel->frame_count) {
+            int fw  = (int)s_mi_cel->frames[fr].width;
+            int fh  = (int)s_mi_cel->frames[fr].height;
             int flip = (kx < GAME_W / 2) ? 0 : BLIT_FLIP_X;
-            render_cel(s_kn_ob[i], fr, s_ov_palette, ctx->fb,
+            render_cel(s_mi_cel, fr, s_ov_palette, ctx->fb,
                        kx - fw / 2, ky - fh, flip | BLIT_MASK);
         } else {
             render_fill_rect(ctx->fb, kx - 2, ky - 2, 5, 5,
