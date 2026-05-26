@@ -16,7 +16,7 @@
  *     moon_valley.c)
  *
  * The map background is loaded from the "Test" container file (LAB_013A),
- * image index 5 (320×200, 5 bitplanes, at file offset 0x18EE3).
+ * image index 8 (320×200, 5 bitplanes).
  * Sprite assets (DOC_MODE_OVERWORLD.md §1.2):
  *   mi.c — single overworld sprite file (LAB_070E/LAB_0664), loaded by
  *           LAB_0128 via CEL loader LAB_0CBB.  Frame assignments:
@@ -232,12 +232,12 @@ static void load_map_background(void)
     if (s_map_loaded) return;
 
     /*
-     * "Test" container image 5 — overworld map background (mog.asm LAB_013A /
-     * LAB_0142, PIV#5 at file offset 0x18EE3, 320×200 px, 5 bitplanes).
+     * "Test" container image 8 — overworld map background (mog.asm LAB_013A /
+     * LAB_0142, 320×200 px, 5 bitplanes).
      * Falls back to ch.piv if the "Test" file is not present, then to a
      * solid-colour placeholder.
      */
-    MoonPiv *piv = moon_testmap_load_piv("Test", 5);
+    MoonPiv *piv = moon_testmap_load_piv("Test", 8);
     if (!piv)
         piv = moon_piv_load("ch.piv");
     if (piv) {

@@ -15,7 +15,7 @@
  *
  * Total image size = 6 + palette_bytes + comp_size.
  *
- * Reference: mog.asm LAB_013A (loader), LAB_0142 (PIV#5 = overworld map),
+ * Reference: mog.asm LAB_013A (loader), LAB_0142 (PIV#8 = overworld map),
  *            packbits_piv.c (LAB_0C21 / moon_piv_load_from_buffer).
  */
 

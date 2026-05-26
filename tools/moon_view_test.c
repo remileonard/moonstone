@@ -10,7 +10,7 @@
  * 0-9 to jump directly, ESC/Q to quit.
  *
  * Known image index → content (from mog.asm analysis):
- *   5 — overworld map background (320×200, 5 bitplanes, LAB_0142)
+ *   8 — overworld map background (320×200, 5 bitplanes, LAB_0142)
  */
 
 #include "moon_assets.h"
@@ -231,7 +231,7 @@ int main(int argc, char *argv[])
                 "Usage: moon-view-test <Test_file>\n"
                 "\n"
                 "Displays all PIV images packed inside the Moonstone 'Test' container.\n"
-                "Image 5 = overworld map background (320x200, 5 bitplanes).\n"
+                "Image 8 = overworld map background (320x200, 5 bitplanes).\n"
                 "\n"
                 "Keys (SDL window):\n"
                 "  SPACE / RIGHT  — next image\n"
