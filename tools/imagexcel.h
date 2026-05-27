@@ -50,6 +50,11 @@ typedef struct {
     uint8_t  speed;    /* VBL ticks per animation step (0(A5))              */
     int      timer;    /* remaining ticks before advancing to the next step */
 
+    /* Loop counter state — SET_LOOP_COUNT (0x94) / FF FE handling */
+    uint8_t        loop_count;  /* remaining loop iterations (6(A5))        */
+    uint8_t        loop_active; /* non-zero while a loop is in progress (7(A5)) */
+    const uint8_t *loop_pc;     /* loop-back address (8(A5))                */
+
     const uint8_t *script;      /* first byte of the full animation script  */
     const uint8_t *frame_start; /* start of the current step in the script  */
 

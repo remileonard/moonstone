@@ -135,6 +135,7 @@ static int ctrl_op_size(uint8_t op)
     case 0x9C: return 2;  /* LAB_0220: NOP                    */
     case 0xA0: return 8;  /* LAB_0222: MOVE_DELTA             */
     case 0xA4: return 4;  /* LAB_0221: skip 4                 */
+    case 0xA8: return 2;  /* LAB_0241: NOP (just RTS)         */
     case 0xAC: return 2;  /* LAB_022D: NOP                    */
     case 0xB0: return 2;  /* LAB_022C: NOP                    */
     case 0xB4: return 6;  /* LAB_022F: CALL (advance at 0231) */
@@ -145,7 +146,7 @@ static int ctrl_op_size(uint8_t op)
     case 0xC8: return 6;  /* LAB_0232: skip 6                 */
     case 0xCC: return 8;  /* LAB_0237: 8 bytes                */
     case 0xD0: return 8;  /* LAB_023B: conditional jump       */
-    case 0xD4: return 8;  /* LAB_023F: conditional jump       */
+    case 0xD4: return 2;  /* LAB_023F: clear scratch + adv 2  */
     default:   return 2;  /* safe default                     */
     }
 }
@@ -175,14 +176,19 @@ void ix_entity_init(IxEntity *e, const uint8_t *script)
  *   byte 0: opcode      — slot = (opcode & 0x1F) / 4
  *   byte 1: frame_index
  *   byte 2: y_delta     — signed 8-bit; extended to 16-bit (EXT.W in asm)
- *   byte 3: flags       — unused for display (mask/dual-buf flags)
+ *   byte 3: flags       — draw flags (dual-buf / mask bits)
  *   bytes 4-5: x_pos    — signed 16-bit word
  *
  *   screen_x = base_x + x_pos
  *   screen_y = base_y + vel_y + (int8_t)y_delta
  *
- * For 0x88 (SET_SPEED): e->speed = param; frame advances by 2.
- * All other control opcodes are skipped by their documented byte size.
+ * Control opcodes implemented:
+ *   0x80: SET_DIRECTION — toggle or set direction flag (LAB_0215)
+ *   0x88: SET_SPEED     — set animation speed (LAB_021A)
+ *   0x94: SET_LOOP_COUNT — init loop counter and record loop-back PC (LAB_021F)
+ *   0xA0: MOVE_DELTA   — move/set base_x, base_y, vel_y (LAB_0222)
+ *   0xC0: KILL         — mark entity finished (LAB_0235)
+ *   All other control opcodes are skipped by their documented byte size.
  */
 void ix_entity_draw(IxEntity *e, const IxCelSlots *slots,
                     const uint32_t *palette, uint32_t *fb,
@@ -200,13 +206,92 @@ void ix_entity_draw(IxEntity *e, const IxCelSlots *slots,
 
         if (op & 0x80) {
             /* Control instruction */
-            if (op == 0x88) {
-                /* SET_SPEED: byte 1 = new speed value (LAB_021A) */
-                uint8_t param = pc[1];
-                if (param != 0)
-                    e->speed = param;
+            switch (op) {
+
+            case 0x80:
+                /* SET_DIRECTION (LAB_0215):
+                 * param == 0xFF → toggle direction bit 1
+                 * otherwise     → set direction to param directly */
+                if (pc[1] == 0xFF)
+                    e->direction ^= 0x02;
+                else
+                    e->direction = pc[1];
+                break;
+
+            case 0x88:
+                /* SET_SPEED (LAB_021A): byte 1 = new speed value.
+                 * param == 0 → derive speed from global VBL counter (not
+                 * available here; fall back to 1). */
+                if (pc[1] != 0)
+                    e->speed = pc[1];
+                else if (e->speed == 0)
+                    e->speed = 1;
+                /* SET_SPEED also records the loop-back PC (right after the
+                 * opcode) so that FF FE can loop to it.  We reuse loop_pc
+                 * for this purpose, matching 2(A5) = PC+2 in the assembly. */
+                e->loop_pc     = pc + 2;
+                e->loop_active = 1;
+                break;
+
+            case 0x94:
+                /* SET_LOOP_COUNT (LAB_021F):
+                 * byte 1 = iteration count; loop-back address = PC+2. */
+                e->loop_count  = pc[1];
+                e->loop_active = 1;
+                e->loop_pc     = pc + 2;
+                break;
+
+            case 0xA0: {
+                /* MOVE_DELTA (LAB_0222):
+                 * byte 1 = flags; bytes 2-3 = x value (word); 4-5 = y;
+                 * 6-7 = vel_y.
+                 *
+                 * bit 6 of flags: 1 = absolute set, 0 = delta add/subtract.
+                 * In delta mode:
+                 *   bit 0: x direction (0=subtract, 1=add; inverted if
+                 *          direction == 3)
+                 *   bit 3: y direction (0=add, 1=subtract)
+                 *   bit 5: vel_y direction (0=add, 1=subtract) */
+                int16_t xv = (int16_t)((pc[2] << 8) | pc[3]);
+                int16_t yv = (int16_t)((pc[4] << 8) | pc[5]);
+                int16_t vv = (int16_t)((pc[6] << 8) | pc[7]);
+                uint8_t fl = pc[1];
+
+                if (fl & 0x40) {
+                    /* absolute mode */
+                    e->base_x = xv;
+                    e->base_y = yv;
+                    e->vel_y  = vv;
+                } else {
+                    /* delta mode — x */
+                    if (e->direction == 3) {
+                        /* direction==3: bit 0 inverted */
+                        if (fl & 0x01) e->base_x = (int16_t)(e->base_x - xv);
+                        else           e->base_x = (int16_t)(e->base_x + xv);
+                    } else {
+                        if (fl & 0x01) e->base_x = (int16_t)(e->base_x + xv);
+                        else           e->base_x = (int16_t)(e->base_x - xv);
+                    }
+                    /* delta mode — y */
+                    if (fl & 0x08) e->base_y = (int16_t)(e->base_y - yv);
+                    else           e->base_y = (int16_t)(e->base_y + yv);
+                    /* delta mode — vel_y */
+                    if (fl & 0x20) e->vel_y = (int16_t)(e->vel_y - vv);
+                    else           e->vel_y = (int16_t)(e->vel_y + vv);
+                }
+                break;
             }
-            /* All control instructions: skip by their documented size */
+
+            case 0xC0:
+                /* KILL / clear entity type (LAB_0235): mark finished */
+                e->finished = 1;
+                return;
+
+            default:
+                /* All other control instructions: skip by documented size */
+                break;
+            }
+
             pc += ctrl_op_size(op);
         } else {
             /* Draw instruction — 6 bytes (LAB_01F7 / LAB_0200) */
@@ -237,8 +322,10 @@ void ix_entity_draw(IxEntity *e, const IxCelSlots *slots,
  *
  * Mirrors LAB_0201/LAB_0205/LAB_0207 in program.asm:
  *   FF 00  → advance PC by 2, continue at next step
- *   FF FE  → loop back to script start (PC = script)
- *   FF FF  → end of script; set finished = 1; return 1
+ *   FF FE  → loop: if loop_active and loop_count > 0, decrement and jump
+ *            back to loop_pc; otherwise clear loop_active and advance by 2
+ *   FF FF  → end of script (same loop check as FF FE; if no pending loop,
+ *            set finished = 1; return 1)
  *
  * The timer is reset to e->speed after advancing.
  */
@@ -261,13 +348,40 @@ int ix_entity_advance(IxEntity *e)
     uint8_t term = pc[1];
 
     if (term == 0xFF) {
-        /* FF FF — end of script (LAB_0208/LAB_0209) */
-        e->finished = 1;
-        e->timer    = 1;
-        return 1;
+        /* FF FF — end of script (LAB_0208/LAB_0209)
+         * Check loop counter first: if active, loop back instead */
+        if (e->loop_active && e->loop_count > 0) {
+            e->loop_count--;
+            if (e->loop_count > 0 && e->loop_pc) {
+                e->frame_start = e->loop_pc;
+            } else {
+                e->loop_active = 0;
+                e->finished    = 1;
+                e->timer       = 1;
+                return 1;
+            }
+        } else {
+            e->loop_active = 0;
+            e->finished    = 1;
+            e->timer       = 1;
+            return 1;
+        }
     } else if (term == 0xFE) {
-        /* FF FE — loop back to beginning of script (LAB_0205/LAB_0206) */
-        e->frame_start = e->script;
+        /* FF FE — loop (LAB_0205/LAB_0206)
+         * If loop_active and loop_count > 0, loop back; otherwise advance */
+        if (e->loop_active && e->loop_count > 0) {
+            e->loop_count--;
+            if (e->loop_count > 0 && e->loop_pc) {
+                e->frame_start = e->loop_pc;
+            } else {
+                e->loop_active = 0;
+                e->frame_start = pc + 2;
+            }
+        } else {
+            e->loop_active = 0;
+            /* Fall back: loop to script start (original behaviour) */
+            e->frame_start = e->script;
+        }
     } else {
         /* FF 00 (or any other second byte) — advance to next step (LAB_0207)
          * PC += 2 to skip the FF XX pair */
