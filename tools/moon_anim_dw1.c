@@ -186,7 +186,10 @@ int main(int argc, char *argv[])
     entity.base_x    = 60;
     entity.base_y    = 200;
     entity.vel_y     = 0;
-    entity.direction = 0;
+    /* Direction 1 matches the actual Amiga game (LAB_0015: MOVE.W #$0001,D3).
+     * Frames with draw_flags==1 are drawn as-is; frames with draw_flags==3
+     * are flipped horizontally (LAB_020B comparison logic). */
+    entity.direction = 1;
 
     int step_index = 0; /* which step label to show */
 

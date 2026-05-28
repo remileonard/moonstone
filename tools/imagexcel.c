@@ -301,15 +301,40 @@ void ix_entity_draw(IxEntity *e, const IxCelSlots *slots,
             /* pc[3] = flags byte (dual-buf / mask bits — not needed for blit) */
             int  x_pos     = (int16_t)((pc[4] << 8) | pc[5]); /* signed word */
 
-            int screen_x = (int)e->base_x + x_pos;
             int screen_y = (int)e->base_y + (int)e->vel_y + y_delta;
 
             /* Fetch the CEL from the asset table */
             const MoonCel *cel = (slot < IX_SLOTS) ? slots->cel[slot] : NULL;
             if (cel && frame_idx < cel->frame_count) {
                 const MoonCelFrame *fr = &cel->frames[frame_idx];
+
+                /*
+                 * Screen X (LAB_01F7 / LAB_01F8 in program.asm):
+                 * When entity direction bit 1 is set, the sprite is mirrored
+                 * and the blit origin is adjusted: screen_x = base_x - x_pos
+                 * - frame_width (LAB_01F8/01F9).  Otherwise normal:
+                 * screen_x = base_x + x_pos (LAB_01F7).
+                 */
+                int blit_x;
+                if (e->direction & 0x02) {
+                    blit_x = (int)e->base_x - x_pos - (int)fr->width;
+                } else {
+                    blit_x = (int)e->base_x + x_pos;
+                }
+
+                /*
+                 * Flip logic from LAB_020B (program.asm):
+                 * The frame's draw_flags byte (toggle_flags) encodes the
+                 * natural facing direction of the frame — 1 = face left,
+                 * anything else = face right (normalised to 3).  When the
+                 * entity's direction differs from the frame's natural
+                 * direction the frame must be flipped horizontally.
+                 */
+                int frame_dir = (fr->draw_flags == 1) ? 1 : 3;
+                int flip_h    = (frame_dir != (int)e->direction);
+
                 ix_blit_frame(fr, palette, fb, fb_w, fb_h,
-                              screen_x, screen_y, e->direction & 0x02);
+                              blit_x, screen_y, flip_h);
             }
 
             pc += 6;
