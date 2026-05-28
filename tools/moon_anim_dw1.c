@@ -171,21 +171,24 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    /* Initialise the animation entity
+    /* Initialise the animation entity.
      *
-     * Position chosen so all sprite pieces fall within the 320×200 window:
-     *   base_x = 60,  base_y = 200,  vel_y = 0
+     * Matches the Amiga game initialization (LAB_0015 in program.asm):
+     *   base_x = 0xA0 = 160, base_y = 0, vel_y = 0x64 = 100, direction = 1
      *
-     * screen_y range: base_y + vel_y + y_delta = 200 + 0 + (-100 .. -17)
-     *               = 100 .. 183  — fully visible
+     * base_x is shifted to 60 here (instead of 160) so the sprite stays
+     * centred in the 320-pixel window.
+     *
+     * screen_y range: base_y + vel_y + y_delta = 0 + 100 + (-100 .. -17)
+     *               = 0 .. 83  — visible at top of screen
      * screen_x range: base_x + x_pos = 60 + (-16 .. +97)
      *               = 44 .. 157   — fully visible
      */
     IxEntity entity;
     ix_entity_init(&entity, dw1_script);
     entity.base_x    = 60;
-    entity.base_y    = 200;
-    entity.vel_y     = 0;
+    entity.base_y    = 0;
+    entity.vel_y     = 100;
     /* Direction 1 matches the actual Amiga game (LAB_0015: MOVE.W #$0001,D3).
      * Frames with draw_flags==1 are drawn as-is; frames with draw_flags==3
      * are flipped horizontally (LAB_020B comparison logic). */
@@ -264,9 +267,9 @@ int main(int argc, char *argv[])
                     /* Restart script */
                     ix_entity_init(&entity, dw1_script);
                     entity.base_x    = 60;
-                    entity.base_y    = 200;
-                    entity.vel_y     = 0;
-                    entity.direction = 0;
+                    entity.base_y    = 0;
+                    entity.vel_y     = 100;
+                    entity.direction = 1;
                     step_index = 0;
                     SDL_SetWindowTitle(win, "moon-anim-dw1 — restarted");
                 }

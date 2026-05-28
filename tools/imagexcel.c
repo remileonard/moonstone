@@ -323,6 +323,16 @@ void ix_entity_draw(IxEntity *e, const IxCelSlots *slots,
                 }
 
                 /*
+                 * Per-frame X adjustment from LAB_04B4 (program.asm):
+                 *   CLR.W D0 / MOVE.B (A0)+,D0  → D0 = toggle_flags
+                 *   LSR.W #4,D0                  → D0 = toggle_flags >> 4
+                 *   SUB.W D0,D1                  → screen_x -= high nibble
+                 * The high nibble of draw_flags encodes a small x-origin
+                 * offset that is always subtracted from the blit position.
+                 */
+                blit_x -= (fr->draw_flags >> 4);
+
+                /*
                  * Flip logic from LAB_020B (program.asm):
                  * The frame's draw_flags byte (toggle_flags) encodes the
                  * natural facing direction of the frame — 1 = face left,
