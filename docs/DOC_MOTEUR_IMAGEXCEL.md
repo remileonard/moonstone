@@ -246,6 +246,79 @@ FF 00 ...
 
 5 fragments de `dw1.cel` sont dessinés pour former un seul personnage.
 
+#### 3.6.1 Variante multi-fichiers : chevaliers en combat (`mog.asm`)
+
+Le mécanisme composite va plus loin en combat : les chevaliers utilisent
+**plusieurs fichiers `.ob` distincts** chargés dans des slots CEL différents.
+Un chevalier occupe **une seule entrée** dans la table des 40 acteurs — il n'y
+a pas d'acteur séparé par partie du corps. C'est le script de cet acteur
+unique qui émet plusieurs instructions DRAW pointant chacune vers un slot CEL
+différent.
+
+**Chargement des fichiers `.ob` dans les slots CEL (`LAB_0116`, `mog.asm#L2429`)**
+
+Appelée à l'initialisation d'un combat avec chevalier joueur
+(`LAB_0164` → `LAB_016F` → `LAB_0116`) :
+
+| Slot | Label      | Fichier    | Contenu                    |
+|------|------------|------------|----------------------------|
+| 0    | `LAB_0775` | `He1.ob`   | Corps / torse du chevalier |
+| 1    | `LAB_0776` | `He2.ob`   | Jambes                     |
+| 2    | `LAB_0777` | `He3.ob`   | Bras et épée               |
+
+Pour un ennemi chevalier (`LAB_011A` → `LAB_011B`), seuls les slots 0
+(`He1.ob`) et 1 (`He2.ob`) sont chargés.
+
+**Pointeurs de scripts d'animation (`LAB_0167`, `mog.asm#L3575`)**
+
+La routine `LAB_0167` remplit les pointeurs de scripts dans la structure de
+l'acteur :
+
+| Offset | Pointeur   | Script utilisé              |
+|--------|------------|-----------------------------|
+| `22`   | `LAB_07DB` | Déplacement direction 1     |
+| `26`   | `LAB_07DC` | Déplacement direction 2     |
+| `30`   | `LAB_05F6` | Marche (walk)               |
+| `34`   | `LAB_05F5` | Attaque                     |
+| `38`   | `LAB_05E1` | Script courant (repos)      |
+| `42`   | `LAB_05F7` | Mort                        |
+| `46`   | `LAB_0610` | Chute                       |
+| `50`   | `LAB_05F8` | Dégâts reçus                |
+
+**Exemple de script composite multi-slots : `LAB_07FC` (`mog.asm#L14234`)**
+
+Script d'animation par défaut du chevalier joueur. Chaque frame enchaîne
+plusieurs DRAW sur des slots différents :
+
+```
+; Fragment d'une frame de LAB_07FC
+00 03 2E 00 FF 6D   → slot 0 (He1.ob), frame 3,  y=+46,  x=−147
+00 02 F7 00 FF 71   → slot 0 (He1.ob), frame 2,  y=−9,   x=−143
+0C 01 F9 00 FF 7C   → slot 3,          frame 1,  y=−7,   x=−132
+FF 00               → fin de frame
+```
+
+La règle `slot = opcode >> 2` s'applique ici aussi :
+`$00`→slot 0 (`He1.ob`), `$04`→slot 1 (`He2.ob`), `$08`→slot 2 (`He3.ob`),
+`$0C`→slot 3.
+
+**Résumé**
+
+```
+Table des 40 acteurs IMAGEXCEL
+  └─ acteur[n]  ← UN SEUL acteur par combattant
+       ├─ struct (132 octets) : position X/Y, HP, faction…
+       └─ script courant (ex. LAB_07DC)
+            ├─ DRAW slot0 frame_x  → He1.ob (corps)
+            ├─ DRAW slot1 frame_y  → He2.ob (jambes)
+            ├─ DRAW slot2 frame_z  → He3.ob (épée)
+            └─ FF 00 (fin de frame)
+```
+
+L'interpréteur `LAB_01F1` (`program.asm#L4208`) parcourt le script et dessine
+les trois morceaux l'un après l'autre, donnant l'illusion d'un personnage
+composite animé.
+
 ---
 
 ## 4. Pipeline de rendu IMAGEXCEL
