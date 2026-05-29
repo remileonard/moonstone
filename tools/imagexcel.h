@@ -42,6 +42,13 @@
 #define IX_TERM_LOOP            0xFE  /* FF FE — loop back to loop_pc      */
 #define IX_TERM_SCRIPT_END      0xFF  /* FF FF — end of script             */
 
+/* Compound step-separator helpers — combine IX_STEP_END with its
+ * terminator byte into a single, self-documenting token.  Use these
+ * instead of the raw IX_STEP_END, IX_TERM_* pairs in script arrays. */
+#define IX_STEP_NEXT            IX_STEP_END, IX_TERM_NEXT
+#define IX_STEP_LOOP            IX_STEP_END, IX_TERM_LOOP
+#define IX_STEP_SCRIPT_END      IX_STEP_END, IX_TERM_SCRIPT_END
+
 /* Control opcodes (bit 7 set, i.e. op >= 0x80) */
 #define IX_OP_SET_DIRECTION     0x80  /* LAB_0215: direction set/toggle    */
 #define IX_OP_JUMP_VARIANT      0x84  /* LAB_0218: jump variant            */
