@@ -117,37 +117,37 @@ static void ix_blit_frame(const MoonCelFrame *fr,
 /* ------------------------------------------------------------------ */
 
 /*
- * ctrl_op_size — return the total byte size (including the opcode byte)
+ * ix_ctrl_op_size — return the total byte size (including the opcode byte)
  * of a control instruction (opcode >= 0x80).
  *
  * Derived from the ADDI.L advances in each handler in program.asm.
  */
-static int ctrl_op_size(uint8_t op)
+int ix_ctrl_op_size(uint8_t op)
 {
     /* strip bit 7 to get the table offset (same as assembly BCLR #7,D0) */
     switch (op) {
-    case 0x80: return 2;  /* LAB_0215: direction set/toggle   */
-    case 0x84: return 6;  /* LAB_0218: jump variant           */
-    case 0x88: return 2;  /* LAB_021A: SET_SPEED              */
-    case 0x8C: return 8;  /* LAB_021E: skip 8                 */
-    case 0x94: return 2;  /* LAB_021F: SET_LOOP_COUNT         */
-    case 0x98: return 2;  /* LAB_0220: NOP                    */
-    case 0x9C: return 2;  /* LAB_0220: NOP                    */
-    case 0xA0: return 8;  /* LAB_0222: MOVE_DELTA             */
-    case 0xA4: return 4;  /* LAB_0221: skip 4                 */
-    case 0xA8: return 2;  /* LAB_0241: NOP (just RTS)         */
-    case 0xAC: return 2;  /* LAB_022D: NOP                    */
-    case 0xB0: return 2;  /* LAB_022C: NOP                    */
-    case 0xB4: return 6;  /* LAB_022F: CALL (advance at 0231) */
-    case 0xB8: return 6;  /* LAB_0233: skip 6                 */
-    case 0xBC: return 6;  /* LAB_0234: skip 6                 */
-    case 0xC0: return 2;  /* LAB_0235: clear entity type      */
-    case 0xC4: return 2;  /* LAB_0236: SET_ASSET_TABLE        */
-    case 0xC8: return 6;  /* LAB_0232: skip 6                 */
-    case 0xCC: return 8;  /* LAB_0237: 8 bytes                */
-    case 0xD0: return 8;  /* LAB_023B: conditional jump       */
-    case 0xD4: return 2;  /* LAB_023F: clear scratch + adv 2  */
-    default:   return 2;  /* safe default                     */
+    case IX_OP_SET_DIRECTION:   return 2;  /* LAB_0215: direction set/toggle   */
+    case IX_OP_JUMP_VARIANT:    return 6;  /* LAB_0218: jump variant           */
+    case IX_OP_SET_SPEED:       return 2;  /* LAB_021A: SET_SPEED              */
+    case IX_OP_SKIP8:           return 8;  /* LAB_021E: skip 8                 */
+    case IX_OP_SET_LOOP_COUNT:  return 2;  /* LAB_021F: SET_LOOP_COUNT         */
+    case IX_OP_NOP_98:          return 2;  /* LAB_0220: NOP                    */
+    case IX_OP_NOP_9C:          return 2;  /* LAB_0220: NOP                    */
+    case IX_OP_MOVE_DELTA:      return 8;  /* LAB_0222: MOVE_DELTA             */
+    case IX_OP_SKIP4:           return 4;  /* LAB_0221: skip 4                 */
+    case IX_OP_NOP_A8:          return 2;  /* LAB_0241: NOP (just RTS)         */
+    case IX_OP_NOP_AC:          return 2;  /* LAB_022D: NOP                    */
+    case IX_OP_NOP_B0:          return 2;  /* LAB_022C: NOP                    */
+    case IX_OP_CALL:            return 6;  /* LAB_022F: CALL (advance at 0231) */
+    case IX_OP_SKIP6_B8:        return 6;  /* LAB_0233: skip 6                 */
+    case IX_OP_SKIP6_BC:        return 6;  /* LAB_0234: skip 6                 */
+    case IX_OP_KILL:            return 2;  /* LAB_0235: clear entity type      */
+    case IX_OP_SET_ASSET_TABLE: return 2;  /* LAB_0236: SET_ASSET_TABLE        */
+    case IX_OP_SKIP6_C8:        return 6;  /* LAB_0232: skip 6                 */
+    case IX_OP_UNK_CC:          return 8;  /* LAB_0237: 8 bytes                */
+    case IX_OP_COND_JUMP:       return 8;  /* LAB_023B: conditional jump       */
+    case IX_OP_CLEAR_SCRATCH:   return 2;  /* LAB_023F: clear scratch + adv 2  */
+    default:                    return 2;  /* safe default                     */
     }
 }
 
@@ -202,13 +202,13 @@ void ix_entity_draw(IxEntity *e, const IxCelSlots *slots,
         uint8_t op = pc[0];
 
         /* End-of-step marker — stop drawing, do not advance frame_start here */
-        if (op == 0xFF) break;
+        if (op == IX_STEP_END) break;
 
         if (op & 0x80) {
             /* Control instruction */
             switch (op) {
 
-            case 0x80:
+            case IX_OP_SET_DIRECTION:
                 /* SET_DIRECTION (LAB_0215):
                  * param == 0xFF → toggle direction bit 1
                  * otherwise     → set direction to param directly */
@@ -218,7 +218,7 @@ void ix_entity_draw(IxEntity *e, const IxCelSlots *slots,
                     e->direction = pc[1];
                 break;
 
-            case 0x88:
+            case IX_OP_SET_SPEED:
                 /* SET_SPEED (LAB_021A): byte 1 = new speed value.
                  * param == 0 → derive speed from global VBL counter (not
                  * available here; fall back to 1). */
@@ -233,7 +233,7 @@ void ix_entity_draw(IxEntity *e, const IxCelSlots *slots,
                 e->loop_active = 1;
                 break;
 
-            case 0x94:
+            case IX_OP_SET_LOOP_COUNT:
                 /* SET_LOOP_COUNT (LAB_021F):
                  * byte 1 = iteration count; loop-back address = PC+2. */
                 e->loop_count  = pc[1];
@@ -241,7 +241,7 @@ void ix_entity_draw(IxEntity *e, const IxCelSlots *slots,
                 e->loop_pc     = pc + 2;
                 break;
 
-            case 0xA0: {
+            case IX_OP_MOVE_DELTA: {
                 /* MOVE_DELTA (LAB_0222):
                  * byte 1 = flags; bytes 2-3 = x value (word); 4-5 = y;
                  * 6-7 = vel_y.
@@ -282,7 +282,7 @@ void ix_entity_draw(IxEntity *e, const IxCelSlots *slots,
                 break;
             }
 
-            case 0xC0:
+            case IX_OP_KILL:
                 /* KILL / clear entity type (LAB_0235): mark finished */
                 e->finished = 1;
                 return;
@@ -292,7 +292,7 @@ void ix_entity_draw(IxEntity *e, const IxCelSlots *slots,
                 break;
             }
 
-            pc += ctrl_op_size(op);
+            pc += ix_ctrl_op_size(op);
         } else {
             /* Draw instruction — 6 bytes (LAB_01F7 / LAB_0200) */
             int  slot      = (op & 0x1F) / 4;
@@ -372,9 +372,9 @@ int ix_entity_advance(IxEntity *e)
     const uint8_t *pc = e->frame_start;
     for (;;) {
         uint8_t op = pc[0];
-        if (op == 0xFF) break;
+        if (op == IX_STEP_END) break;
         if (op & 0x80)
-            pc += ctrl_op_size(op);
+            pc += ix_ctrl_op_size(op);
         else
             pc += 6; /* draw instruction */
     }
@@ -382,7 +382,7 @@ int ix_entity_advance(IxEntity *e)
     /* pc now points at 0xFF; read the second byte */
     uint8_t term = pc[1];
 
-    if (term == 0xFF) {
+    if (term == IX_TERM_SCRIPT_END) {
         /* FF FF — end of script (LAB_0208/LAB_0209)
          * Check loop counter first: if active, loop back instead */
         if (e->loop_active && e->loop_count > 0) {
@@ -401,7 +401,7 @@ int ix_entity_advance(IxEntity *e)
             e->timer       = 1;
             return 1;
         }
-    } else if (term == 0xFE) {
+    } else if (term == IX_TERM_LOOP) {
         /* FF FE — loop (LAB_0205/LAB_0206)
          * If loop_active and loop_count > 0, loop back; otherwise advance */
         if (e->loop_active && e->loop_count > 0) {
@@ -441,4 +441,97 @@ int ix_entity_tick(IxEntity *e, const IxCelSlots *slots,
         return ix_entity_advance(e);
 
     return 0;
+}
+
+/*
+ * ix_entity_get_bboxes — compute the screen-space bounding boxes for all
+ * sprites in the current animation step without modifying the entity.
+ *
+ * Works on local copies of the mutable entity state so that any control
+ * instructions encountered within the step (SET_DIRECTION, MOVE_DELTA) are
+ * applied correctly without mutating the original entity.
+ */
+int ix_entity_get_bboxes(const IxEntity *e, const IxCelSlots *slots,
+                          IxBBox *bboxes, int max_bboxes)
+{
+    if (!e->frame_start || e->finished || max_bboxes <= 0) return 0;
+
+    /* Local copies of mutable state */
+    int16_t base_x = e->base_x;
+    int16_t base_y = e->base_y;
+    int16_t vel_y  = e->vel_y;
+    uint8_t dir    = e->direction;
+
+    const uint8_t *pc = e->frame_start;
+    int n = 0;
+
+    for (;;) {
+        uint8_t op = pc[0];
+        if (op == IX_STEP_END) break;
+
+        if (op & 0x80) {
+            /* Simulate control instructions on local state */
+            switch (op) {
+            case IX_OP_SET_DIRECTION:
+                if (pc[1] == 0xFF) dir ^= 0x02;
+                else               dir  = pc[1];
+                break;
+
+            case IX_OP_MOVE_DELTA: {
+                int16_t xv = (int16_t)((pc[2] << 8) | pc[3]);
+                int16_t yv = (int16_t)((pc[4] << 8) | pc[5]);
+                int16_t vv = (int16_t)((pc[6] << 8) | pc[7]);
+                uint8_t fl = pc[1];
+                if (fl & 0x40) {
+                    base_x = xv; base_y = yv; vel_y = vv;
+                } else {
+                    if (dir == 3) {
+                        if (fl & 0x01) base_x = (int16_t)(base_x - xv);
+                        else           base_x = (int16_t)(base_x + xv);
+                    } else {
+                        if (fl & 0x01) base_x = (int16_t)(base_x + xv);
+                        else           base_x = (int16_t)(base_x - xv);
+                    }
+                    if (fl & 0x08) base_y = (int16_t)(base_y - yv);
+                    else           base_y = (int16_t)(base_y + yv);
+                    if (fl & 0x20) vel_y  = (int16_t)(vel_y  - vv);
+                    else           vel_y  = (int16_t)(vel_y  + vv);
+                }
+                break;
+            }
+
+            default:
+                break;
+            }
+            pc += ix_ctrl_op_size(op);
+        } else {
+            /* Draw instruction — compute bounding box */
+            int slot      = (op & 0x1F) / 4;
+            int frame_idx = pc[1];
+            int y_delta   = (int8_t)pc[2];
+            int x_pos     = (int16_t)((pc[4] << 8) | pc[5]);
+
+            const MoonCel *cel = (slot < IX_SLOTS) ? slots->cel[slot] : NULL;
+            if (cel && frame_idx < cel->frame_count && n < max_bboxes) {
+                const MoonCelFrame *fr = &cel->frames[frame_idx];
+
+                int blit_x;
+                if (dir & 0x02)
+                    blit_x = (int)base_x - x_pos - (int)fr->width;
+                else
+                    blit_x = (int)base_x + x_pos;
+                blit_x -= (fr->draw_flags >> 4);
+
+                int screen_y = (int)base_y + (int)vel_y + y_delta;
+
+                bboxes[n].x = blit_x;
+                bboxes[n].y = screen_y;
+                bboxes[n].w = (int)fr->width;
+                bboxes[n].h = (int)fr->height;
+                n++;
+            }
+            pc += 6;
+        }
+    }
+    return n;
 }
