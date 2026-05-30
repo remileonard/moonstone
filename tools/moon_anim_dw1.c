@@ -4,8 +4,8 @@
  * The animation script LAB_00D8 from program.asm is embedded verbatim as a
  * byte array.  This is the druid walking scene used in the game intro
  * (LAB_001B / LAB_0024): frame 0 = body, frames 1-8 = legs cycling,
- * frames 9-12 = torch flame cycling.  The sprite traverses from the left
- * edge of the screen to the right edge over 38 animation steps.
+ * frames 9-12 = torch flame cycling.  The sprite traverses from the right
+ * edge of the screen to the left edge over 38 animation steps.
  *
  * Controls:
  *   ESC / Q  — quit
@@ -555,8 +555,10 @@ static void restart_entity(IxEntity *e)
     e->base_x    = 160;
     e->base_y    = 0;
     e->vel_y     = 100;
-    /* Direction 3: sprite faces right; x = base_x - x_pos - width */
-    e->direction = 3;
+    /* Direction 1: sprite faces left (flip_h=1); x = base_x + x_pos.
+     * x_pos goes from +148 to −181, so the druid enters from the right
+     * edge and walks off the left edge — matching the original game. */
+    e->direction = 1;
 }
 
 #endif /* HAVE_SDL2 */
@@ -639,9 +641,11 @@ int main(int argc, char *argv[])
     entity.base_x    = 160;
     entity.base_y    = 0;
     entity.vel_y     = 100;
-    /* Direction 3: sprite faces right; x formula is base_x − x_pos − width,
-     * producing a left-to-right traversal across the 320-pixel screen. */
-    entity.direction = 3;
+    /* Direction 1: sprite faces left (flip_h=1, since frame draw_flags=0x20→
+     * frame_dir=3≠1); x formula = base_x + x_pos.  x_pos runs from +148 to
+     * −181 → the druid enters from the right edge and walks left, matching
+     * the original Amiga intro (LAB_001B / LAB_0024, direction=1). */
+    entity.direction = 1;
 
     int step_index = 0; /* which step label to show */
 
