@@ -329,7 +329,7 @@ void render_text(uint32_t *fb, const char *text, int x, int y, uint32_t color)
             if (dy < 0 || dy >= SCREEN_H) continue;
             uint8_t bits = glyph[row];
             for (int col = 0; col < 8; col++) {
-                if (!(bits & (0x80 >> col))) continue;
+                if (!(bits & (0x01 << col))) continue;
                 int dx = cx + col;
                 if (dx < 0 || dx >= SCREEN_W) continue;
                 fb[dy * SCREEN_W + dx] = color;
