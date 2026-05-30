@@ -342,8 +342,8 @@ static const char *step_labels[] = {
 /* ------------------------------------------------------------------ */
 /* Embedded 8×8 bitmap font (ASCII 32–127, public domain VGA font)    */
 /*                                                                     */
-/* Each entry is 8 bytes — one per row.  Bit 7 of each byte is the    */
-/* leftmost pixel (MSB-first).                                         */
+/* Each entry is 8 bytes — one per row.  Bit 0 of each byte is the    */
+/* leftmost pixel (LSB-first).                                         */
 /* ------------------------------------------------------------------ */
 
 static const uint8_t g_font8x8[96][8] = {
@@ -464,7 +464,7 @@ static void sdl_draw_char(SDL_Renderer *ren, int x, int y, char ch,
     for (int row = 0; row < 8; row++) {
         uint8_t bits = glyph[row];
         for (int col = 0; col < 8; col++) {
-            if (bits & (0x80u >> col))
+            if (bits & (0x01u << col))
                 SDL_RenderDrawPoint(ren, x + col, y + row);
         }
     }
