@@ -71,6 +71,9 @@ typedef struct {
     uint8_t      script_type;            /* +32 */
     FrameState  *frame_state;            /* +36 */
     uint16_t     visible;                /* +40 */
+    void        *game_data;              /* game-specific context pointer, used
+                                          * by BRANCH_IF_ZERO (0xCC) and
+                                          * BRANCH_IF_NONZERO (0xD0) opcodes */
 } Entity;
 
 /* ------------------------------------------------------------------ */

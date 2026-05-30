@@ -375,27 +375,39 @@ DC.B "ndor Code: ITE, copyright 1988 by IMAGEXCEL Programmer 1"
 **IMAGEXCEL** est un middleware Mindscape utilisé pour le rendu sprite.
 Les routines clé :
 
-- `SECSTRT_25` (`LAB_046F` + co) — init : alloue les buffers blitter
-  ([program.asm#L9378-L9388](program.asm#L9378-L9388))
-- `LAB_04A7` — set viewport (clip rect)
-- `LAB_04A8`/`LAB_04B4`/`LAB_04B5` — **draw cel** : prend en entrée
-  - D0 : index de frame dans le fichier CEL
-  - D1, D2 : coordonnées (x*8 + bit_offset, y)
-  - A0 : pointeur entête CEL
+- `SECSTRT_25` — init unique : alloue les buffers blitter internes à partir
+  de `SECSTRT_27` ([program.asm#L9375-L9460](program.asm#L9375-L9460))
+- `LAB_04A7` — set viewport (clip rect) : D0=X_gauche_bytes, D1=Y_haut,
+  D2=X_droit_bytes, D3=Y_bas → stocke largeur/hauteur/offset dans
+  `LAB_0502`/`LAB_0501`/`LAB_0503`
+- `LAB_04B4`/`LAB_04B5` — **draw cel** : point d'entrée principal
+  - A0 : pointeur sur les données CEL décompressées
+  - D0 : index de frame dans le fichier CEL (entier ≥ 0)
+  - D1 : coordonnée X en **pixels** (valeur signée 16 bits)
+  - D2 : coordonnée Y en **lignes** (valeur signée 16 bits)
+- `LAB_04A8`/`LAB_04AC` — rendu en miroir horizontal : inverse les
+  données pixel en place via la table `LAB_04B3`
 - `LAB_04B0` — **génération de la table reverse-bits** (256 entrées
   octet → octet bit-réversé) à `LAB_04B3`
-- `LAB_04CC`/`LAB_04CF` — kernels blitter : cookie-cut, masque
+- `LAB_04CC`/`LAB_04CF` — kernels blitter : copie directe A→D / copie
+  avec masquage logiciel des bords
 - `LAB_04D7` — *blitter-wait* (`BTST #6,DMACONR`)
 
-Le mode blitter configuré est typiquement :
-- `BLTCON0 = $0FF0 + canaux` (logic `D = (A&B)|(C&!B)` selon code de
-  shift / inv)
-- `BLTCON1 = 0` (rectangle), parfois mode ligne pour fill
-- `BLTAFWM/BLTALWM = $FFFF` (masques bord adaptés au clipping)
-- `BLTxMOD = 2` ou modulo de la largeur dest
+Le rendu se déroule en **trois phases** :
 
-Le rendu se fait en 5 passes (une par plan), `LAB_0504` = ligne stride en
-octets.
+1. **Phase 1** — copie de chaque plan actif du CEL vers le buffer
+   intermédiaire `LAB_051B` via `LAB_04CC` (BLTCON0=`$09F0`, D=A).
+2. **Phase 2** — deux passes blitter combinant les 5 plans par OR pour
+   produire un masque composite dans `LAB_051B + 5×$12C0`.
+3. **Phase 3** — cookie-cut final sur les 5 plans : BLTCON0=`(shift<<12)|$0FF2`
+   (minterm `$F2` = cookie-cut, A=sprite, B=masque, C=D=fond). Plans
+   inactifs : BLTCON0=`$0722` (minterm `$22` = efface la zone du masque
+   dans le fond).
+
+`LAB_0504` = taille d'un plan en octets (`row_bytes × height`).
+
+> Pour une documentation complète du pipeline IMAGEXCEL, voir
+> [DOC_MOTEUR_IMAGEXCEL.md](DOC_MOTEUR_IMAGEXCEL.md).
 
 #### 6.2.3 Format CEL et OB
 
