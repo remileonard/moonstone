@@ -31,9 +31,19 @@ if(SDL2_mixer_FOUND)
     target_compile_definitions(moon-anim-dw1 PRIVATE HAVE_SDL2_MIXER=1)
 endif()
 
+# moon-anim-viewer: generic multi-animation viewer (imagexcel engine + viewer)
+add_executable(moon-anim-viewer imagexcel.c moon_anim_viewer.c)
+target_link_libraries(moon-anim-viewer PRIVATE moon_assets SDL2::SDL2 m)
+target_compile_definitions(moon-anim-viewer PRIVATE HAVE_SDL2=1)
+target_include_directories(moon-anim-viewer PRIVATE ${SDL2_INCLUDE_DIRS})
+if(SDL2_mixer_FOUND)
+    target_link_libraries(moon-anim-viewer PRIVATE SDL2_mixer::SDL2_mixer)
+    target_compile_definitions(moon-anim-viewer PRIVATE HAVE_SDL2_MIXER=1)
+endif()
+
 install(TARGETS
     moon-info moon-dump moon-palette
     moon-view-cel moon-view-piv moon-view-stile moon-mod-info
-    moon-view-test moon-anim-dw1
+    moon-view-test moon-anim-dw1 moon-anim-viewer
     RUNTIME DESTINATION bin
 )
