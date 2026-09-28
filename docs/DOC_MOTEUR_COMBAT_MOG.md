@@ -20,7 +20,9 @@ Combat_Run [LAB_0036]                     appelé par tous les combats
     Combat_FrameStart                     note v_VblCounter
     Combat_RunControllers [LAB_0322]      décisions (joystick / IA) -> scripts
     Ix_RunEntities        [LAB_0328]      une étape de script par entité + dessin
-    LAB_0416, LAB_03BE, LAB_039E          affichage, collisions (à documenter)
+    LAB_0416                              affichage (à documenter)
+    Combat_Collisions     [LAB_03BE]      contacts frappe/corps (§8)
+    LAB_039E                              (à documenter)
     Combat_LowHpIndicator [LAB_003E]
     Combat_CheckEnd       [LAB_004B]      PV joueur < 0 -> fin dans 50 images ; pause
     Combat_FrameWait      [LAB_031F]      complète jusqu'à v_FrameVbls VBL
@@ -60,7 +62,8 @@ d'affichage).
 ## 3. Contrôleurs
 
 `Combat_RunControllers` appelle, pour chaque entité non occupée (ou dont
-l'objet a `14`/`18` non nuls : coup reçu), `t_Controllers[32(entité)]`.
+l'objet a `14`/`18` non nuls : contact à l'image précédente),
+`t_Controllers[32(entité)]`.
 Le contrôleur renvoie : A0 = script (−1 : rien, 0 : détruire l'entité),
 D0 X, D1 hauteur, D2 profondeur, D3 direction.
 
@@ -71,8 +74,10 @@ D0 X, D1 hauteur, D2 profondeur, D3 direction.
   pas `t_WalkStepX/Up/Down` ; sans mouvement : script de repos `22(objet)` ;
 - feu : `Ctl_HumanAttack` → index = `t_AttackStickR/L[bits]` (selon la
   direction), script `34(objet)[index]`, index gardé dans `64(objet)` ;
-- `14(objet)` non nul (touché) : réaction selon le contrôleur de l'attaquant
-  (table `LAB_0622`).
+- `18(objet)` non nul (touché par quelqu'un) : réaction au coup reçu
+  (`LAB_01EC`) ;
+- `14(objet)` non nul (a touché quelqu'un) : réaction selon le contrôleur de
+  la cible (table `LAB_0622`) — voir §8.3.
 
 ## 4. Contexte de script (36 octets, `36(entité)`)
 
@@ -146,7 +151,83 @@ Une étape peut dessiner plusieurs frames (sprite composite).
 | `$CC t off.W a.L` | 8 | `IxOpCC_IfFieldNonZero` | saut si champ ≠ 0 |
 | `$D0` | 2 | `IxOpD0_Reset` | remise à zéro du contexte |
 
-## 8. Conséquences pour le portage C
+## 8. Collisions (`Combat_Collisions` [`LAB_03BE`])
+
+Exécutée **après** `Ix_RunEntities`, donc sur les frames réellement
+dessinées dans l'image.
+
+### 8.1 Données
+
+- `Ix_Step` range chaque frame dessinée dont les drapeaux ont :
+  - bit 1 → **frappe** : liste `40(entité)` → `t_StrikeFrames` [`LAB_064F`] ;
+  - bit 0 → **corps** (peut être touché) : liste `44(entité)` →
+    `t_BodyFrames` [`LAB_0650`].
+
+  Chaque liste : 8 enregistrements de 10 octets (CEL.L, frame.W, X.W, Y.W,
+  position de dessin), terminée par un pointeur nul ; les deux tables sont
+  vidées à chaque image (`Combat_ClearFrameLists`).
+- `collide.hit` (texte, `Col_InitHitFile` / `Col_LoadHitData`) donne pour
+  chaque CEL et chaque frame les **points d'impact** de l'arme :
+  `n, type, largeur, hauteur, n × (x, y)` ; enregistrement de `2n + 4`
+  octets, ou 1 octet si `n = 0` (pas de frappe possible sur cette frame).
+  Table `t_HitDataByCel` [`LAB_0A51`] : paires (CEL, données).
+
+### 8.2 Algorithme
+
+```
+Combat_ClearHitLinks          14 et 18 de tous les objets remis à 0
+pour chaque entité A active :
+  pour chaque frame F de A marquée « frappe » :
+    pour chaque autre entité B active avec |profondeur A − profondeur B| ≤ 10 :
+      pour chaque frame G de B marquée « corps » :
+        si Col_PixelHit(F, G) :
+          objet(A).14  = objet(B)      « a touché »
+          objet(B).18  = objet(A)      « touché par »
+          objet(B).122/124 = point d'impact (v_HitX, v_HitY)
+          passer à l'entité suivante   (un seul contact par attaquant et par image)
+```
+
+`Col_PixelHit` [`LAB_03DB`] :
+1. Points de la frame F dans `collide.hit` ; aucun point → pas de contact.
+2. Si la frame F est retournée, les points sont en miroir :
+   `x' = largeur − x` (`v_HitMirrorW`). L'orientation est celle de l'image
+   en mémoire : chaque frame CEL a un enregistrement de 10 octets (offset
+   données.L, largeur.W, hauteur.W, orientation.B, masque de plans.B) ;
+   `LAB_0CCE` retourne l'image **en place** quand la direction de l'entité
+   change, et met l'orientation à 1 (sens d'origine) ou à
+   `décalage d'alignement << 4` (retournée, bit 0 à 0).
+3. Test grossier : rectangle (largeur, hauteur) des points de F contre le
+   rectangle de G (`Col_SpanOverlap` sur X et Y).
+4. Test fin : chaque point, placé à la position de dessin de F, doit tomber
+   dans G (intervalle `[x, x + largeur[`) **sur un pixel opaque** : au moins
+   un des plans actifs de G a le bit à 1 (`t_Popcount4` donne le nombre de
+   plans à tester).
+5. Le premier point qui touche est renvoyé (`v_HitX`, `v_HitY`).
+
+### 8.3 Suite : qui réagit
+
+Les liens 14/18 ne restent valables que jusqu'aux collisions de l'image
+suivante. Entre les deux, `Combat_RunControllers` appelle les contrôleurs
+des objets dont 14 ou 18 est non nul, **même si leur script est en cours**
+(interruption). Pour le chevalier humain : 18 → réaction au coup reçu
+(`LAB_01EC`), 14 → réaction à un coup porté selon le type de la cible
+(table `LAB_0622`). Les dégâts ne sont pas calculés ici : ils sont appliqués
+par ces réactions (à documenter).
+
+### 8.4 Écarts de `check_hit_hitdata` (moon_combat.c)
+
+Le test au pixel du C suit `Col_PixelHit`, mais :
+- il teste **une** frame par combattant, déduite d'un état codé en dur, au
+  lieu de **toutes** les frames dessinées marquées frappe/corps (un sprite
+  composite a souvent l'arme sur une frame séparée) ;
+- il place les sprites par centre/bas au lieu des positions de dessin
+  exactes du script (`X + dx`, ou `X − dx − largeur` si retourné) ;
+- le retournement vient de `facing` et non de l'orientation de la frame ;
+- il n'y a pas de condition de profondeur (≤ 10) ;
+- le résultat est traité sur place (constantes de dégâts) au lieu de poser
+  les liens 14/18 lus par les contrôleurs à l'image suivante.
+
+## 9. Conséquences pour le portage C
 
 - Cadence fixe : une étape de script toutes les 6 VBL (≈ 120 ms), pas à
   chaque image affichée.
