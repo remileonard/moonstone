@@ -58,5 +58,16 @@ def compare(a,b):
         if x['relocs']!=y['relocs']: pb.append(f"relocs {len(x['relocs'])}/{len(y['relocs'])}")
         if pb: bad+=1; print(f"  hunk {i}: "+", ".join(pb))
     return bad==0
+def diff_offsets(a,b):
+    """Premier octet différent de chaque hunk : [(hunk, offset)]."""
+    A,B=parse(a),parse(b); res=[]
+    for i,(x,y) in enumerate(zip(A,B)):
+        dx,dy=x['data'],y['data']
+        n=min(len(dx),len(dy))
+        k=next((j for j in range(n) if dx[j]!=dy[j]),None)
+        if k is None and (len(dx)!=len(dy) or x['relocs']!=y['relocs']):
+            k=min([n]+[o for o in set(x['relocs'])^set(y['relocs'])])
+        if k is not None: res.append((i,k))
+    return res
 if __name__=='__main__':
     import sys; print("IDENTIQUE" if compare(sys.argv[1],sys.argv[2]) else "DIFFERENT")

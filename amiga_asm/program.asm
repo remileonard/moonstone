@@ -1,4 +1,4 @@
-; IRA V2.11 (May 17 2026) (c)1993-1995 Tim Ruehsen
+; IRA V2.11 (Sep 28 2026) (c)1993-1995 Tim Ruehsen
 ; (c)2009-2025 Frank Wille, (c)2014-2019 Nicolas Bastien
 
 AUTO_INT1	EQU	$64
@@ -14,8 +14,6 @@ EXT_0009	EQU	$3F4
 EXT_000a	EQU	$3F8
 EXT_000b	EQU	$3FE
 EXT_000c	EQU	$400
-EXT_000d	EQU	$3820
-EXT_000e	EQU	$614A
 EXT_000f	EQU	$6BEFA
 EXT_0010	EQU	$7F682
 EXT_0011	EQU	$7F684
@@ -170,18 +168,14 @@ LAB_0001:
 	BRA.W	LAB_0000
 LAB_0002:
 	DC.L	LAB_0003
-	ORI.B	#$5f,D0
-	ORI.B	#$00,D1
-	DC.W	$0000
+	DC.L	$0000005f,$00010000
+	DS.W	1
 LAB_0003:
-	ADDQ.W	#2,25888(A0)
-	DC.W	$456e
-	DC.W	$6400
+	DC.B	"The End",0
 LAB_0004:
-	DC.W	$4d6f
-	DC.W	$6700
+	DC.L	$4d6f6700
 LAB_0005:
-	ORI.B	#$00,D0
+	DS.L	1
 LAB_0006:
 	MOVEQ	#5,D7
 	JSR	SECSTRT_23
@@ -260,12 +254,14 @@ LAB_0012:
 LAB_0013:
 	JSR	LAB_025A
 	RTS
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_0014:
 	MOVE.W	#$0001,LAB_0120
 	MOVEA.L	#$00000000,A0
 	RTS
-	MOVEA.L	#$00000000,A0
-	RTS
+	DC.L	$207c0000,$00004e75
 LAB_0015:
 	MOVEA.L	#LAB_0276,A2
 	MOVE.W	#$00a0,D0
@@ -313,10 +309,10 @@ LAB_001A:
 	MOVE.L	#LAB_01CD,LAB_011D
 	MOVE.W	#$0000,LAB_0120
 	BSR.W	LAB_0030
-	MOVE.W	#$0000,LAB_0026+2
-	MOVE.L	#LAB_0023,LAB_0029+2
+	MOVE.W	#$0000,L00_00602
+	MOVE.L	#LAB_0023,L00_0060A
 	MOVE.W	#$0004,LAB_0029
-	MOVE.W	#$0000,LAB_002B+2
+	MOVE.W	#$0000,L00_0060E
 	BSR.W	LAB_001F
 	LEA	LAB_00E3,A0
 	BSR.W	LAB_0015
@@ -325,11 +321,11 @@ LAB_001A:
 	RTS
 LAB_001B:
 	JSR	LAB_01E4
-	MOVE.W	#$0004,LAB_002B+2
+	MOVE.W	#$0004,L00_0060E
 	MOVE.W	#$0001,LAB_011F
 	MOVE.W	#$0000,LAB_0120
-	MOVE.W	#$0000,LAB_0026+2
-	MOVE.L	#LAB_0024,LAB_0029+2
+	MOVE.W	#$0000,L00_00602
+	MOVE.L	#LAB_0024,L00_0060A
 	MOVE.W	#$0005,LAB_0029
 	MOVE.L	#$00000008,LAB_00D0
 	BSR.W	LAB_001D
@@ -339,51 +335,51 @@ LAB_001C:
 	JSR	LAB_01E4
 	MOVEA.L	LAB_00CE,A0
 	MOVEA.L	LAB_00C6,A1
-	JSR	LAB_0268+2
+	JSR	L10_00D6A
 	JSR	LAB_0263
 	MOVE.W	#$0000,LAB_011F
 	MOVE.W	#$0004,LAB_011E
 	MOVE.L	#LAB_01D1,LAB_011D
 	MOVE.W	#$0000,LAB_011F
 	MOVE.W	#$0000,LAB_0120
-	MOVE.W	#$0000,LAB_0026+2
-	MOVE.L	#LAB_0025,LAB_0029+2
+	MOVE.W	#$0000,L00_00602
+	MOVE.L	#LAB_0025,L00_0060A
 	MOVE.W	#$0005,LAB_0029
-	MOVE.W	#$0008,LAB_002B+2
+	MOVE.W	#$0008,L00_0060E
 	MOVE.W	#$0001,LAB_00D1
 	BSR.W	LAB_001D
 	MOVE.W	#$0000,LAB_00D1
 	MOVE.L	#$00000006,LAB_00D0
 	RTS
 LAB_001D:
-	MOVE.W	LAB_002B+2,LAB_0028
-	MOVE.W	LAB_0026+2,D0
+	MOVE.W	L00_0060E,LAB_0028
+	MOVE.W	L00_00602,D0
 	LSL.W	#2,D0
-	MOVEA.L	LAB_0029+2,A1
+	MOVEA.L	L00_0060A,A1
 	MOVEA.L	0(A1,D0.W),A0
 	BSR.W	LAB_0015
 	JSR	LAB_000B
-	ADDI.W	#$0001,LAB_0026+2
+	ADDI.W	#$0001,L00_00602
 	MOVE.W	LAB_0029,D0
-	CMP.W	LAB_0026+2,D0
+	CMP.W	L00_00602,D0
 	BEQ.S	LAB_001E
 	BRA.S	LAB_001D
 LAB_001E:
 	RTS
 LAB_001F:
 	MOVE.W	#$0000,LAB_0028
-	MOVE.W	LAB_0026+2,D0
+	MOVE.W	L00_00602,D0
 	LSL.W	#2,D0
-	MOVEA.L	LAB_0029+2,A1
+	MOVEA.L	L00_0060A,A1
 	MOVEA.L	0(A1,D0.W),A0
 	EORI.W	#$0001,LAB_0026
 	BEQ.W	LAB_0022
 	BSR.W	LAB_0015
 	JSR	LAB_000B
 LAB_0020:
-	ADDI.W	#$0001,LAB_0026+2
+	ADDI.W	#$0001,L00_00602
 	MOVE.W	LAB_0029,D0
-	CMP.W	LAB_0026+2,D0
+	CMP.W	L00_00602,D0
 	BEQ.S	LAB_0021
 	BRA.S	LAB_001F
 LAB_0021:
@@ -436,13 +432,17 @@ LAB_0025:
 	DC.L	LAB_00D7
 	DC.L	LAB_00D7
 LAB_0026:
-	ORI.B	#$00,D0
+	DS.W	1
+L00_00602:
+	DS.W	1
 LAB_0028:
-	ORI.B	#$00,D0
+	DS.L	1
 LAB_0029:
-	ORI.B	#$00,D0
-LAB_002B:
-	ORI.B	#$00,D0
+	DS.W	1
+L00_0060A:
+	DS.L	1
+L00_0060E:
+	DS.W	1
 LAB_002C:
 	JSR	LAB_0258
 	JSR	LAB_0262
@@ -476,7 +476,7 @@ LAB_002D:
 	JSR	LAB_0258
 	MOVEA.L	LAB_00CF,A0
 	MOVEA.L	LAB_00C6,A1
-	JSR	LAB_0268+2
+	JSR	L10_00D6A
 	JSR	LAB_0263
 	MOVE.L	#LAB_01D2,LAB_011D
 	MOVE.W	#$0000,LAB_0120
@@ -493,7 +493,7 @@ LAB_002E:
 	JSR	LAB_0258
 	MOVEA.L	LAB_00CC,A0
 	MOVEA.L	LAB_00C6,A1
-	JSR	LAB_0268+2
+	JSR	L10_00D6A
 	JSR	LAB_0263
 	MOVE.L	#LAB_01CF,LAB_011D
 	MOVE.W	#$0000,LAB_0120
@@ -559,6 +559,9 @@ LAB_0031:
 	MOVEA.L	#LAB_00E1,A0
 	JSR	LAB_0016
 	RTS
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_0032:
 	MOVEQ	#12,D0
 	MOVE.W	SECSTRT_9,D1
@@ -580,11 +583,11 @@ LAB_0032:
 	MOVE.L	D0,LAB_0035
 	RTS
 LAB_0033:
-	ORI.B	#$00,D0
+	DS.L	1
 LAB_0034:
-	ORI.B	#$00,D0
+	DS.L	1
 LAB_0035:
-	ORI.B	#$00,D0
+	DS.L	1
 LAB_0036:
 	MOVE.W	#$0001,LAB_00D1
 	MOVE.W	#$0002,LAB_003E
@@ -593,7 +596,7 @@ LAB_0036:
 	JSR	LAB_0262
 	MOVEA.L	LAB_00CF,A0
 	MOVEA.L	LAB_00C6,A1
-	JSR	LAB_0268+2
+	JSR	L10_00D6A
 	JSR	LAB_0263
 	MOVE.L	#LAB_01D2,LAB_011D
 	MOVE.W	#$0000,LAB_0120
@@ -618,7 +621,7 @@ LAB_0036:
 	JSR	LAB_0262
 	MOVEA.L	LAB_00CD,A0
 	MOVEA.L	LAB_00C6,A1
-	JSR	LAB_0268+2
+	JSR	L10_00D6A
 	JSR	LAB_0263
 	MOVE.L	#LAB_01D0,LAB_011D
 	MOVE.W	#$0000,LAB_0120
@@ -631,11 +634,14 @@ LAB_0036:
 	JSR	LAB_0007
 	MOVE.L	#$00000006,LAB_00D0
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	JSR	LAB_01E4
 	JSR	LAB_025F
 	MOVEA.L	LAB_00CD,A0
 	MOVEA.L	LAB_00C6,A1
-	JSR	LAB_0268+2
+	JSR	L10_00D6A
 	JSR	LAB_0263
 	MOVE.L	#LAB_01D0,LAB_011D
 	MOVE.W	#$0000,LAB_0120
@@ -648,7 +654,7 @@ LAB_0037:
 	JSR	LAB_0258
 	MOVEA.L	LAB_00CB,A0
 	MOVEA.L	LAB_00C6,A1
-	JSR	LAB_0268+2
+	JSR	L10_00D6A
 	JSR	LAB_0263
 	MOVE.L	#LAB_01CE,LAB_011D
 	MOVE.W	#$0000,LAB_0120
@@ -658,10 +664,10 @@ LAB_0037:
 	JSR	LAB_0015
 	MOVEA.L	#LAB_00EA,A0
 	JSR	LAB_0015
-	MOVE.W	#$0000,LAB_0026+2
-	MOVE.L	#LAB_003A,LAB_0029+2
+	MOVE.W	#$0000,L00_00602
+	MOVE.L	#LAB_003A,L00_0060A
 	MOVE.W	#$0005,LAB_0029
-	MOVE.W	#$0000,LAB_002B+2
+	MOVE.W	#$0000,L00_0060E
 	MOVE.L	#$00000006,LAB_00D0
 	MOVE.W	#$0005,LAB_00EF
 	MOVE.W	#$000f,LAB_00F0
@@ -693,7 +699,7 @@ LAB_0039:
 	JSR	LAB_0258
 	MOVEA.L	LAB_00CC,A0
 	MOVEA.L	LAB_00C6,A1
-	JSR	LAB_0268+2
+	JSR	L10_00D6A
 	JSR	LAB_0263
 	MOVE.L	#LAB_01CF,LAB_011D
 	MOVE.W	#$0000,LAB_0120
@@ -706,7 +712,7 @@ LAB_0039:
 	JSR	LAB_0258
 	MOVEA.L	LAB_00CB,A0
 	MOVEA.L	LAB_00C6,A1
-	JSR	LAB_0268+2
+	JSR	L10_00D6A
 	JSR	LAB_0263
 	MOVE.L	#LAB_01CE,LAB_011D
 	MOVE.W	#$0000,LAB_0120
@@ -721,7 +727,7 @@ LAB_0039:
 	JSR	LAB_0258
 	MOVEA.L	LAB_00CC,A0
 	MOVEA.L	LAB_00C6,A1
-	JSR	LAB_0268+2
+	JSR	L10_00D6A
 	JSR	LAB_0263
 	MOVE.L	#LAB_01CF,LAB_011D
 	MOVE.W	#$0000,LAB_0120
@@ -825,7 +831,10 @@ LAB_003D:
 	MOVE.W	#$0000,LAB_04DF
 	RTS
 LAB_003E:
-	DC.W	$0000
+	DS.W	1
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_003F:
 	LEA	LAB_0042,A0
 	JSR	LAB_0565
@@ -834,6 +843,9 @@ LAB_003F:
 	MOVEA.L	LAB_05D2,A0
 	JSR	LAB_0565
 	RTS
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_0040:
 	MOVEQ	#20,D0
 	JSR	LAB_054F
@@ -865,57 +877,23 @@ LAB_0041:
 	JSR	LAB_0565
 	RTS
 LAB_0042:
-	DC.W	$0000
-	DC.W	$0fff
-	DC.W	$0fff
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	DC.W	$0000
-	DC.W	$0fff
-	DC.W	$0fff
-	ORI.B	#$00,D0
-	DC.W	$0fff
-	DC.W	$0fff
-	DC.W	$0000
-	DC.W	$0fff
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	DC.W	$0000
-	DC.W	$0fff
-	DC.W	$0000
-	DC.W	$0fff
-	DC.W	$0fff
-	DC.W	$0fff
-	DC.W	$0fff
-	DC.W	$0000
-	DC.W	$0fff
-	BTST	D1,(A0)
-	BTST	D1,(A0)
-	BTST	D1,(A0)
+	DC.L	$00000fff,$0fff0000
+	DS.L	2
+	DC.L	$0fff0fff
+	DS.L	1
+	DC.L	$0fff0fff,$00000fff
+	DS.L	2
+	DC.L	$00000fff,$00000fff,$0fff0fff,$0fff0000
+	DC.L	$0fff0310,$03100310
 LAB_0043:
-	DC.W	$0000
-	DC.W	$0fff
-	DC.W	$0fff
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	DC.W	$0000
-	DC.W	$0fff
-	DC.W	$0fff
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	DC.W	$0000
-	DC.W	$0fff
-	ORI.B	#$00,D0
-	DC.W	$0fff
-	DC.W	$0000
-	DC.W	$0fff
-	ORI.B	#$00,D0
-	DC.W	$0fff
-	DC.W	$0fff
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	DC.W	$0000
+	DC.L	$00000fff,$0fff0000
+	DS.L	2
+	DC.L	$0fff0fff
+	DS.L	3
+	DC.L	$00000fff
+	DS.L	1
+	DC.L	$0fff0000,$0fff0000,$00000fff,$0fff0000
+	DS.L	2
 LAB_0044:
 	MOVE.L	LAB_00C2,D0
 	ADDI.L	#$0004536c,LAB_00C2
@@ -959,7 +937,10 @@ LAB_0044:
 	ADDI.L	#$00009c40,D0
 	RTS
 LAB_0045:
-	ORI.B	#$00,D0
+	DS.L	1
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 LAB_0046:
 	BSR.W	LAB_0049
 	TST.W	D1
@@ -967,6 +948,9 @@ LAB_0046:
 	MOVEQ	#2,D0
 	JSR	LAB_054F
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 LAB_0047:
 	BSR.W	LAB_0049
 	BTST	#4,D1
@@ -998,6 +982,9 @@ LAB_004B:
 	MOVE.W	LAB_00C0,D0
 	MOVE.W	LAB_00C1,D1
 	RTS
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_004C:
 	BTST	#1,D0
 	BEQ.W	LAB_004D
@@ -1033,24 +1020,15 @@ LAB_0051:
 	JSR	LAB_03DA
 	RTS
 LAB_0052:
-	DC.W	$6d65
-	DC.W	$7373
-	DC.W	$6167
-	BCS.S	LAB_0055+4
-	MOVEQ	#105,D0
-	MOVEQ	#0,D3
+	DC.B	"message.piv",0
 LAB_0053:
-	DC.W	$626f
-	BGE.S	LAB_0057+2
-	MOVEA.L	-(A6),A7
-	DC.W	$0000
+	DC.B	"bold.f",0,0
 LAB_0054:
 	MOVE.L	A0,SECSTRT_2
 	JSR	LAB_0258
 	MOVEA.L	SECSTRT_30,A0
 	JSR	LAB_054D
 	MOVE.L	SECSTRT_30,D0
-LAB_0055:
 	JSR	LAB_026C
 	LEA	LAB_011A,A0
 	MOVEA.L	20(A0),A0
@@ -1064,7 +1042,6 @@ LAB_0056:
 	MOVEA.L	SECSTRT_2,A0
 	JSR	LAB_028F
 	LEA	LAB_0506,A0
-LAB_0057:
 	ADDA.L	#$00000002,A0
 	MOVE.W	#$0800,(A0)+
 	MOVE.W	#$0600,(A0)+
@@ -1096,7 +1073,10 @@ LAB_005B:
 	MOVEA.L	LAB_0060,A0
 	CLR.L	(A0)
 	RTS
-	RTS
+	DC.W	$4e75
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_005C:
 	MOVEM.L	D0-D7/A0-A6,-(A7)
 	MOVE.W	#$0010,INTREQ
@@ -1116,11 +1096,11 @@ LAB_005D:
 	MOVEM.L	(A7)+,D0-D7/A0-A6
 	RTS
 LAB_005E:
-	BTST	D0,D0
+	DC.W	$0100
 LAB_005F:
-	BTST	D0,D0
+	DC.W	$0100
 LAB_0060:
-	ORI.B	#$00,D0
+	DS.L	1
 LAB_0061:
 	MOVEA.L	LAB_0124,A0
 	MOVEA.L	A0,A1
@@ -1157,10 +1137,13 @@ LAB_0064:
 	CLR.W	AUD1VOL
 	CLR.W	AUD2VOL
 	CLR.W	AUD3VOL
-	CLR.B	LAB_0096+1
+	CLR.B	L01_0069F
 	CLR.B	LAB_0099
-	CLR.W	LAB_0096+2
+	CLR.W	L01_006A0
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	CLR.W	AUD0VOL
 	CLR.W	AUD1VOL
 	CLR.W	AUD2VOL
@@ -1236,12 +1219,12 @@ LAB_006D:
 	ADDA.L	#$0000043c,A0
 	MOVEQ	#0,D0
 	MOVE.L	D0,D1
-	MOVE.B	LAB_0096+1,D0
+	MOVE.B	L01_0069F,D0
 	MOVE.B	0(A2,D0.W),D1
 	ASL.L	#8,D1
 	ASL.L	#2,D1
-	ADD.W	LAB_0096+2,D1
-	CLR.W	LAB_0099+2
+	ADD.W	L01_006A0,D1
+	CLR.W	L01_006A4
 	LEA	AUD0LCH,A5
 	LEA	LAB_009D(PC),A6
 	BSR.S	LAB_006E
@@ -1317,13 +1300,13 @@ LAB_0071:
 	ANDI.W	#$0fff,D0
 	MOVE.W	D0,6(A5)
 	MOVE.W	20(A6),D0
-	OR.W	D0,LAB_0099+2
+	OR.W	D0,L01_006A4
 	BRA.W	LAB_008C
 LAB_0072:
 	MOVE.W	#$012c,D0
 LAB_0073:
 	DBF	D0,LAB_0073
-	MOVE.W	LAB_0099+2,D0
+	MOVE.W	L01_006A4,D0
 	ORI.W	#$8000,D0
 	MOVE.W	D0,DMACON
 	MOVE.W	#$012c,D0
@@ -1342,22 +1325,22 @@ LAB_0074:
 	LEA	LAB_009D(PC),A6
 	MOVE.L	10(A6),160(A5)
 	MOVE.W	14(A6),164(A5)
-	ADDI.W	#$0010,LAB_0096+2
-	CMPI.W	#$0400,LAB_0096+2
+	ADDI.W	#$0010,L01_006A0
+	CMPI.W	#$0400,L01_006A0
 	BNE.S	LAB_0076
 LAB_0075:
-	CLR.W	LAB_0096+2
-	CLR.B	LAB_0099+1
-	ADDQ.B	#1,LAB_0096+1
-	ANDI.B	#$7f,LAB_0096+1
-	MOVE.B	LAB_0096+1,D1
+	CLR.W	L01_006A0
+	CLR.B	L01_006A3
+	ADDQ.B	#1,L01_0069F
+	ANDI.B	#$7f,L01_0069F
+	MOVE.B	L01_0069F,D1
 	MOVEA.L	LAB_0124,A0
 	ADDA.L	#$000003b6,A0
 	CMP.B	(A0),D1
 	BNE.S	LAB_0076
-	CLR.B	LAB_0096+1
+	CLR.B	L01_0069F
 LAB_0076:
-	TST.B	LAB_0099+1
+	TST.B	L01_006A3
 	BNE.S	LAB_0075
 	MOVEM.L	(A7)+,D0-D4/A0-A3/A5-A6
 	RTS
@@ -1528,13 +1511,13 @@ LAB_008C:
 LAB_008D:
 	RTS
 LAB_008E:
-	NOT.B	LAB_0099+1
+	NOT.B	L01_006A3
 	RTS
 LAB_008F:
 	MOVE.B	3(A6),D0
 	SUBQ.B	#1,D0
-	MOVE.B	D0,LAB_0096+1
-	NOT.B	LAB_0099+1
+	MOVE.B	D0,L01_0069F
+	NOT.B	L01_006A3
 	RTS
 LAB_0090:
 	CMPI.B	#$40,3(A6)
@@ -1552,114 +1535,46 @@ LAB_0092:
 LAB_0093:
 	RTS
 LAB_0094:
-	DC.W	$0018
-	MOVE.W	A2,24952(A0)
-	OR.L	D6,-(A1)
-	CMPA.W	D5,A2
-	ADDA.W	-(A0),A2
-	DC.W	$ebf4
-	DC.W	$fafd
-	DC.W	$fffd
-	DC.W	$faf4
-	DC.W	$ebe0
-	ADDA.W	D5,A2
-	CMP.L	-(A1),D2
-	OR.W	D6,EXT_000e.W
-	MOVE.W	(A0)+,-(A0)
+	DC.L	$0018314a,$61788da1,$b4c5d4e0,$ebf4fafd
+	DC.L	$fffdfaf4,$ebe0d4c5,$b4a18d78,$614a3118
 LAB_0095:
-	BCHG	D1,(A0)+
-	BTST	D1,762(A0)
-	DC.W	$02d0
-	ANDI.L	#$0280025c,-(A6)
-	DC.W	$023a
-	DC.W	$021a
-	DC.W	$01fc
-	BSET	D0,-(A0)
-	BSET	D0,D5
-	BCLR	D0,404(A4)
-	DC.W	$017d
-	BCHG	D0,339(A0)
-	BCHG	D0,D0
-	BTST	D0,285(A6)
-	MOVEP.W	254(A5),D0
-	DC.W	$00f0
-	DC.W	$00e2
-	DC.W	$00d6
-	DC.W	$00ca
-	DC.W	$00be
-	ORI.L	#$00aa00a0,-105(A4,D0.W)
-	DC.W	$008f
-	ORI.L	#$007f0078,D7
-	ORI.W	#$0000,0(A1,D0.W)
+	DC.L	$03580328,$02fa02d0,$02a60280,$025c023a
+	DC.L	$021a01fc,$01e001c5,$01ac0194,$017d0168
+	DC.L	$01530140,$012e011d,$010d00fe,$00f000e2
+	DC.L	$00d600ca,$00be00b4,$00aa00a0,$0097008f
+	DC.L	$0087007f,$00780071
+	DS.L	1
 LAB_0096:
-	ADDI.B	#$00,D0
+	DC.B	$06
+L01_0069F:
+	DS.B	1
+L01_006A0:
+	DS.W	1
 LAB_0099:
-	ORI.B	#$00,D0
+	DS.B	1
+L01_006A3:
+	DS.B	1
+L01_006A4:
+	DS.W	1
 LAB_009C:
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
+	DS.L	31
 LAB_009D:
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D1
-	ORI.B	#$00,D0
+	DS.L	5
+	DC.L	$00010000
+	DS.L	1
 LAB_009E:
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D2
-	ORI.B	#$00,D0
+	DS.L	5
+	DC.L	$00020000
+	DS.L	1
 LAB_009F:
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D4
-	ORI.B	#$00,D0
+	DS.L	5
+	DC.L	$00040000
+	DS.L	1
 LAB_00A0:
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	DC.W	$0008
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
+	DS.L	5
+	DC.L	$00080000
+	DS.L	1
+	DS.W	1
 
 
 	SECTION S_2,DATA
@@ -2819,8 +2734,14 @@ LAB_0127:
 	MOVE.L	D0,AUTO_INT6.W
 	ADDQ.L	#2,A3
 	JMP	(A3)
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_0128:
 	RTE
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVEA.L	LAB_0155,A4
 	MOVEA.L	LAB_0154,A5
 	MOVE.L	LAB_015A,D4
@@ -3166,137 +3087,71 @@ SECSTRT_7:
 	SECTION S_8,CODE
 
 SECSTRT_8:
-	DC.W	$6175
-	MOVE.W	25445(A6),-(A0)
-	DC.W	$6c00
+	DC.B	"au1.cel",0
 LAB_0163:
-	DC.W	$6c69
-	MOVE.W	25445(A6),-(A0)
-	DC.W	$6c00
+	DC.B	"li1.cel",0
 LAB_0164:
-	DC.W	$6461
-	MOVE.W	25445(A6),-(A0)
-	DC.W	$6c00
+	DC.B	"da1.cel",0
 LAB_0165:
-	DC.W	$6477
-	MOVE.W	25445(A6),-(A0)
-	DC.W	$6c00
+	DC.B	"dw1.cel",0
 LAB_0166:
-	DC.W	$6861
-	MOVE.W	25445(A6),-(A0)
-	DC.W	$6c00
+	DC.B	"ha1.cel",0
 LAB_0167:
-	BLE.S	LAB_0175
-	MOVE.W	25445(A6),-(A0)
-	DC.W	$6c00
+	DC.B	"ov1.cel",0
 LAB_0168:
-	DC.W	$636f
-	MOVE.W	25445(A6),-(A0)
-	DC.W	$6c00
+	DC.B	"co1.cel",0
 LAB_0169:
-	DC.W	$6467
-	MOVE.W	25445(A6),-(A0)
-	DC.W	$6c00
+	DC.B	"dg1.cel",0
 LAB_016A:
-	BMI.S	LAB_0177+2
-	BVS.S	LAB_0176+4
-	MOVEQ	#49,D2
-	MOVEA.L	-(A3),A7
-	BCS.S	LAB_0178+4
-LAB_016B:
-	ORI.W	#$6734,-(A2)
-	DC.W	$2e70
-	BVS.S	LAB_0179+4
-LAB_016C:
-	ORI.W	#$6735,-(A2)
-	BSR.S	LAB_0172+2
-	MOVEQ	#105,D0
-	MOVEQ	#0,D3
+	DC.B	"klift1.cel",0
+L08_0004B:
+	DC.B	"bg4.piv",0
+L08_00053:
+	DC.B	"bg5a.piv",0
 LAB_016D:
-	DC.W	$6267
-	MOVE.W	28777(A6),-(A1)
-	MOVEQ	#0,D3
+	DC.B	"bg3.piv",0
 LAB_016E:
-	DC.W	$6267
-	MOVEA.W	-(A1),A1
-	DC.W	$2e70
-	BVS.S	LAB_017A
-LAB_016F:
-	ORI.W	#$6732,-(A2)
-	DC.W	$2e70
-	BVS.S	LAB_017B+2
-LAB_0170:
-	ORI.W	#$6735,-(A2)
-	DC.W	$2e70
-	BVS.S	LAB_017C+4
-LAB_0171:
-	ORI.W	#$6737,-(A2)
-	DC.W	$2e70
-	BVS.S	LAB_017D
-LAB_0172:
-	ORI.W	#$6738,-(A2)
-	DC.W	$2e70
-	BVS.S	LAB_017F
-	DC.W	$0000
+	DC.B	"bg2a.piv",0
+L08_0006D:
+	DC.B	"bg2.piv",0
+L08_00075:
+	DC.B	"bg5.piv",0
+L08_0007D:
+	DC.B	"bg7.piv",0
+L08_00085:
+	DC.B	"bg8.piv",0,0
 LAB_0174:
 	MOVEA.L	LAB_00CB,A0
 	MOVEA.L	LAB_00C8,A1
-	JSR	LAB_0268+2
-LAB_0175:
+	JSR	L10_00D6A
 	LEA	LAB_01CE,A0
-LAB_0176:
 	LEA	LAB_01CB,A1
-LAB_0177:
 	JSR	LAB_01B7
-LAB_0178:
 	MOVEA.L	LAB_00CC,A0
 	MOVEA.L	LAB_00C9,A1
-	JSR	LAB_0268+2
-LAB_0179:
+	JSR	L10_00D6A
 	LEA	LAB_01CF,A0
 	LEA	LAB_01CC,A1
 	JSR	LAB_01B7
 	MOVEA.L	LAB_00CD,A0
 	MOVEA.L	LAB_00CA,A1
-LAB_017A:
-	JSR	LAB_0268+2
-LAB_017B:
+	JSR	L10_00D6A
 	LEA	LAB_01D0,A0
-LAB_017C:
 	LEA	LAB_01CD,A1
 	JSR	LAB_01B7
-LAB_017D:
 	RTS
 LAB_017E:
-	DC.W	$6267
-	MOVE.W	-(A1),11888(A0)
-LAB_017F:
-	BVS.S	LAB_0187+2
-LAB_0180:
-	ORI.W	#$6731,-(A2)
-	BLS.S	LAB_0185+2
-	MOVEQ	#105,D0
-	MOVEQ	#0,D3
+	DC.B	"bg1a.piv",0
+L08_00105:
+	DC.B	"bg1c.piv",0
 LAB_0181:
-	DC.W	$6267
-	MOVE.W	-(A2),11888(A0)
-	BVS.S	LAB_0188+2
-LAB_0182:
-	ORI.W	#$6e74,29295(A1)
-	DC.W	$2e73
-	MOVEQ	#105,D2
-	DC.W	$6c65
-LAB_0183:
-	ORI.W	#$6f2e,-(A3)
-	DC.W	$7374
-	BVS.S	LAB_018A
-	DC.W	$6500
+	DC.B	"bg1b.piv",0
+L08_00117:
+	DC.B	"intro.stile",0
+L08_00123:
+	DC.B	"co.stile",0
 LAB_0184:
-	DC.W	$6d69
-	BGT.S	LAB_0189+4
-	DC.W	$7363
-	BSR.S	LAB_018B+2
-	DC.W	$6500
+	DC.B	"mindscape",0
 LAB_0185:
 	JSR	LAB_0258
 	MOVE.L	SECSTRT_30,D0
@@ -3309,25 +3164,20 @@ LAB_0185:
 	MOVE.L	LAB_00C8,D0
 	JSR	LAB_026C
 	LEA	LAB_017E,A0
-LAB_0187:
 	MOVEA.L	LAB_00C4,A1
 	JSR	LAB_0402
 	LEA	LAB_01CB,A0
-LAB_0188:
 	JSR	LAB_025B
-LAB_0189:
-	LEA	LAB_0182+1,A0
-LAB_018A:
+	LEA	L08_00117,A0
 	JSR	LAB_0390
 	MOVEA.L	#SECSTRT_33,A0
-LAB_018B:
 	MOVE.L	#$000003e8,D0
 	JSR	LAB_03B2
 	JSR	LAB_03DA
 	JSR	LAB_059E
 	MOVE.L	LAB_00C9,D0
 	JSR	LAB_026C
-	LEA	LAB_0180+1,A0
+	LEA	L08_00105,A0
 	MOVEA.L	LAB_00C4,A1
 	JSR	LAB_0402
 	JSR	LAB_059F
@@ -3343,7 +3193,7 @@ LAB_018B:
 	BNE.W	LAB_018C
 	MOVE.L	LAB_00CB,D0
 	JSR	LAB_026C
-	LEA	LAB_016B+1,A0
+	LEA	L08_0004B,A0
 	MOVEA.L	LAB_00C4,A1
 	JSR	LAB_0402
 	LEA	LAB_01CE,A0
@@ -3353,7 +3203,7 @@ LAB_018B:
 	BNE.W	LAB_018C
 	MOVE.L	LAB_00CC,D0
 	JSR	LAB_026C
-	LEA	LAB_016C+1,A0
+	LEA	L08_00053,A0
 	MOVEA.L	LAB_00C4,A1
 	JSR	LAB_0402
 	LEA	LAB_01CF,A0
@@ -3377,7 +3227,7 @@ LAB_018B:
 	BNE.W	LAB_018C
 	MOVE.L	LAB_00CE,D0
 	JSR	LAB_026C
-	LEA	LAB_016F+1,A0
+	LEA	L08_0006D,A0
 	MOVEA.L	LAB_00C4,A1
 	JSR	LAB_0402
 	LEA	LAB_01D1,A0
@@ -3481,25 +3331,20 @@ LAB_018B:
 LAB_018C:
 	RTS
 LAB_018D:
-	DC.W	$6d75
-	DC.W	$7369
-	BLS.S	LAB_018F
-	DC.W	$636d
-	MOVEQ	#0,D0
+	DC.B	"music.cmp",0
 LAB_018E:
 	MOVE.L	LAB_00CB,D0
 	JSR	LAB_026C
-	LEA	LAB_0170+1,A0
+	LEA	L08_00075,A0
 	MOVEA.L	LAB_00C4,A1
 	JSR	LAB_0402
 	LEA	LAB_01CE,A0
 	JSR	LAB_025B
-LAB_018F:
 	LEA	LAB_01CE,A0
 	JSR	LAB_01BE
 	MOVE.L	LAB_00CC,D0
 	JSR	LAB_026C
-	LEA	LAB_016C+1,A0
+	LEA	L08_00053,A0
 	MOVEA.L	LAB_00C4,A1
 	JSR	LAB_0402
 	LEA	LAB_01CF,A0
@@ -3529,14 +3374,14 @@ LAB_018F:
 	JSR	LAB_054D
 	MOVE.L	LAB_00C8,D0
 	JSR	LAB_026C
-	LEA	LAB_0171+1,A0
+	LEA	L08_0007D,A0
 	MOVEA.L	LAB_00C4,A1
 	JSR	LAB_0402
 	LEA	LAB_01CB,A0
 	JSR	LAB_025B
 	MOVE.L	LAB_00C9,D0
 	JSR	LAB_026C
-	LEA	LAB_0172+1,A0
+	LEA	L08_00085,A0
 	MOVEA.L	LAB_00C4,A1
 	JSR	LAB_0402
 	LEA	LAB_01CC,A0
@@ -3600,7 +3445,7 @@ LAB_018F:
 	MOVE.L	A1,LAB_0121
 	LEA	LAB_0167,A0
 	JSR	LAB_0496
-	LEA	LAB_0183+1,A0
+	LEA	L08_00123,A0
 	JSR	LAB_0390
 	MOVEA.L	#SECSTRT_33,A0
 	MOVE.L	#$000003e8,D0
@@ -3698,11 +3543,9 @@ LAB_019D:
 LAB_019E:
 	RTS
 LAB_019F:
-	DC.W	$0a03
-	DC.W	$0202
+	DC.L	$0a030202
 LAB_01A0:
-	DC.W	$0e07
-	DC.W	$0401
+	DC.L	$0e070401
 LAB_01A1:
 	LSL.B	#1,D3
 	BNE.S	LAB_01A2
@@ -3728,17 +3571,16 @@ LAB_01A6:
 	ROXL.W	#1,D6
 	DBF	D1,LAB_01A6
 LAB_01A7:
-	MOVE.B	LAB_01A9+1(PC,D0.W),D1
+	MOVE.B	L08_008B3(PC,D0.W),D1
 	EXT.W	D1
 	ADD.W	D1,D6
 	RTS
 LAB_01A8:
-	DC.W	$0a02
-	BTST	D0,D0
-LAB_01A9:
-	DC.W	$000a
-	DC.W	$0604
-	BTST	D1,D2
+	DC.L	$0a020100
+	DS.B	1
+L08_008B3:
+	DC.B	$0a
+	DC.L	$06040302
 LAB_01AA:
 	MOVEQ	#0,D7
 	CMP.W	#$0002,D6
@@ -3773,12 +3615,9 @@ LAB_01AF:
 	ADD.W	D1,D7
 	RTS
 LAB_01B0:
-	BTST	D5,D4
-	BTST	D3,D0
+	DC.L	$0b040700
 LAB_01B1:
-	BTST	D0,-(A0)
-	ORI.B	#$20,D0
-	DC.W	$0000
+	DC.L	$01200000,$00200000
 LAB_01B2:
 	MOVE.L	A0,D2
 	SUB.L	A1,D2
@@ -3795,14 +3634,9 @@ LAB_01B4:
 LAB_01B5:
 	MOVEM.L	(A7)+,D1-D7/A0-A6
 	RTS
-	RTS
+	DC.W	$4e75
 LAB_01B6:
-	MOVEQ	#109,D3
-	DC.W	$7573
-	DC.W	$6963
-	MOVEA.L	-(A3),A7
-	BLT.S	LAB_01BB+4
-	DC.W	$0000
+	DC.B	"vmusic.cmp",0,0
 LAB_01B7:
 	MOVEQ	#31,D0
 LAB_01B8:
@@ -3828,7 +3662,6 @@ LAB_01BA:
 	MOVE.W	#$0222,30(A0)
 	MOVE.W	#$0444,46(A0)
 	MOVE.W	#$0111,SECSTRT_9
-LAB_01BB:
 	MOVE.W	#$0333,LAB_01C9
 	MOVE.W	#$0555,LAB_01CA
 	BRA.W	LAB_01BD
@@ -3878,6 +3711,9 @@ LAB_01C1:
 	MOVE.W	#$0040,(A0)
 LAB_01C2:
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 LAB_01C3:
 	MOVE.B	(A0)+,D2
 	MOVEQ	#7,D3
@@ -3894,6 +3730,9 @@ LAB_01C4:
 	SUBA.W	D4,A3
 	ROL.W	#6,D1
 	JMP	LAB_01C5(PC,D1.W)
+; ------------------------------------------------------------------------------
+; [TABLE] cible de saut calculé JMP d8(PC,Dn)
+; ------------------------------------------------------------------------------
 LAB_01C5:
 	MOVE.B	(A3)+,(A2)+
 	MOVE.B	(A3)+,(A2)+
@@ -4002,6 +3841,9 @@ SECSTRT_10:
 	MOVE.L	#LAB_0286,LAB_027A
 	MOVE.L	#LAB_0287,LAB_0279
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVE.L	#$00000027,D7
 	LEA	LAB_0282,A6
 LAB_01D4:
@@ -4029,6 +3871,9 @@ LAB_01D6:
 	MOVE.B	#$01,1(A6)
 	MOVEQ	#0,D0
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVE.L	#$00000027,D7
 	LEA	LAB_0282,A6
 LAB_01D7:
@@ -4077,6 +3922,9 @@ LAB_01DD:
 	MOVE.B	#$01,1(A6)
 	MOVEQ	#0,D0
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 LAB_01DE:
 	MOVE.L	A6,-(A7)
 	LEA	LAB_0282,A6
@@ -4093,6 +3941,9 @@ LAB_01E0:
 	MOVE.L	A6,D0
 	MOVEA.L	(A7)+,A6
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	BSR.W	LAB_01DE
 	TST.L	D0
 	BEQ.S	LAB_01E1
@@ -4100,6 +3951,9 @@ LAB_01E0:
 	EORI.W	#$0001,40(A6)
 LAB_01E1:
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVE.L	#$00000027,D7
 	LEA	LAB_0282,A6
 LAB_01E2:
@@ -4466,6 +4320,9 @@ LAB_0214:
 	BNE.W	LAB_020F
 	MOVEM.L	(A7)+,D0-D2/A0-A2
 	RTS
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_0215:
 	CMPI.B	#$ff,1(A6)
 	BNE.S	LAB_0216
@@ -4476,6 +4333,9 @@ LAB_0216:
 LAB_0217:
 	ADDI.L	#$00000002,2(A1)
 	RTS
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_0218:
 	CMPI.B	#$03,1(A6)
 	BNE.S	LAB_0219
@@ -4487,6 +4347,9 @@ LAB_0219:
 	MOVE.B	#$01,16(A5)
 	ADDI.L	#$00000006,2(A1)
 	RTS
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_021A:
 	MOVEA.L	36(A1),A5
 	TST.B	1(A6)
@@ -4506,9 +4369,15 @@ LAB_021D:
 	ADDI.L	#$00000002,2(A1)
 	MOVE.L	2(A1),2(A5)
 	RTS
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_021E:
 	ADDI.L	#$00000008,2(A1)
 	RTS
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_021F:
 	MOVEA.L	36(A1),A5
 	MOVE.B	1(A6),6(A5)
@@ -4516,14 +4385,23 @@ LAB_021F:
 	ADDI.L	#$00000002,2(A1)
 	MOVE.L	2(A1),8(A5)
 	RTS
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_0220:
 	RTS
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_0221:
 	MOVEM.L	A0-A1/A6,-(A7)
 	MOVE.B	1(A6),D0
 	ADDI.L	#$00000004,2(A1)
 	MOVEM.L	(A7)+,A0-A1/A6
 	RTS
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_0222:
 	BTST	#6,1(A6)
 	BEQ.S	LAB_0223
@@ -4569,14 +4447,19 @@ LAB_022B:
 	ADDI.L	#$00000008,2(A1)
 	RTS
 LAB_022C:
-	RTS
+	DC.W	$4e75
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_022D:
 	RTS
 LAB_022E:
 	RTS
-	DC.W	$0000
-	RTS
-	RTS
+	DC.L	$00004e75
+	DC.W	$4e75
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_022F:
 	MOVEM.L	D0-D7/A0-A6,-(A7)
 	TST.B	1(A6)
@@ -4602,25 +4485,43 @@ LAB_0231:
 	MOVEM.L	(A7)+,D0-D7/A0-A6
 	ADDI.L	#$00000006,2(A1)
 	RTS
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_0232:
 	ADDI.L	#$00000006,2(A1)
 	RTS
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_0233:
 	ADDI.L	#$00000006,2(A1)
 	RTS
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_0234:
 	ADDI.L	#$00000006,2(A1)
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVEA.L	2(A6),A0
 	MOVE.W	6(A6),D0
 	MOVE.W	8(A6),D1
 	MOVE.W	10(A6),D2
 	MOVE.B	22(A6),D3
 	RTS
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_0235:
 	MOVE.W	#$0000,0(A1)
 	ADDI.L	#$00000002,2(A1)
 	RTS
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_0236:
 	LEA	LAB_0281,A5
 	MOVEQ	#0,D0
@@ -4630,6 +4531,9 @@ LAB_0236:
 	MOVE.L	0(A5,D0.W),28(A1)
 	ADDI.L	#$00000002,2(A1)
 	RTS
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_0237:
 	MOVEA.L	24(A1),A5
 	MOVE.W	2(A6),D0
@@ -4654,6 +4558,9 @@ LAB_0239:
 LAB_023A:
 	ADDI.L	#$00000008,2(A1)
 	RTS
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_023B:
 	MOVEA.L	24(A1),A5
 	MOVE.W	2(A6),D0
@@ -4678,6 +4585,9 @@ LAB_023D:
 LAB_023E:
 	ADDI.L	#$00000008,2(A1)
 	RTS
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_023F:
 	MOVEA.L	36(A1),A5
 	MOVE.L	#$0000002f,D7
@@ -4686,6 +4596,9 @@ LAB_0240:
 	DBF	D7,LAB_0240
 	ADDI.L	#$00000002,2(A1)
 	RTS
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_0241:
 	RTS
 LAB_0242:
@@ -4795,6 +4708,9 @@ LAB_024C:
 	MOVE.B	#$ff,(A0)+
 	DBF	D0,LAB_024C
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVEQ	#0,D0
 	MOVE.W	10(A1),D1
 	MOVE.W	10(A0),D2
@@ -4807,7 +4723,7 @@ LAB_024D:
 	MOVEQ	#1,D0
 LAB_024E:
 	RTS
-	DC.W	$0000
+	DS.W	1
 LAB_024F:
 	TST.W	LAB_0273
 	BNE.S	LAB_0250
@@ -4836,6 +4752,9 @@ LAB_0253:
 	MOVE.W	D3,LAB_0272
 LAB_0254:
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	CMP.L	D0,D2
 	BMI.S	LAB_0256
 	CMP.L	D1,D2
@@ -4899,8 +4818,8 @@ LAB_0260:
 	JSR	LAB_054F
 	RTS
 LAB_0261:
-	ORI.B	#$02,D0
-	DC.W	$0000
+	DC.L	$00000002
+	DS.W	1
 LAB_0262:
 	JSR	LAB_054C
 	MOVE.L	LAB_0279,D0
@@ -4939,25 +4858,28 @@ LAB_0265:
 	JSR	LAB_04F6
 	RTS
 LAB_0266:
-	DC.W	$0007
-	DC.W	$5a3c
+	DC.L	$00075a3c
 LAB_0267:
-	DC.W	$0006
-LAB_0268:
-	CMPA.L	8252(PC),A6
-	DC.W	$0000
-	MOVE.L	(A0),-(A3)
+	DC.L	$0006bdfa
+L10_00D6A:
+	MOVE.L	#$00002710,D0
 LAB_0269:
 	MOVE.L	(A0)+,(A1)+
 	SUBQ.L	#1,D0
 	BNE.S	LAB_0269
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVE.L	#$00001f40,D0
 LAB_026A:
 	MOVE.L	(A0)+,(A1)+
 	SUBQ.L	#1,D0
 	BNE.S	LAB_026A
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVE.L	#$0000001f,D0
 	LEA	LAB_0275,A2
 LAB_026B:
@@ -4976,30 +4898,13 @@ LAB_026C:
 	MOVEA.L	D0,A5
 	JSR	LAB_04A6
 	RTS
-	RTS
-	RTS
-	RTS
+	DC.B	"NuNuNu"
 LAB_026D:
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	DC.W	$0000
+	DS.L	16
+	DS.W	1
 LAB_026E:
 	JMP	LAB_04A8
-	DC.W	$0000
+	DS.W	1
 
 
 	SECTION S_11,BSS
@@ -5064,6 +4969,9 @@ LAB_0288:
 	SECTION S_12,CODE
 
 SECSTRT_12:
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVE.W	#$0001,LAB_04DF
 	MOVE.L	A0,LAB_00F7
 	MOVE.W	D0,LAB_00F3
@@ -5080,6 +4988,9 @@ SECSTRT_12:
 	MOVE.W	D1,LAB_00F3
 	MOVE.W	D1,LAB_00F5
 	MOVE.L	#$00000000,LAB_028D
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_0289:
 	EOR.L	D0,D0
 	MOVEA.L	LAB_00F7,A0
@@ -5127,9 +5038,9 @@ LAB_028C:
 	MOVE.W	LAB_00F2,D1
 	RTS
 LAB_028D:
-	ORI.B	#$00,D0
+	DS.L	1
 LAB_028E:
-	DC.W	$0000
+	DS.W	1
 LAB_028F:
 	MOVE.W	#$0001,LAB_04DF
 	CMPA.L	#$00000000,A0
@@ -5200,7 +5111,7 @@ LAB_0295:
 	MOVE.W	#$0000,LAB_04DF
 	RTS
 LAB_0296:
-	ORI.B	#$00,D0
+	DS.L	1
 LAB_0297:
 	MOVE.W	#$0000,LAB_029A
 	EOR.L	D0,D0
@@ -5228,7 +5139,10 @@ LAB_0299:
 	MOVE.W	LAB_029A,D0
 	RTS
 LAB_029A:
-	DC.W	$0000
+	DS.W	1
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	LEA	LAB_029E,A0
 	MOVE.L	D0,D2
 	MOVE.L	D0,D1
@@ -5258,23 +5172,9 @@ LAB_029D:
 	MOVE.B	0(A0,D0.W),(A2)+
 	RTS
 LAB_029E:
-	DC.W	$3031
-	DC.W	$3233
-	DC.W	$3435
-	MOVE.W	57(A7,D3.L),D3
-	MOVE.L	D0,D0
-	DIVU	#$03e8,D0
-	BSR.S	LAB_029F
-	DIVU	#$0064,D0
-	BSR.S	LAB_029F
-	DIVU	#$000a,D0
-	BSR.W	LAB_029F
-LAB_029F:
-	ADDI.W	#$0030,D0
-	MOVE.B	D0,(A2)+
-	CLR.W	D0
-	SWAP	D0
-	RTS
+	DC.L	$30313233,$34353637,$38392000,$80fc03e8
+	DC.L	$610e80fc,$00646108,$80fc000a,$61000002
+	DC.L	$06400030,$14c04240,$48404e75
 LAB_02A0:
 	MOVEA.L	LAB_027C,A5
 	MOVE.W	D1,0(A5)
@@ -5284,12 +5184,15 @@ LAB_02A0:
 	MOVE.W	#$ffff,12(A5)
 	ADDI.L	#$00000008,LAB_027C
 	RTS
-	ORI.B	#$00,D0
+	DS.L	1
 
 
 	SECTION S_13,CODE
 
 SECSTRT_13:
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 	MOVE.W	#$0001,LAB_02B3
 	BRA.S	LAB_02A3
 LAB_02A2:
@@ -5376,23 +5279,9 @@ LAB_02AC:
 	DBF	D2,LAB_02AC
 	BRA.W	LAB_02B2
 LAB_02AD:
-	MOVE.L	USP,A7
-	MOVEA.L	A5,A0
-	BSR.S	LAB_02B7
-	BLS.S	LAB_02B6+2
-	MOVEA.L	D5,A0
-	MOVEQ	#114,D1
-	BLE.S	LAB_02B8
-	MOVE.L	0(A6),D7
+	DC.B	"No Match Error..",0,0
 LAB_02AE:
-	DC.W	$4368
-	DC.W	$6563
-	DC.W	$6b73
-	DC.W	$756d
-	MOVEA.L	D5,A0
-	MOVEQ	#114,D1
-	BLE.S	LAB_02BA+4
-	MOVE.L	0(A6),D7
+	DC.B	"Checksum Error..",0,0
 LAB_02AF:
 	MOVE.L	A0,-(A7)
 	LEA	LAB_02AD,A0
@@ -5412,25 +5301,24 @@ LAB_02B2:
 	MOVEM.L	(A7)+,D0-D7/A0-A6
 	RTS
 LAB_02B3:
-	DC.W	$0000
+	DS.W	1
 LAB_02B4:
 	MOVE.W	#$0001,LAB_02B3
 	BRA.S	LAB_02BE
 LAB_02B5:
 	MOVEM.L	D0/A6,-(A7)
-LAB_02B6:
 	TST.W	LAB_02BC
 	BLT.S	LAB_02B9
 	DIVU	#$000b,D0
-LAB_02B7:
 	CMP.W	LAB_02BC,D0
-LAB_02B8:
 	BEQ.S	LAB_02B9
 	JSR	LAB_02E8
 LAB_02B9:
 	MOVEM.L	(A7)+,D0/A6
 	RTS
-LAB_02BA:
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	TST.W	LAB_02BC
 	BLT.S	LAB_02BB
 	MOVE.W	#$ffff,LAB_02BC
@@ -5725,6 +5613,9 @@ LAB_02DC:
 	ANDI.L	#$55555555,D0
 	MOVE.L	(A7)+,D2
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVEM.L	D1-D3/A2,-(A7)
 	MOVEA.L	A1,A2
 	ADDA.L	D0,A2
@@ -5904,7 +5795,10 @@ LAB_02F4:
 	MOVEM.L	(A7)+,D0-D7/A0-A6
 	RTS
 LAB_02F5:
-	DC.W	$0000
+	DS.W	1
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVE.W	#$0001,LAB_02F5
 	JSR	LAB_0314
 	JSR	LAB_02FF
@@ -6095,17 +5989,19 @@ LAB_0311:
 	BEQ.S	LAB_0311
 	RTS
 LAB_0312:
-	ORI.B	#$00,D0
+	DS.W	1
+L13_00B32:
+	DS.W	1
 LAB_0314:
 	MOVEM.L	D0-D1,-(A7)
 	MOVE.W	LAB_0312,D0
-	CMP.W	LAB_0312+2,D0
+	CMP.W	L13_00B32,D0
 	BEQ.S	LAB_0315
 	MOVE.W	LAB_0312,-(A7)
-	MOVE.W	LAB_0312+2,LAB_0312
+	MOVE.W	L13_00B32,LAB_0312
 	JSR	LAB_0316
 	MOVE.W	(A7)+,LAB_0312
-	MOVE.W	D0,LAB_0312+2
+	MOVE.W	D0,L13_00B32
 	MOVE.W	#$ffff,SECSTRT_14
 LAB_0315:
 	MOVE.B	#$ff,CIAB_DDRB
@@ -6156,7 +6052,7 @@ LAB_0319:
 	DBF	D0,LAB_0318
 	MOVEM.L	(A7)+,D0-D7/A0-A6
 	RTS
-	DC.W	$0000
+	DS.W	1
 
 
 	SECTION S_14,DATA
@@ -6175,7 +6071,10 @@ LAB_031D:
 	SECTION S_15,CODE
 
 SECSTRT_15:
-	TST.W	LAB_038C+2
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
+	TST.W	L18_0003A
 	BNE.S	LAB_031F
 	TST.W	LAB_038D
 	BLT.S	LAB_031F
@@ -6197,11 +6096,17 @@ LAB_0321:
 LAB_0322:
 	MOVEM.L	(A7)+,A0-A1
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVE.W	#$0000,SECSTRT_16
 LAB_0323:
 	CMPI.W	#$0000,SECSTRT_16
 	BEQ.W	LAB_0323
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 LAB_0324:
 	CMPI.W	#$0000,LAB_0367
 	BNE.W	LAB_0324
@@ -6224,6 +6129,9 @@ LAB_0325:
 	MOVE.W	#$a06a,INTENA
 	JSR	LAB_0557
 	RTS
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_0326:
 	MOVEM.L	D0,-(A7)
 	MOVE.W	INTREQR,D0
@@ -6242,6 +6150,9 @@ LAB_0328:
 LAB_0329:
 	MOVEM.L	(A7)+,D0
 	RTE
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_032A:
 	MOVEM.L	D0-D2/A0-A1,-(A7)
 	MOVEA.L	#$00dff000,A0
@@ -6282,6 +6193,9 @@ LAB_032C:
 LAB_032D:
 	MOVEM.L	(A7)+,D0-D2/A0-A1
 	RTE
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVEM.L	D0,-(A7)
 	MOVE.W	INTREQR,D0
 	BTST	#3,D0
@@ -6309,6 +6223,9 @@ LAB_032F:
 LAB_0330:
 	MOVEM.L	(A7)+,D0
 	RTE
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_0331:
 	TST.W	LAB_0373
 	BNE.S	LAB_0332
@@ -6347,7 +6264,10 @@ LAB_0335:
 LAB_0336:
 	MOVEM.L	(A7)+,D0
 	RTE
-	DC.W	$0000
+	DS.W	1
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_0337:
 	MOVEM.L	D0/A0,-(A7)
 	MOVE.W	INTREQR,D0
@@ -6377,6 +6297,9 @@ LAB_033A:
 LAB_033B:
 	MOVEM.L	(A7)+,D0/A0
 	RTE
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_033C:
 	MOVEM.L	D0,-(A7)
 	MOVE.W	INTREQR,D0
@@ -6391,6 +6314,9 @@ LAB_033D:
 LAB_033E:
 	MOVEM.L	(A7)+,D0
 	RTE
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_033F:
 	MOVEM.L	D0,-(A7)
 	MOVE.W	INTREQR,D0
@@ -6407,6 +6333,9 @@ LAB_0340:
 LAB_0341:
 	MOVEM.L	(A7)+,D0
 	RTE
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_0342:
 	MOVEM.L	D0-D7/A0-A6,-(A7)
 	CLR.L	D0
@@ -6449,6 +6378,9 @@ LAB_0346:
 LAB_0347:
 	MOVEM.L	(A7)+,D0-D7/A0-A6
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVEM.L	D0-D2,-(A7)
 	MOVE.W	JOY1DAT,D0
 	CLR.W	D1
@@ -6583,6 +6515,9 @@ LAB_035F:
 	MOVE.W	#$0000,SECSTRT_16
 	MOVEM.L	(A7)+,D0-D7/A0-A6
 	RTS
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_0360:
 	RTS
 
@@ -6658,63 +6593,75 @@ LAB_037A:
 	SECTION S_18,CODE
 
 SECSTRT_18:
-	ORI.B	#$00,D0
-LAB_037D:
-	ORI.B	#$00,D0
-LAB_037E:
-	ORI.B	#$00,D0
-LAB_037F:
-	ORI.B	#$00,D0
-LAB_0380:
-	ORI.B	#$00,D0
-LAB_0381:
-	ORI.B	#$00,D0
-LAB_0382:
-	ORI.B	#$00,D0
+	DS.W	1
+L18_00002:
+	DS.L	1
+L18_00006:
+	DS.L	1
+L18_0000A:
+	DS.L	1
+L18_0000E:
+	DS.L	1
+L18_00012:
+	DS.L	1
+L18_00016:
+	DS.L	1
+L18_0001A:
+	DS.W	1
 LAB_0383:
-	ORI.B	#$00,D0
+	DS.W	1
+L18_0001E:
+	DS.W	1
 LAB_0385:
-	ORI.B	#$00,D0
+	DS.L	1
 LAB_0386:
-	ORI.B	#$00,D0
-LAB_0388:
-	ORI.B	#$00,D0
-LAB_0389:
-	ORI.B	#$00,D0
-LAB_038A:
-	ORI.B	#$00,D0
-LAB_038B:
-	ORI.B	#$00,D0
-LAB_038C:
-	ORI.B	#$00,D0
+	DS.W	1
+L18_00026:
+	DS.L	1
+L18_0002A:
+	DS.L	1
+L18_0002E:
+	DS.L	1
+L18_00032:
+	DS.L	1
+L18_00036:
+	DS.L	1
+L18_0003A:
+	DS.W	1
 LAB_038D:
-	ORI.B	#$00,D0
+	DS.W	1
+L18_0003E:
+	DS.W	1
 LAB_038F:
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVE.W	#$0032,LAB_038D
-	MOVE.W	#$0001,LAB_038C+2
+	MOVE.W	#$0001,L18_0003A
 	JSR	LAB_0314
 	LEA	SECSTRT_19,A6
 	MOVE.L	#$00000370,D0
-	MOVE.W	#$0001,LAB_038D+2
+	MOVE.W	#$0001,L18_0003E
 	JSR	LAB_02A2
-	CLR.W	LAB_038C+2
+	CLR.W	L18_0003A
 	RTS
-	CLR.W	LAB_038D+2
-	RTS
-	MOVE.W	#$0001,LAB_0383
-	BRA.S	LAB_0391
+	DC.W	$4279
+	DC.L	L18_0003E
+	DC.L	$4e7533fc
+	DC.W	$0001
+	DC.L	LAB_0383
+	DC.W	$600c
 LAB_0390:
-	MOVE.L	A0,LAB_0386+2
+	MOVE.L	A0,L18_00026
 	CLR.W	LAB_0383
-LAB_0391:
-	CLR.W	LAB_0382+2
+	CLR.W	L18_0001A
 	TST.W	LAB_038D
 	BGT.S	LAB_0392
 	JSR	LAB_0314
 LAB_0392:
-	MOVE.W	#$0001,LAB_038C+2
-	MOVE.L	#LAB_03E6,LAB_0380+2
+	MOVE.W	#$0001,L18_0003A
+	MOVE.L	#LAB_03E6,L18_00012
 	MOVEA.L	A0,A1
 	MOVEQ	#0,D1
 LAB_0393:
@@ -6744,10 +6691,10 @@ LAB_0397:
 	SWAP	D1
 	MOVE.W	D1,SECSTRT_18
 	MOVE.L	A0,-(A7)
-	TST.W	LAB_038D+2
+	TST.W	L18_0003E
 	BEQ.S	LAB_0399
 	LEA	SECSTRT_19,A0
-	MOVEA.L	LAB_0380+2(PC),A1
+	MOVEA.L	L18_00012(PC),A1
 	MOVEQ	#63,D7
 LAB_0398:
 	MOVE.L	(A0)+,(A1)+
@@ -6755,22 +6702,22 @@ LAB_0398:
 	DBF	D7,LAB_0398
 	BRA.S	LAB_039A
 LAB_0399:
-	MOVEA.L	LAB_0380+2(PC),A6
+	MOVEA.L	L18_00012(PC),A6
 	MOVE.L	#$00000370,D0
 	JSR	LAB_02A2
 LAB_039A:
-	MOVEA.L	LAB_0380+2(PC),A0
+	MOVEA.L	L18_00012(PC),A0
 	MOVE.W	SECSTRT_18(PC),D0
 	LSL.W	#2,D0
-	MOVE.W	D0,LAB_0383+2
-	ADDI.W	#$0018,LAB_0383+2
+	MOVE.W	D0,L18_0001E
+	ADDI.W	#$0018,L18_0001E
 	MOVE.L	24(A0,D0.W),D0
 	MOVE.L	D0,-(A7)
 	TST.W	D0
 	BEQ.W	LAB_03A1
 	MOVE.L	D0,LAB_0385
-	CLR.W	LAB_0383+2
-	MOVEA.L	LAB_0380+2(PC),A6
+	CLR.W	L18_0001E
+	MOVEA.L	L18_00012(PC),A6
 	JSR	LAB_02A2
 	MOVEA.L	4(A7),A0
 	MOVEA.L	A0,A3
@@ -6781,7 +6728,7 @@ LAB_039B:
 	TST.B	(A0)+
 	BNE.S	LAB_039B
 	MOVEA.L	(A7)+,A0
-	MOVEA.L	LAB_0380+2(PC),A1
+	MOVEA.L	L18_00012(PC),A1
 	LEA	433(A1),A1
 	MOVEA.L	A1,A2
 	MOVE.B	-1(A1),D7
@@ -6818,33 +6765,33 @@ LAB_03A0:
 	MOVEA.L	A3,A0
 	MOVEM.L	D6/A0-A3,-(A7)
 	MOVE.L	D0,LAB_0385
-	MOVEA.L	LAB_0380+2(PC),A6
+	MOVEA.L	L18_00012(PC),A6
 	JSR	LAB_02A2
 	MOVEM.L	(A7)+,D6/A0-A3
 	MOVE.B	-1(A1),D7
 	BRA.S	LAB_039C
 LAB_03A1:
 	ADDQ.L	#8,A7
-	MOVE.W	#$ffff,LAB_0382+2
+	MOVE.W	#$ffff,L18_0001A
 	JSR	LAB_0316
 LAB_03A2:
 	RTS
 LAB_03A3:
 	MOVE.L	(A7)+,D0
-	MOVE.L	D0,SECSTRT_18+2
-	MOVE.L	D0,LAB_0381+2
-	CLR.L	LAB_037D+2
-	CLR.L	LAB_037E+2
+	MOVE.L	D0,L18_00002
+	MOVE.L	D0,L18_00016
+	CLR.L	L18_00006
+	CLR.L	L18_0000A
 	ADDQ.L	#4,A7
-	CLR.W	LAB_0382+2
-	MOVEA.L	LAB_0380+2(PC),A1
-	MOVE.L	324(A1),LAB_037F+2
+	CLR.W	L18_0001A
+	MOVEA.L	L18_00012(PC),A1
+	MOVE.L	324(A1),L18_0000E
 	TST.W	LAB_0383
 	BEQ.S	LAB_03A6
-	CLR.L	LAB_0381+2
+	CLR.L	L18_00016
 	LEA	LAB_03ED,A1
 LAB_03A4:
-	MOVEA.L	LAB_0380+2(PC),A0
+	MOVEA.L	L18_00012(PC),A0
 	MOVE.L	504(A0),D0
 	ADDA.L	#$00000134,A0
 	MOVEQ	#71,D7
@@ -6854,13 +6801,16 @@ LAB_03A5:
 	DBF	D7,LAB_03A5
 	TST.L	D0
 	BEQ.S	LAB_03A6
-	MOVEA.L	LAB_0380+2(PC),A6
+	MOVEA.L	L18_00012(PC),A6
 	MOVE.L	A1,-(A7)
 	JSR	LAB_02A2
 	MOVEA.L	(A7)+,A1
 	BRA.S	LAB_03A4
 LAB_03A6:
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 LAB_03A7:
 	LEA	LAB_03EE,A0
 	MOVEQ	#2,D0
@@ -6881,10 +6831,13 @@ LAB_03AA:
 	BCLR	D2,D1
 	MOVE.L	D1,-4(A0)
 	RTS
-	CLR.L	LAB_038B+2
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
+	CLR.L	L18_00036
 	MOVE.W	#$0001,LAB_03DD
 	JSR	LAB_0390(PC)
-	TST.W	LAB_0382+2
+	TST.W	L18_0001A
 	BLT.S	LAB_03AB
 	CLR.W	LAB_0386
 	RTS
@@ -6894,10 +6847,10 @@ LAB_03AB:
 	LEA	LAB_03ED,A6
 	LEA	SECSTRT_19,A5
 	MOVE.L	316(A5),D0
-	MOVE.L	D0,LAB_0388+2
+	MOVE.L	D0,L18_0002A
 	JSR	SECSTRT_13
 	JSR	LAB_03A7(PC)
-	MOVE.W	LAB_0383+2(PC),D7
+	MOVE.W	L18_0001E(PC),D7
 	TST.W	D7
 	BEQ.S	LAB_03AC
 	LEA	SECSTRT_19,A6
@@ -6925,7 +6878,7 @@ LAB_03AD:
 LAB_03AE:
 	CLR.L	(A2)+
 	DBF	D7,LAB_03AE
-	MOVEA.L	LAB_0386+2(PC),A0
+	MOVEA.L	L18_00026(PC),A0
 	LEA	433(A1),A2
 	MOVEQ	#0,D1
 LAB_03AF:
@@ -6938,10 +6891,10 @@ LAB_03AF:
 LAB_03B0:
 	MOVE.B	D1,432(A1)
 	MOVE.L	D0,4(A1)
-	MOVE.L	D0,LAB_0389+2
+	MOVE.L	D0,L18_0002E
 	JSR	LAB_03A7(PC)
 	MOVE.L	D0,16(A1)
-	MOVE.L	D0,LAB_038A+2
+	MOVE.L	D0,L18_00032
 	CLR.L	LAB_03E7
 	CLR.L	LAB_03E9
 	CLR.L	LAB_03EA
@@ -6955,16 +6908,16 @@ LAB_03B2:
 	CLR.W	LAB_03C7
 LAB_03B3:
 	MOVEM.L	D0/A0,-(A7)
-	MOVE.L	SECSTRT_18+2(PC),D0
-	CMP.L	LAB_0381+2(PC),D0
+	MOVE.L	L18_00002(PC),D0
+	CMP.L	L18_00016(PC),D0
 	BEQ.S	LAB_03B4
-	MOVEA.L	LAB_0380+2(PC),A6
+	MOVEA.L	L18_00012(PC),A6
 	JSR	LAB_02A2
-	MOVE.L	SECSTRT_18+2(PC),LAB_0381+2
+	MOVE.L	L18_00002(PC),L18_00016
 LAB_03B4:
 	MOVEM.L	(A7)+,D0/A0
-	MOVEA.L	LAB_0380+2(PC),A1
-	MOVE.L	SECSTRT_18+2(PC),D1
+	MOVEA.L	L18_00012(PC),A1
+	MOVE.L	L18_00002(PC),D1
 	CMP.L	4(A1),D1
 	BNE.S	LAB_03B6
 	MOVE.L	324(A1),D1
@@ -6973,13 +6926,13 @@ LAB_03B4:
 	MOVE.L	D1,D0
 LAB_03B5:
 	MOVE.L	16(A1),D7
-	MOVE.L	324(A1),LAB_037F+2
-	MOVE.L	D7,SECSTRT_18+2
+	MOVE.L	324(A1),L18_0000E
+	MOVE.L	D7,L18_00002
 	BRA.S	LAB_03B7
 LAB_03B6:
 	MOVEQ	#0,D7
-	MOVE.L	LAB_037F+2(PC),D1
-	SUB.L	LAB_037E+2(PC),D1
+	MOVE.L	L18_0000E(PC),D1
+	SUB.L	L18_0000A(PC),D1
 	CMP.L	D1,D0
 	BLE.S	LAB_03B7
 	MOVE.L	D1,D0
@@ -6989,28 +6942,28 @@ LAB_03B7:
 	MOVEM.L	D0/A0,-(A7)
 	TST.W	D7
 	BEQ.S	LAB_03B8
-	MOVEA.L	LAB_0380+2(PC),A6
-	MOVE.L	SECSTRT_18+2(PC),D0
-	MOVE.L	D0,LAB_0381+2
+	MOVEA.L	L18_00012(PC),A6
+	MOVE.L	L18_00002(PC),D0
+	MOVE.L	D0,L18_00016
 	JSR	LAB_02A2
 	MOVEQ	#0,D7
 LAB_03B8:
 	MOVEM.L	(A7)+,D0/A0
-	MOVEA.L	LAB_0380+2(PC),A1
+	MOVEA.L	L18_00012(PC),A1
 	ADDA.L	#$00000018,A1
-	ADDA.L	LAB_037D+2(PC),A1
+	ADDA.L	L18_00006(PC),A1
 	MOVE.L	#$000001e8,D1
-	SUB.L	LAB_037D+2(PC),D1
+	SUB.L	L18_00006(PC),D1
 	CMP.L	D1,D0
 	BGT.S	LAB_03BF
-	ADD.L	D0,LAB_037D+2
-	CMPI.L	#$000001e8,LAB_037D+2
+	ADD.L	D0,L18_00006
+	CMPI.L	#$000001e8,L18_00006
 	BLT.S	LAB_03B9
-	MOVEA.L	LAB_0380+2(PC),A5
-	MOVE.L	16(A5),SECSTRT_18+2
-	CLR.L	LAB_037D+2
+	MOVEA.L	L18_00012(PC),A5
+	MOVE.L	16(A5),L18_00002
+	CLR.L	L18_00006
 LAB_03B9:
-	ADD.L	D0,LAB_037E+2
+	ADD.L	D0,L18_0000A
 	TST.W	LAB_03C7
 	BNE.S	LAB_03BC
 	MOVE.W	A0,D1
@@ -7039,10 +6992,10 @@ LAB_03BE:
 	BNE.S	LAB_03BA
 	RTS
 LAB_03BF:
-	CLR.L	LAB_037D+2
-	MOVEA.L	LAB_0380+2(PC),A5
-	MOVE.L	16(A5),SECSTRT_18+2
-	ADD.L	D1,LAB_037E+2
+	CLR.L	L18_00006
+	MOVEA.L	L18_00012(PC),A5
+	MOVE.L	16(A5),L18_00002
+	ADD.L	D1,L18_0000A
 	SUB.L	D1,D0
 	TST.W	LAB_03C7
 	BNE.S	LAB_03C4
@@ -7076,38 +7029,41 @@ LAB_03C5:
 	MOVE.W	#$0001,LAB_03C7
 	TST.W	LAB_0383
 	BEQ.W	LAB_03B3
-	MOVE.L	LAB_037E+2(PC),D1
+	MOVE.L	L18_0000A(PC),D1
 	ADD.L	D0,D1
-	CMP.L	LAB_037F+2(PC),D1
+	CMP.L	L18_0000E(PC),D1
 	BGE.S	LAB_03C6
-	MOVE.L	D1,LAB_037E+2
+	MOVE.L	D1,L18_0000A
 	DIVU	#$01e8,D1
 	LSL.W	#2,D1
 	LEA	LAB_03ED,A1
-	MOVE.L	0(A1,D1.W),SECSTRT_18+2
+	MOVE.L	0(A1,D1.W),L18_00002
 	SWAP	D1
 	EXT.L	D1
-	MOVE.L	D1,LAB_037D+2
+	MOVE.L	D1,L18_00006
 	RTS
 LAB_03C6:
-	MOVE.L	LAB_037F+2(PC),LAB_037E+2
+	MOVE.L	L18_0000E(PC),L18_0000A
 	RTS
 LAB_03C7:
-	DC.W	$0000
+	DS.W	1
 LAB_03C8:
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 LAB_03C9:
 	LEA	LAB_03EB,A1
 	MOVE.L	#$000001e8,D7
 	MOVE.L	LAB_03E9,D6
 	TST.L	D0
 	BLE.S	LAB_03C8
-	ADD.L	D0,LAB_038B+2
+	ADD.L	D0,L18_00036
 	SUB.L	D6,D7
 	BGT.S	LAB_03CA
 	MOVEM.L	D0/A0,-(A7)
 	JSR	LAB_03A7(PC)
-	MOVE.L	D0,LAB_038A+2
+	MOVE.L	D0,L18_00032
 	CLR.L	LAB_03E7
 	CLR.L	LAB_03E8
 	CLR.L	LAB_03E9
@@ -7134,11 +7090,11 @@ LAB_03CB:
 	MOVE.L	D0,LAB_03EA
 	MOVE.L	D0,-(A7)
 	LEA	LAB_03E6,A6
-	MOVE.L	LAB_038A+2(PC),D0
+	MOVE.L	L18_00032(PC),D0
 	CLR.L	(A6)
 	JSR	LAB_02BD
 	MOVE.L	(A7)+,D0
-	MOVE.L	D0,LAB_038A+2
+	MOVE.L	D0,L18_00032
 	CLR.L	LAB_03E9
 	CLR.L	LAB_03EA
 	MOVEM.L	(A7)+,D0/A0-A1
@@ -7150,30 +7106,33 @@ LAB_03CC:
 	MOVE.L	D6,LAB_03E9
 	CLR.L	LAB_03EA
 	LEA	LAB_03E6,A6
-	MOVE.L	LAB_038A+2(PC),D0
+	MOVE.L	L18_00032(PC),D0
 	CLR.L	(A6)
 	JMP	LAB_02BD
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	TST.W	LAB_0386
 	BNE.W	LAB_03C9
 	CLR.W	LAB_03C7
 	MOVEM.L	D0/A0,-(A7)
-	MOVE.L	SECSTRT_18+2(PC),D0
-	CMP.L	LAB_0381+2(PC),D0
+	MOVE.L	L18_00002(PC),D0
+	CMP.L	L18_00016(PC),D0
 	BEQ.S	LAB_03CE
-	TST.L	LAB_0381+2
+	TST.L	L18_00016
 	BEQ.S	LAB_03CD
-	MOVEA.L	LAB_0380+2(PC),A6
-	MOVE.L	LAB_0381+2(PC),D0
+	MOVEA.L	L18_00012(PC),A6
+	MOVE.L	L18_00016(PC),D0
 	JSR	LAB_02BD
-	MOVE.L	SECSTRT_18+2(PC),D0
+	MOVE.L	L18_00002(PC),D0
 LAB_03CD:
-	MOVEA.L	LAB_0380+2(PC),A6
+	MOVEA.L	L18_00012(PC),A6
 	JSR	LAB_02A2
-	MOVE.L	SECSTRT_18+2(PC),LAB_0381+2
+	MOVE.L	L18_00002(PC),L18_00016
 LAB_03CE:
 	MOVEM.L	(A7)+,D0/A0
-	MOVEA.L	LAB_0380+2(PC),A1
-	MOVE.L	SECSTRT_18+2(PC),D1
+	MOVEA.L	L18_00012(PC),A1
+	MOVE.L	L18_00002(PC),D1
 	CMP.L	4(A1),D1
 	BNE.S	LAB_03D0
 	MOVE.L	324(A1),D1
@@ -7182,13 +7141,13 @@ LAB_03CE:
 	MOVE.L	D1,D0
 LAB_03CF:
 	MOVE.L	16(A1),D7
-	MOVE.L	324(A1),LAB_037F+2
-	MOVE.L	D7,SECSTRT_18+2
+	MOVE.L	324(A1),L18_0000E
+	MOVE.L	D7,L18_00002
 	BRA.S	LAB_03D1
 LAB_03D0:
 	MOVEQ	#0,D7
-	MOVE.L	LAB_037F+2(PC),D1
-	SUB.L	LAB_037E+2(PC),D1
+	MOVE.L	L18_0000E(PC),D1
+	SUB.L	L18_0000A(PC),D1
 	CMP.L	D1,D0
 	BLE.S	LAB_03D1
 	MOVE.L	D1,D0
@@ -7198,34 +7157,34 @@ LAB_03D1:
 	MOVEM.L	D0/A0,-(A7)
 	TST.W	D7
 	BEQ.S	LAB_03D3
-	TST.L	LAB_0381+2
+	TST.L	L18_00016
 	BEQ.S	LAB_03D2
-	MOVE.L	LAB_0381+2(PC),D0
-	MOVEA.L	LAB_0380+2(PC),A6
+	MOVE.L	L18_00016(PC),D0
+	MOVEA.L	L18_00012(PC),A6
 	JSR	LAB_02BD
 LAB_03D2:
-	MOVEA.L	LAB_0380+2(PC),A6
-	MOVE.L	SECSTRT_18+2(PC),D0
-	MOVE.L	D0,LAB_0381+2
+	MOVEA.L	L18_00012(PC),A6
+	MOVE.L	L18_00002(PC),D0
+	MOVE.L	D0,L18_00016
 	JSR	LAB_02A2
 	MOVEQ	#0,D7
 LAB_03D3:
 	MOVEM.L	(A7)+,D0/A0
-	MOVEA.L	LAB_0380+2(PC),A1
+	MOVEA.L	L18_00012(PC),A1
 	ADDA.L	#$00000018,A1
-	ADDA.L	LAB_037D+2(PC),A1
+	ADDA.L	L18_00006(PC),A1
 	MOVE.L	#$000001e8,D1
-	SUB.L	LAB_037D+2(PC),D1
+	SUB.L	L18_00006(PC),D1
 	CMP.L	D1,D0
 	BGT.S	LAB_03D7
-	ADD.L	D0,LAB_037D+2
-	CMPI.L	#$000001e8,LAB_037D+2
+	ADD.L	D0,L18_00006
+	CMPI.L	#$000001e8,L18_00006
 	BLT.S	LAB_03D4
-	MOVEA.L	LAB_0380+2(PC),A5
-	MOVE.L	16(A5),SECSTRT_18+2
-	CLR.L	LAB_037D+2
+	MOVEA.L	L18_00012(PC),A5
+	MOVE.L	16(A5),L18_00002
+	CLR.L	L18_00006
 LAB_03D4:
-	ADD.L	D0,LAB_037E+2
+	ADD.L	D0,L18_0000A
 	TST.W	LAB_03C7
 	BNE.S	LAB_03D6
 	SUBQ.W	#1,D0
@@ -7235,10 +7194,10 @@ LAB_03D5:
 LAB_03D6:
 	RTS
 LAB_03D7:
-	CLR.L	LAB_037D+2
-	MOVEA.L	LAB_0380+2(PC),A5
-	MOVE.L	16(A5),SECSTRT_18+2
-	ADD.L	D1,LAB_037E+2
+	CLR.L	L18_00006
+	MOVEA.L	L18_00012(PC),A5
+	MOVE.L	16(A5),L18_00002
+	ADD.L	D1,L18_0000A
 	SUB.L	D1,D0
 	TST.W	LAB_03C7
 	BNE.S	LAB_03D9
@@ -7254,33 +7213,36 @@ LAB_03DA:
 	BEQ.S	LAB_03DC
 	TST.W	LAB_0386
 	BEQ.S	LAB_03DB
-	MOVE.L	LAB_038B+2(PC),LAB_03F0
+	MOVE.L	L18_00036(PC),LAB_03F0
 	LEA	LAB_03EF,A6
-	MOVE.L	LAB_0389+2(PC),D0
+	MOVE.L	L18_0002E(PC),D0
 	CLR.L	(A6)
 	JSR	LAB_02BD
 	LEA	LAB_03ED,A6
-	MOVE.L	LAB_0388+2(PC),D0
+	MOVE.L	L18_0002A(PC),D0
 	JSR	LAB_02B4
 	BRA.S	LAB_03DC
 LAB_03DB:
-	MOVE.L	LAB_0381+2(PC),D0
-	MOVEA.L	LAB_0380+2(PC),A6
+	MOVE.L	L18_00016(PC),D0
+	MOVEA.L	L18_00012(PC),A6
 	JSR	LAB_02BD
 LAB_03DC:
 	CLR.W	LAB_03DD
-	CLR.W	LAB_038C+2
+	CLR.W	L18_0003A
 	MOVE.W	#$012c,LAB_038D
 	RTS
 LAB_03DD:
-	DC.W	$0000
+	DS.W	1
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVE.W	#$0032,LAB_038D
-	MOVE.W	#$0001,LAB_038C+2
+	MOVE.W	#$0001,L18_0003A
 	JSR	LAB_0314
 	LEA	LAB_03ED,A6
 	LEA	SECSTRT_19,A5
 	MOVE.L	316(A5),D0
-	MOVE.L	D0,LAB_0388+2
+	MOVE.L	D0,L18_0002A
 	JSR	SECSTRT_13
 	LEA	LAB_03EE,A0
 	MOVEQ	#2,D0
@@ -7290,7 +7252,7 @@ LAB_03DE:
 LAB_03DF:
 	CMPI.W	#$0370,D0
 	BEQ.S	LAB_03E1
-	CMP.W	LAB_0388+2(PC),D0
+	CMP.W	L18_0002A(PC),D0
 	BEQ.S	LAB_03E1
 	BSET	D2,D1
 LAB_03E0:
@@ -7308,7 +7270,7 @@ LAB_03E1:
 LAB_03E2:
 	MOVE.L	D1,-4(A0)
 	LEA	LAB_03ED,A6
-	MOVE.L	LAB_0388+2(PC),D0
+	MOVE.L	L18_0002A(PC),D0
 	JSR	LAB_02B4
 	LEA	LAB_03E5,A0
 	MOVEQ	#71,D0
@@ -7318,11 +7280,9 @@ LAB_03E3:
 	LEA	SECSTRT_19,A6
 	MOVE.L	#$00000370,D0
 	JSR	LAB_02BD
-	CLR.W	LAB_038C+2
+	CLR.W	L18_0003A
 	RTS
-	DC.W	$4449
-	DC.W	$4449
-	ADDQ.B	#2,D0
+	DC.B	"DIDIT",0
 
 
 	SECTION S_19,BSS
@@ -7358,7 +7318,10 @@ LAB_03F0:
 	SECTION S_20,CODE
 
 SECSTRT_20:
-	ORI.B	#$00,D0
+	DS.L	1
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVE.L	A0,SECSTRT_20
 	MOVEQ	#32,D0
 	MOVE.W	(A0),LAB_0434
@@ -7394,6 +7357,9 @@ LAB_03F6:
 	MOVE.B	(A0)+,(A1)+
 	DBF	D0,LAB_03F6
 	BRA.S	LAB_03FA
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVE.L	A1,SECSTRT_20
 	JSR	LAB_0390
 	MOVEA.L	SECSTRT_20(PC),A0
@@ -7530,6 +7496,9 @@ LAB_0406:
 LAB_0407:
 	ADDQ.L	#1,A0
 	RTS
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_0408:
 	MOVE.L	#$0000fa00,D7
 	MOVEQ	#7,D6
@@ -7669,6 +7638,9 @@ LAB_0420:
 	MOVEQ	#5,D4
 	JSR	LAB_0430
 	BRA.W	LAB_0410
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	TST.W	D0
 	BEQ.S	LAB_0423
 LAB_0421:
@@ -7762,7 +7734,10 @@ LAB_0433:
 	LSR.W	#1,D3
 	RTS
 LAB_0434:
-	DC.W	$0000
+	DS.W	1
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVE.L	A1,LAB_0446
 	JSR	LAB_0390
 	LEA	LAB_0442,A0
@@ -7868,54 +7843,15 @@ LAB_0440:
 LAB_0441:
 	RTS
 LAB_0442:
-	ORI.B	#$00,D0
+	DS.L	1
 LAB_0443:
-	ORI.B	#$00,D0
+	DS.L	1
 LAB_0444:
-	ORI.B	#$00,D0
+	DS.L	1
 LAB_0445:
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
+	DS.L	40
 LAB_0446:
-	ORI.B	#$00,D0
+	DS.L	1
 
 
 	SECTION S_21,CODE
@@ -7923,6 +7859,9 @@ LAB_0446:
 SECSTRT_21:
 	ADDQ.L	#1,A0
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 LAB_0448:
 	MOVEQ	#7,D6
 	MOVEQ	#7,D5
@@ -8081,6 +8020,9 @@ LAB_0462:
 	SUBQ.L	#4,D7
 	JSR	LAB_0473
 	BRA.W	LAB_0449
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 LAB_0463:
 	BTST	D5,(A0)
 	BEQ.S	LAB_0466
@@ -8134,72 +8076,11 @@ LAB_046B:
 	JSR	LAB_047A
 	BRA.S	LAB_046A
 LAB_046C:
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
+	DS.L	4
 LAB_046D:
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
+	DS.L	4
 LAB_046E:
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
+	DS.L	56
 LAB_046F:
 	LEA	LAB_046C(PC),A0
 	MOVE.W	#$00f0,D1
@@ -8226,6 +8107,9 @@ LAB_0472:
 	SUBQ.W	#1,D0
 	BGE.S	LAB_0472
 	RTS
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_0473:
 	MOVE.W	A0,D0
 	BTST	#0,D0
@@ -8277,6 +8161,9 @@ LAB_0478:
 	ADDQ.L	#1,A1
 LAB_0479:
 	RTS
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_047A:
 	MOVE.W	A0,D0
 	BTST	#0,D0
@@ -8315,6 +8202,9 @@ LAB_047C:
 LAB_047D:
 	JSR	LAB_0486
 	JMP	LAB_0486
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_047E:
 	MOVE.W	A0,D0
 	BTST	#0,D0
@@ -8436,6 +8326,9 @@ LAB_0489:
 	ADDQ.L	#1,A1
 	MOVE.B	D1,(A1)
 	RTS
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_048A:
 	MOVEQ	#0,D0
 	BTST	D5,(A0)
@@ -8448,6 +8341,9 @@ LAB_048B:
 	ADDQ.L	#1,A0
 LAB_048C:
 	RTS
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_048D:
 	MOVEQ	#0,D3
 LAB_048E:
@@ -8483,6 +8379,9 @@ LAB_0492:
 	ADDQ.L	#1,D0
 	ANDI.B	#$fe,D0
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVE.L	A1,-(A7)
 	MOVE.L	A0,LAB_04A3
 	MOVE.L	A1,LAB_04A4
@@ -8536,6 +8435,9 @@ LAB_0494:
 	SUBA.L	LAB_04A4,A1
 	MOVE.L	A1,LAB_04A4
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVE.L	A0,LAB_04A3
 	MOVE.L	A1,LAB_04A4
 	MOVE.L	A1,-(A7)
@@ -8648,6 +8550,9 @@ LAB_0499:
 	ADD.L	D1,D0
 	MOVE.L	D0,LAB_04A4
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVE.L	A1,-(A7)
 	MOVE.L	A0,LAB_04A3
 	MOVE.L	A1,LAB_04A4
@@ -8700,6 +8605,9 @@ LAB_049A:
 	ADD.L	D1,D0
 	MOVE.L	D0,LAB_04A4
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVEM.L	A1-A2,-(A7)
 	JSR	LAB_0390
 	MOVEA.L	4(A7),A0
@@ -8716,6 +8624,9 @@ LAB_049A:
 	LEA	SECSTRT_27,A2
 	MOVE.W	#$0001,LAB_0528
 	JMP	LAB_049C
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_049B:
 	MOVEA.L	(A7)+,A1
 	SUBA.L	A1,A2
@@ -8742,6 +8653,9 @@ LAB_049E:
 	SUBA.W	D4,A3
 	ROL.W	#6,D1
 	JMP	LAB_049F(PC,D1.W)
+; ------------------------------------------------------------------------------
+; [TABLE] cible de saut calculé JMP d8(PC,Dn)
+; ------------------------------------------------------------------------------
 LAB_049F:
 	MOVE.B	(A3)+,(A2)+
 	MOVE.B	(A3)+,(A2)+
@@ -8785,7 +8699,7 @@ LAB_04A1:
 	DBCC	D3,LAB_049E
 	BCS.S	LAB_049D
 	RTS
-	DC.W	$0000
+	DS.W	1
 
 
 	SECTION S_22,DATA
@@ -8912,70 +8826,7 @@ LAB_04B2:
 	DBF	D7,LAB_04B1
 	RTS
 LAB_04B3:
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
+	DS.L	64
 LAB_04B4:
 	TST.W	LAB_0528
 	BNE.S	LAB_04B5
@@ -9316,38 +9167,8 @@ LAB_04D7:
 	BTST	#6,DMACONR
 	BNE.S	LAB_04D7
 	RTS
-	DC.W	$494d
-	DC.W	$4147
-	DC.W	$4558
-	DC.W	$4345
-	DC.W	$4c20
-	DC.W	$436f
-	DC.W	$6465
-	MOVEA.L	A5,A0
-	DC.W	$6f64
-	DC.W	$756c
-	DC.W	$653a
-	MOVEA.L	(A3),A0
-	ADDQ.W	#8,(A2)
-	DC.W	$4954
-	DC.W	$452c
-	MOVEA.L	D3,A0
-	DC.W	$6f70
-	DC.W	$7972
-	DC.W	$6967
-	DC.W	$6874
-	DC.W	$2031
-	MOVE.W	EXT_000d.W,-(A4)
-	DC.W	$6279
-	MOVEA.L	A1,A0
-	DC.W	$4d41
-	DC.W	$4745
-	ADDQ.W	#4,D3
-	DC.W	$454c
-	MOVEA.L	(A6),A0
-	DC.W	$6572
-	DC.W	$2032
-	MOVE.L	0(A0,D0.W),D7
+	DC.B	"IMAGEXCEL Code Module: SPRITE, Copyright 1988 by IMAGEXCEL Ve"
+	DC.B	"r 2.0",0,0
 
 
 	SECTION S_24,DATA
@@ -9424,6 +9245,9 @@ LAB_04E2:
 	OR.W	D2,D3
 	MOVE.W	D3,BLTSIZE
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	JSR	LAB_04F6
 	MOVE.W	#$ffff,BLTAFWM
 	MOVE.W	#$ffff,BLTALWM
@@ -9441,6 +9265,9 @@ LAB_04E2:
 	OR.W	D2,D3
 	MOVE.W	D3,BLTSIZE
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	JSR	LAB_04F6
 	MOVE.W	#$ffff,BLTAFWM
 	MOVE.W	#$ffff,BLTALWM
@@ -9545,7 +9372,7 @@ LAB_04ED:
 	ADD.W	D0,D0
 	MOVE.W	D1,0(A1,D0.W)
 	BRA.S	LAB_04ED
-	RTS
+	DC.W	$4e75
 LAB_04EE:
 	MOVEA.L	LAB_051A,A0
 	MOVE.W	#$0200,D0
@@ -9595,6 +9422,9 @@ LAB_04F2:
 	ADDQ.W	#1,D6
 	DBF	D7,LAB_04EF
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	JSR	LAB_04F6
 	MOVEQ	#0,D7
 	MOVE.W	D7,BLTAMOD
@@ -9637,7 +9467,7 @@ LAB_04F6:
 	BTST	#6,DMACONR
 	BNE.S	LAB_04F6
 	RTS
-	DC.W	$0000
+	DS.W	1
 
 
 	SECTION S_26,DATA
@@ -10005,6 +9835,9 @@ LAB_0531:
 	MOVE.W	#$0000,LAB_056D
 	MOVEM.L	(A7)+,D0-D7/A0-A6
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVEM.L	D0-D7/A0-A6,-(A7)
 	MOVE.L	LAB_056C,-(A7)
 	MOVE.L	SECSTRT_30,LAB_056C
@@ -10026,6 +9859,9 @@ LAB_0532:
 	MOVE.L	(A7)+,LAB_056C
 	MOVEM.L	(A7)+,D0-D7/A0-A6
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVEM.L	D0-D7/A0-A6,-(A7)
 	MOVE.W	#$ffff,LAB_056D
 	MOVE.L	LAB_056C,-(A7)
@@ -10314,6 +10150,9 @@ LAB_0553:
 	CMPI.B	#$f5,VHPOSR
 	BEQ.S	LAB_0553
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 LAB_0554:
 	JSR	LAB_0552(PC)
 	BTST	#7,CIAA_PRA
@@ -10329,20 +10168,35 @@ LAB_0556:
 LAB_0557:
 	MOVE.W	#$c000,INTENA
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVE.L	#LAB_0558,TRAP_15.W
 	MOVE.L	A7,EXT_0014
 	TRAP	#15
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_0558:
 	MOVEA.L	EXT_0014,A7
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVE.L	#LAB_0559,TRAP_15.W
 	TRAP	#15
 	RTS
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_0559:
 	MOVE.W	(A7),(A0)
 	MOVE.L	4(A7),4(A0)
 	MOVEA.L	A0,A7
 	RTE
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVEM.L	D0-D7/A0-A6,-(A7)
 	CMPI.L	#$00000000,D0
 	BEQ.W	LAB_055B
@@ -10353,6 +10207,9 @@ LAB_055A:
 LAB_055B:
 	MOVEM.L	(A7)+,D0-D7/A0-A6
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVEM.L	D0-D7/A0-A6,-(A7)
 	CMPI.L	#$00000000,D0
 	BEQ.W	LAB_055D
@@ -10374,6 +10231,9 @@ LAB_055F:
 LAB_0560:
 	MOVEM.L	(A7)+,D0-D7/A0-A6
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVEM.L	D0-D7/A0-A6,-(A7)
 	CMPI.L	#$00000000,D0
 	BEQ.W	LAB_0562
@@ -10384,6 +10244,9 @@ LAB_0561:
 LAB_0562:
 	MOVEM.L	(A7)+,D0-D7/A0-A6
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVEM.L	D0-D7/A0-A6,-(A7)
 	CMPI.L	#$00000000,D0
 	BEQ.W	LAB_0564
@@ -10406,6 +10269,9 @@ LAB_0566:
 	RTS
 LAB_0567:
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVEM.L	D1/A0,-(A7)
 	LEA	LAB_0573,A0
 	MOVE.B	0(A0,D0.W),D1
@@ -10414,10 +10280,16 @@ LAB_0567:
 	MOVE.B	D1,D0
 	MOVEM.L	(A7)+,D1/A0
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 LAB_0568:
 	MOVE.B	D0,CIAA_PRB
 	JSR	LAB_0552(PC)
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 LAB_0569:
 	MOVE.B	(A0)+,D0
 	BEQ.S	LAB_056A
@@ -10425,6 +10297,9 @@ LAB_0569:
 	BRA.S	LAB_0569
 LAB_056A:
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	ANDI.W	#$00ff,D1
 	LSL.W	#8,D2
 	OR.W	D2,D1
@@ -10485,6 +10360,9 @@ LAB_0576:
 	MOVE.W	D0,LAB_05D0
 	MOVE.W	D0,LAB_05D1
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	LEA	LAB_05D3,A0
 	MOVEQ	#5,D7
 LAB_0577:
@@ -10527,6 +10405,9 @@ LAB_057C:
 	MOVE.L	A0,D0
 	SUBI.L	#$0000000c,D0
 	RTS
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_057D:
 	MOVEQ	#0,D6
 	MOVEA.L	LAB_05CF,A0
@@ -10747,9 +10628,8 @@ LAB_059C:
 	MOVE.W	D0,AUD3VOL
 	RTS
 LAB_059D:
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	DC.W	$0000
+	DS.L	2
+	DS.W	1
 LAB_059E:
 	JSR	LAB_035E
 	JSR	LAB_025F
@@ -10772,7 +10652,7 @@ LAB_059E:
 	JSR	LAB_05BA
 	JSR	LAB_0263
 	BRA.W	LAB_05A2
-	RTS
+	DC.W	$4e75
 LAB_059F:
 	LEA	LAB_01CB,A0
 	MOVE.W	#$0000,10(A0)
@@ -10879,19 +10759,19 @@ LAB_05A5:
 	JSR	LAB_0565
 LAB_05A6:
 	LEA	LAB_05A9,A0
-	LEA	LAB_05AA+2,A1
+	LEA	L31_00674,A1
 	MOVE.W	#$fffe,D0
 LAB_05A7:
 	ADDI.W	#$0002,D0
 	MOVE.W	0(A0,D0.W),D1
 	CMP.W	LAB_05B8,D1
 	BLT.S	LAB_05A7
-	MOVE.W	0(A1,D0.W),LAB_05B8+2
+	MOVE.W	0(A1,D0.W),L31_00850
 	JSR	LAB_0017
 	BSET	#2,D1
 	JSR	LAB_05B2
 	JSR	LAB_0262
-	CMPI.W	#$0004,LAB_05B8+2
+	CMPI.W	#$0004,L31_00850
 	BNE.S	LAB_05A8
 	JSR	SECSTRT_1
 LAB_05A8:
@@ -10906,19 +10786,13 @@ LAB_05A8:
 	JSR	LAB_0264
 	RTS
 LAB_05A9:
-	DC.W	$000a
-	ORI.B	#$21,(A2)
-	ORI.W	#$0073,D1
-	BCLR	D1,D4
-	BCLR	D1,(A0)+
-	BCLR	D1,960(A4)
-	BSET	D1,(A4)
-LAB_05AA:
-	SUBI.L	#$00010002,3(A0,D0.W)
-	ORI.B	#$05,D4
-	ORI.B	#$05,D6
-	ORI.B	#$03,D4
-	ORI.B	#$01,D2
+	DC.L	$000a0012,$00210041,$00730384,$039803ac
+	DC.L	$03c003d4
+	DC.W	$04b0
+L31_00674:
+	DC.L	$00010002,$00030004,$00050006,$00050004
+	DC.L	$00030002
+	DC.W	$0001
 LAB_05AB:
 	JSR	LAB_024B
 	JSR	LAB_0262
@@ -10932,11 +10806,11 @@ LAB_05AB:
 	MOVE.L	#$00000002,LAB_00D0
 	MOVE.L	#$00000000,LAB_0123
 	MOVE.W	#$03e8,LAB_05B8
-	MOVE.W	#$0002,LAB_05B8+2
+	MOVE.W	#$0002,L31_00850
 	MOVE.W	#$0000,LAB_05BD
 	MOVE.W	#$0008,LAB_05BC
 	MOVE.W	#$0000,LAB_05E6
-	MOVE.W	#$0009,LAB_05B8+2
+	MOVE.W	#$0009,L31_00850
 	JSR	LAB_05BA
 	JSR	LAB_05B7
 	JSR	LAB_0262
@@ -10962,17 +10836,26 @@ LAB_05AD:
 	MOVEA.L	LAB_00C6,A1
 	JSR	LAB_0264
 	RTS
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_05AE:
 	MOVE.W	#$0001,LAB_05E6
 	RTS
+; ------------------------------------------------------------------------------
+; [PROBABLE] cible de pointeur validée (analyse m68kdis)
+; ------------------------------------------------------------------------------
 LAB_05AF:
-	SUBI.W	#$0001,LAB_05B8+2
+	SUBI.W	#$0001,L31_00850
 	RTS
+; ------------------------------------------------------------------------------
+; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+; ------------------------------------------------------------------------------
 	MOVEQ	#100,D0
 	JSR	LAB_054F
 	RTS
 LAB_05B0:
-	DC.W	$0000
+	DS.W	1
 LAB_05B1:
 	DC.L	LAB_00FD
 	DC.L	LAB_00FF
@@ -10981,7 +10864,7 @@ LAB_05B1:
 	DC.L	LAB_010A
 	DC.L	LAB_0107
 LAB_05B2:
-	MOVE.W	LAB_05B8+2,D0
+	MOVE.W	L31_00850,D0
 	BTST	#2,D1
 	BEQ.S	LAB_05B4
 	ADD.W	D0,LAB_05B8
@@ -11016,7 +10899,9 @@ LAB_05B7:
 	JSR	LAB_0264
 	RTS
 LAB_05B8:
-	BSET	D1,2(A0)
+	DC.W	$03e8
+L31_00850:
+	DC.W	$0002
 LAB_05BA:
 	MOVEQ	#0,D0
 	MOVE.W	LAB_05B8,D0
@@ -11029,7 +10914,7 @@ LAB_05BA:
 	MOVE.W	D4,LAB_05C3
 	MOVEQ	#25,D5
 	SUB.W	D4,D5
-	MOVE.W	D5,LAB_05C3+2
+	MOVE.W	D5,L31_009DC
 	MOVE.L	#$00000014,D0
 	MULU	LAB_05BD,D0
 	ADD.W	D0,D1
@@ -11051,7 +10936,7 @@ LAB_05BB:
 	MOVE.W	D3,D4
 	LEA	LAB_05D6,A0
 	MOVEA.L	0(A0,D3.W),A0
-	LEA	LAB_05BD+2,A1
+	LEA	L31_0090C,A1
 	MOVE.L	0(A1,D4.W),D4
 	SUB.W	D4,D2
 	MOVEA.L	LAB_05D7,A1
@@ -11070,12 +10955,12 @@ LAB_05BB:
 LAB_05BC:
 	DC.W	$0008
 LAB_05BD:
-	ORI.B	#$00,D0
-	ORI.B	#$00,D0
-	ORI.W	#$0000,(A0)
-	DC.W	$00a0
+	DS.W	1
+L31_0090C:
+	DS.L	1
+	DC.L	$00000050,$000000a0
 LAB_05BF:
-	MOVE.W	LAB_05B8+2,D0
+	MOVE.W	L31_00850,D0
 	MOVEA.L	LAB_05D7,A0
 	MOVE.W	D0,D1
 	LSL.W	#5,D0
@@ -11090,7 +10975,7 @@ LAB_05C0:
 	MOVE.W	#$0014,D2
 	MOVEQ	#0,D3
 	MOVE.W	#$00c8,D3
-	SUB.W	LAB_05B8+2,D3
+	SUB.W	L31_00850,D3
 	MOVEM.L	A0-A1,-(A7)
 	JSR	LAB_04E2
 	MOVEM.L	(A7)+,A0-A1
@@ -11102,7 +10987,7 @@ LAB_05C0:
 	JSR	LAB_05BA
 	RTS
 LAB_05C1:
-	MOVE.W	LAB_05B8+2,D0
+	MOVE.W	L31_00850,D0
 	MOVEA.L	LAB_05D7,A1
 	MOVE.W	D0,D1
 	LSL.W	#5,D0
@@ -11116,7 +11001,7 @@ LAB_05C2:
 	MOVEQ	#0,D1
 	MOVE.W	#$0014,D2
 	MOVE.W	#$00c8,D3
-	SUB.W	LAB_05B8+2,D3
+	SUB.W	L31_00850,D3
 	JSR	LAB_04E1
 	LEA	8000(A0),A0
 	LEA	8000(A1),A1
@@ -11126,7 +11011,9 @@ LAB_05C2:
 	JSR	LAB_05BA
 	RTS
 LAB_05C3:
-	ORI.B	#$00,D0
+	DS.W	1
+L31_009DC:
+	DS.W	1
 LAB_05C5:
 	MOVE.W	D0,LAB_05DA
 	MOVE.W	D1,LAB_05DB

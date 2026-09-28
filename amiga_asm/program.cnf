@@ -1,0 +1,225 @@
+MACHINE 68000
+ENTRY $00000000
+OFFSET $00000000
+CODE $00000000
+CODE $000002CC
+CODE $000008DC
+CODE $00000A6E
+CODE $00000EC4
+CODE $00000EE6
+CODE $000010BC
+CODE $000010CE
+CODE $0000113E
+CODE $00001290
+CODE $0000135E
+CODE $00004B58
+CODE $00004B5A
+CODE $00005BEC
+CODE $00005C0E
+CODE $00005F5C
+CODE $00005FBE
+CODE $0000606A
+CODE $00006090
+CODE $000060A2
+CODE $000065BE
+CODE $000065DE
+CODE $00006608
+CODE $00006646
+CODE $00006650
+CODE $00006670
+CODE $00006672
+CODE $00006688
+CODE $0000670E
+CODE $00006718
+CODE $00006766
+CODE $00006770
+CODE $0000677A
+CODE $00006784
+CODE $0000679A
+CODE $000067AA
+CODE $000067CA
+CODE $00006816
+CODE $00006862
+CODE $0000687E
+CODE $000069C4
+CODE $00006A46
+CODE $00006BE0
+CODE $00006BEE
+CODE $00008534
+CODE $00008588
+CODE $00008818
+CODE $000088C8
+CODE $00008A7A
+CODE $00008E4E
+CODE $00009100
+CODE $00009520
+CODE $00009560
+CODE $00009576
+CODE $00009610
+CODE $00009658
+CODE $000096F8
+CODE $00009786
+CODE $00009830
+CODE $000098A0
+CODE $000098D8
+CODE $00009916
+CODE $000099C6
+CODE $00009BAA
+CODE $00009D4A
+CODE $00009F74
+CODE $00009FA0
+CODE $0000A258
+CODE $0000A336
+CODE $0000A4E8
+CODE $0000B054
+CODE $0000B0AC
+CODE $0000B26A
+CODE $0000B388
+CODE $0000B436
+CODE $0000B658
+CODE $0000B79C
+CODE $0000B94C
+CODE $0000B9C0
+CODE $0000BA20
+CODE $0000BB2A
+CODE $0000BB3C
+CODE $0000BBA8
+CODE $0000BC78
+CODE $0000BE34
+CODE $0000BF0E
+CODE $0000BF52
+CODE $0000BF88
+CODE $0000C82C
+CODE $0000C88E
+CODE $0000CAB0
+CODE $000188B4
+CODE $00018916
+CODE $00018D10
+CODE $00018D42
+CODE $00018D52
+CODE $00018D5A
+CODE $00018D66
+CODE $00018D72
+CODE $00018D90
+CODE $00018DCC
+CODE $00018DEA
+CODE $00018E2A
+CODE $00018E44
+CODE $00018E50
+CODE $00018E5C
+CODE $00018FE6
+CODE $00019050
+CODE $00019736
+CODE $00019740
+CODE $0001974A
+BANNER $000002CC [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $000008DC [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $00000A6E [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00000EC4 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $00000EE6 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $000010BC [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $000010CE [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $0000113E [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $00001290 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $0000135E [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00004B58 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $00004B5A [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00005BEC [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00005C0E [TABLE] cible de saut calculé JMP d8(PC,Dn)
+BANNER $00005F5C [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00005FBE [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $0000606A [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00006090 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $000060A2 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $000065BE [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $000065DE [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $00006608 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $00006646 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $00006650 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $00006670 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $00006672 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $00006688 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $0000670E [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $00006718 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $00006766 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $00006770 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $0000677A [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $00006784 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $0000679A [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $000067AA [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $000067CA [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $00006816 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $00006862 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $0000687E [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $000069C4 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00006A46 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00006BE0 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00006BEE [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00008534 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00008588 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $00008818 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $000088C8 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $00008A7A [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00008E4E [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00009100 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00009520 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $00009560 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00009576 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00009610 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $00009658 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $000096F8 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00009786 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $00009830 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $000098A0 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $000098D8 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $00009916 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $000099C6 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00009BAA [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $00009D4A [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00009F74 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00009FA0 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $0000A258 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $0000A336 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $0000A4E8 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $0000B054 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $0000B0AC [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $0000B26A [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $0000B388 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $0000B436 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $0000B658 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $0000B79C [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $0000B94C [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $0000B9C0 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $0000BA20 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $0000BB2A [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $0000BB3C [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $0000BBA8 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $0000BC78 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $0000BE34 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $0000BF0E [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $0000BF52 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $0000BF88 [TABLE] cible de saut calculé JMP d8(PC,Dn)
+BANNER $0000C82C [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $0000C88E [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $0000CAB0 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $000188B4 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00018916 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00018D10 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00018D42 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00018D52 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $00018D5A [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00018D66 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $00018D72 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00018D90 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00018DCC [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00018DEA [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00018E2A [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00018E44 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00018E50 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00018E5C [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00018FE6 [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+BANNER $00019050 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $00019736 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $00019740 [PROBABLE] cible de pointeur validée (analyse m68kdis)
+BANNER $0001974A [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
+END

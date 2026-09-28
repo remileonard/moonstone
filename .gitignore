@@ -72,3 +72,6 @@ Testing/
 # Python
 __pycache__/
 *.pyc
+
+# Outils de désassemblage compilés localement
+tools/disasm/.build/

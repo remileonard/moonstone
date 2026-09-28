@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """
-m68kdis.py — désassembleur 68000 par descente récursive pour exécutables
-Amiga « hunk », guidé par les relocations.
+m68kdis.py — analyse code/données d'un exécutable Amiga « hunk » (68000)
+par descente récursive guidée par les relocations.
 
-Objectif : produire un source vasm (syntaxe Motorola) dont la séparation
-code / données est *justifiée* et dont le réassemblage redonne le binaire
-à l'identique (contenu + relocations de chaque hunk).
+Ce module ne produit pas de source : il fournit la carte code/données
+utilisée par ira_hints.py pour piloter IRA.
 
 Principes
 ---------
@@ -14,27 +13,23 @@ Principes
    (hunk cible, offset).
 2. Le code est ce qui est *atteint* :
      - CERTAIN  : atteint par le flot d'exécution depuis l'entrée
-                  (hunk 0, offset 0) — branchements, BSR/JSR/JMP directs,
-                  tables de sauts reconnues ;
+                  (hunk 0, offset 0) : branchements, BSR/JSR/JMP directs,
+                  sauts calculés JMP d8(PC,Dn) ;
      - PROBABLE : cible d'un pointeur (#LAB, LEA, PEA, DC.L relogé, vecteur
-                  d'interruption…) ou bloc non atteint, validé par un décodage
-                  spéculatif strict (voir `_explore`).
-   Tout le reste d'un hunk CODE est émis en données (DC.x).
-3. Une zone lue/écrite par une instruction de donnée (MOVE, TST, CMP, ADD…)
+                  d'interruption...) validée par un décodage spéculatif
+                  strict (voir `_explore`) ;
+     - HEURISTIQUE (option) : bloc non atteint mais décodable proprement.
+3. Une zone lue/écrite par une instruction de donnée (MOVE, TST, CMP, ADD...)
    depuis du code est une DONNÉE PROUVÉE : le décodage spéculatif ne peut pas
    la traverser.  Si elle tombe dans une instruction CERTAINE, c'est du code
    auto-modifiant (SMC) : on le signale.
-4. Les noms de labels d'un désassemblage existant (IRA) peuvent être
-   réimportés depuis un listing vasm (-L) pour garder les références des
-   documents (LAB_xxxx).
-
-Usage
------
-  m68kdis.py BINAIRE -o SORTIE.asm [--ira ANCIEN.asm --vasm VASM]
-             [--report RAPPORT.md]
+4. Le décodage spéculatif est rejeté sur : opcode invalide, mot nul ($0000 =
+   ORI.B #0,D0), relocation qui ne correspond à aucun opérande, chevauchement
+   d'instructions, donnée prouvée, texte ASCII, sortie du hunk.
+5. ORI.W #$8xxx,SR (activation du mode trace, protection Copylock) arrête
+   l'exploration : le code qui suit est chiffré.
 """
 
-import argparse
 import collections
 import re
 import struct
@@ -110,6 +105,8 @@ class Program:
         self.anomalies = []     # (h, off, texte)
         self.labels = {}        # (h, off) -> nom
         self.jump_tables = []
+        self.trace_on = set()     # (h, off) des ORI #$8xxx,SR (mode trace)
+        self.root_of = {}         # (h, off) instruction -> racine qui l'a atteinte
 
     # -- utilitaires -------------------------------------------------------
     def data(self, h):
@@ -131,13 +128,15 @@ class Program:
         d = self.data(h)
         if off & 1:
             return None, 'adresse impaire'
-        if off + 2 > len(d):
+        if off < 0 or off + 2 > len(d):
             return None, 'hors du hunk'
         try:
             ins = next(MD.disasm(d[off:off + 10], off, 1))
         except StopIteration:
             return None, 'opcode invalide $%04X' % struct.unpack('>H', d[off:off + 2])[0]
         opword = struct.unpack('>H', d[off:off + 2])[0]
+        if ins.id == 0:
+            return None, 'opcode invalide $%04X' % opword
         if off + ins.size > len(d):
             return None, 'instruction tronquée en fin de hunk'
         I = Insn(h, off, ins)
@@ -206,6 +205,15 @@ class Program:
                 I.flow = 'stop'
         elif mn in TERMINATORS:
             I.flow = 'stop'
+        # ORI.W #$8xxx,SR : active le mode TRACE -> ce qui suit est exécuté
+        # sous le contrôle d'un handler de trace (Rob Northen Copylock : code
+        # chiffré, déchiffré instruction par instruction). Indécodable
+        # statiquement : on s'arrête.
+        m = re.match(r'#\$([0-9a-f]+), sr$', ins.op_str)
+        if mn == 'ori' and m and int(m.group(1), 16) & 0x8000:
+            I.flow = 'stop'
+            I.targets = []
+            self.trace_on.add((h, I.off))
 
         # --- références mémoire (hors flot)
         if mn not in ('jsr', 'jmp'):
@@ -249,6 +257,10 @@ class Program:
         found = {}
         owner = {}
         work = [start]
+        if strict:
+            head = self.data(start[0])[start[1]:start[1] + 6]
+            if len(head) == 6 and all(32 <= c < 127 for c in head):
+                return None, 'texte ASCII %r' % head.decode('latin-1')
         n = 0
         while work:
             h, off = work.pop()
@@ -323,12 +335,25 @@ class Program:
                 self.jump_tables.append((h, off, base, len(tgts), 'BRA/JMP'))
             tgts.append((h, base))
             return tgts
+        # forme 2 : saut calculé dans du code déroulé (Duff's device) —
+        # la base est elle-même du code (validé par le décodage qui suit)
+        if (h, base) not in self.proven_data:
+            if not strict:
+                self.jump_tables.append((h, off, base, 0, 'code déroulé'))
+            return [(h, base)]
         if not strict:
             self.anomalies.append((h, off, 'table de sauts non résolue en $%X' % base))
         return None
 
-    def commit(self, found, level):
+    def commit(self, found, level, root=None):
+        for k in found:
+            self.root_of.setdefault(k, root)
+        known = {(h, b) for (h, o, b, n, t) in self.jump_tables}
         for k, I in found.items():
+            for t in I.targets:
+                if t[0] == 'table' and (k[0], t[1]) in found and (k[0], t[1]) not in known:
+                    self.jump_tables.append((k[0], k[1], t[1], 0, 'code déroulé'))
+                    known.add((k[0], t[1]))
             self.code[k] = I
             self.level.setdefault(k, level)
             for b in range(I.off, I.off + I.size):
@@ -339,6 +364,20 @@ class Program:
                         self.proven_data.setdefault(
                             (th, b), '%s en %d:$%X' % (I.mn.upper(), I.h, I.off))
 
+    def drop_root(self, root):
+        """Oublie le code atteint depuis `root` (bloc rejeté)."""
+        for k in [k for k, r in self.root_of.items() if r == root]:
+            I = self.code.pop(k, None)
+            self.level.pop(k, None)
+            self.root_of.pop(k, None)
+            if I:
+                for b in range(I.off, I.off + I.size):
+                    if self.owner.get((I.h, b)) == k:
+                        del self.owner[(I.h, b)]
+        for lvl in self.roots.values():
+            if root in lvl:
+                lvl.remove(root)
+
     def check_smc(self):
         for (h, b), why in self.proven_data.items():
             o = self.owner.get((h, b))
@@ -346,13 +385,14 @@ class Program:
                 self.smc.append((h, b, o, why))
 
     # -- pipeline ---------------------------------------------------------
-    def run(self, extra_labels=()):
+    def run(self, extra_labels=(), heuristic=True):
         # 1) CERTAIN : depuis l'entrée
         found, _ = self._explore((0, 0), strict=False)
         self.commit(found, 'CERTAIN')
 
         # 2) PROBABLE : pointeurs vers des hunks CODE, jusqu'au point fixe
         self.rejected = {}
+        self.roots = {'PROBABLE': [], 'HEURISTIQUE': []}
         changed = True
         while changed:
             changed = False
@@ -364,34 +404,44 @@ class Program:
                 if f is None:
                     self.rejected[c] = why
                     continue
-                self.commit(f, 'PROBABLE')
+                self.commit(f, 'PROBABLE', c)
+                self.roots['PROBABLE'].append(c)
                 changed = True
 
-        # 3) HEURISTIQUE : trous non atteints — début de trou et labels IRA
-        gap_cands = set()
+        # 3) HEURISTIQUE : octets non atteints des hunks CODE.  On essaie
+        #    chaque mot pair d'un trou, dans l'ordre ; un bloc est accepté
+        #    s'il passe le décodage strict et compte au moins 3 instructions.
+        #    (Couvre le code mort et le code appelé via une adresse calculée.)
+        self.gap_rejected = {}
+        if not heuristic:
+            self.check_smc()
+            return
         for hi, hk in enumerate(self.hunks):
             if hk['type'] != 'CODE':
                 continue
-            prev_code = True
+            gap_start = None
+            gap_is_data = False
             for off in range(0, len(hk['data']), 2):
-                if (hi, off) in self.owner:
-                    prev_code = True
+                c = (hi, off)
+                if c in self.owner:
+                    gap_start = None
                     continue
-                if prev_code:
-                    gap_cands.add((hi, off))
-                prev_code = False
-        gap_cands |= {k for k in extra_labels
-                      if self.is_code_hunk(k[0]) and k not in self.owner}
-        self.gap_rejected = {}
-        for c in sorted(gap_cands):
-            if c in self.owner:
-                continue
-            f, why = self._explore(c, strict=True)
-            if f is None:
-                self.gap_rejected[c] = why
-                continue
-            # un bloc heuristique doit se terminer proprement (RTS/JMP/BRA/RTE)
-            self.commit(f, 'HEURISTIQUE')
+                if gap_start is None:
+                    gap_start = c
+                    gap_is_data = False
+                # une cible de pointeur rejetée (table, variable référencée
+                # par adresse) : le reste du trou est traité comme données
+                if c in self.rejected or (hi, off + 1) in self.rejected:
+                    gap_is_data = True
+                if gap_is_data:
+                    continue
+                f, why = self._explore(c, strict=True, max_insn=5000)
+                if f is None or len(f) < 3:
+                    self.gap_rejected.setdefault(gap_start, why or 'bloc trop court')
+                    continue
+                self.gap_rejected.pop(gap_start, None)
+                self.commit(f, 'HEURISTIQUE', c)
+                self.roots['HEURISTIQUE'].append(c)
         self.check_smc()
 
     def _pointer_candidates(self):
@@ -452,420 +502,3 @@ def import_labels(vasm, asm_path):
             break
         header.append(l)
     return labels, header, insn_ira
-
-
-# ---------------------------------------------------------------------------
-# Génération du source
-# ---------------------------------------------------------------------------
-
-class Emitter:
-    def __init__(self, prog, labels, header, equ_by_val):
-        self.p = prog
-        self.labels = dict(labels)       # (h, off) -> nom
-        self.header = header
-        self.equ = equ_by_val            # valeur -> nom (EQU absolues)
-        self.used = set()
-
-    def name(self, h, off):
-        """Nom d'une adresse (h, off) ; crée un label si besoin."""
-        k = (h, off)
-        if k in self.labels:
-            return self.labels[k]
-        o = self.p.owner.get(k)
-        if o and o != k:                 # milieu d'une instruction
-            return '%s+%d' % (self.name(*o), off - o[1])
-        # base = label précédent dans le même hunk, pour garder la parenté
-        prev = [x for x in self.labels if x[0] == h and x[1] < off]
-        base = self.labels[max(prev)] if prev else 'H%02d' % h
-        nm = '%s_%X' % (base, off)
-        self.labels[k] = nm
-        return nm
-
-    def fmt_insn(self, I):
-        ins = I.ins
-        mn = ins.mnemonic
-        ops = ins.op_str
-        h = I.h
-        rel_by_val = collections.defaultdict(list)
-        for p, t in I.relocs.items():
-            rel_by_val[t[1]].append(t)
-        base = mn.split('.')[0]
-
-        if base == 'illegal':
-            return 'ILLEGAL'
-        if base in ('btst', 'bset', 'bclr', 'bchg', 'swap', 'exg', 'unlk', 'link',
-                    'scc', 'scs', 'seq', 'sne', 'st', 'sf', 'shi', 'sls', 'spl', 'smi',
-                    'sge', 'slt', 'sgt', 'sle', 'svc', 'svs', 'tas', 'nbcd', 'trap'):
-            mn = base
-        if base == 'moveq':
-            v = int(re.match(r'#\$([0-9a-f]+)', ops).group(1), 16)
-            v = v - 256 if v > 127 else v
-            ops = re.sub(r'^#\$[0-9a-f]+', '#%d' % v, ops)
-
-        # branchements : cible en label, taille explicite
-        if base in ('bra', 'bsr') or COND_BRANCH.match(base):
-            t = I.targets[0]
-            if base.startswith('db'):
-                reg = ops.split(',')[0].strip()
-                mn = 'dbf' if base == 'dbra' else base
-                return '%s\t%s,%s' % (mn.upper(), reg.upper(), self.name(*t))
-            sz = '.S' if I.size == 2 else '.W'
-            return '%s%s\t%s' % (base.upper(), sz, self.name(*t))
-
-        def repl_abs(m):
-            v = int(m.group(1), 16)
-            ext = m.group(2)
-            lst = rel_by_val.get(v)
-            if ext == 'l' and lst:
-                return self.name(*lst[0])
-            nm = self.equ.get(v)
-            if nm:
-                return '%s.%s' % (nm, ext.upper())
-            return '($%X).%s' % (v, ext.upper())
-        ops = re.sub(r'\$([0-9a-f]+)\.([wl])', repl_abs, ops)
-
-        def repl_pc(m):
-            tgt = int(m.group(1), 16)
-            rest = m.group(2)
-            if 0 <= tgt <= len(self.p.data(h)):
-                return '%s(PC%s)' % (self.name(h, tgt), rest.upper().replace(' ', ''))
-            return '%d(PC%s)' % (tgt - (I.off + 2), rest.upper())
-        ops = re.sub(r'(?<![\w$])\$?([0-9a-f]+)\(pc((?:,\s*[ad]\d\.[wl])?)\)', repl_pc, ops)
-
-        def repl_imm(m):
-            v = int(m.group(1), 16)
-            lst = rel_by_val.get(v)
-            if lst and mn.endswith('.l'):
-                return '#' + self.name(*lst[0])
-            return '#$%X' % v
-        ops = re.sub(r'#\$([0-9a-f]+)', repl_imm, ops)
-        ops = re.sub(r'\(([^)]*)\)', lambda m: '(' + m.group(1).replace(' ', '') + ')', ops)
-        ops = ops.replace(', ', ',')
-        ops = re.sub(r'\b([ad][0-7]|sp|pc|sr|ccr|usp)\b',
-                     lambda m: m.group(1).upper(), ops)
-        ops = re.sub(r'\.([wl])\)', lambda m: '.' + m.group(1).upper() + ')', ops)
-        ops = re.sub(r'(?<=[\w)])\.([wl])\b', lambda m: '.' + m.group(1).upper(), ops)
-        if base == 'dbra':
-            mn = 'dbf'
-        return ('%s\t%s' % (mn.upper(), ops)).rstrip()
-
-    def emit(self, forced_raw=frozenset()):
-        p = self.p
-        out = list(self.header)
-        # pré-passe : noms nécessaires (créés pendant la génération)
-        lines_by_hunk = []
-        for hi, hk in enumerate(p.hunks):
-            lines = []
-            d = hk['data']
-            size = hk['size']
-            flag = ',' + hk['mem'] if hk['mem'] else ''
-            lines.append(('cmt', '\tSECTION S_%d,%s%s' % (hi, hk['type'], flag), None))
-            if hk['type'] == 'BSS':
-                lines.append(('bss', None, (hi, size)))
-                lines_by_hunk.append(lines)
-                continue
-            off = 0
-            cur_level = None
-            while off < len(d):
-                k = (hi, off)
-                I = p.code.get(k)
-                if I is not None and k not in forced_raw:
-                    lvl = p.level[k]
-                    if lvl != cur_level and lvl != 'CERTAIN':
-                        lines.append(('cmt', '; --- code %s ---' % lvl, None))
-                    elif lvl != cur_level and cur_level is not None:
-                        lines.append(('cmt', '; --- code CERTAIN ---', None))
-                    cur_level = lvl
-                    lines.append(('insn', I, k))
-                    off += I.size
-                    continue
-                if I is not None:  # instruction forcée en DC.W
-                    lines.append(('raw', I, k))
-                    off += I.size
-                    continue
-                if cur_level is not None:
-                    lines.append(('cmt', '; --- données ---', None))
-                    cur_level = None
-                # bloc de données jusqu'au prochain code
-                end = off
-                while end < len(d) and (hi, end) not in p.code:
-                    end += 1
-                lines.append(('data', None, (hi, off, end)))
-                off = end
-            if size > len(d):
-                lines.append(('bss', None, (hi, size - len(d), len(d))))
-            lines_by_hunk.append(lines)
-
-        # rendu (les appels à name() peuvent créer des labels : deux passes)
-        nlab = -1
-        while nlab != len(self.labels):
-            nlab = len(self.labels)
-            rendered = []
-            for lines in lines_by_hunk:
-                for kind, a, b in lines:
-                    if kind == 'insn':
-                        rendered.append((b, '\t' + self.fmt_insn(a)))
-                    elif kind == 'raw':
-                        words = [a.ins.bytes[i:i + 2] for i in range(0, a.size, 2)]
-                        rendered.append((b, '\tDC.W\t' + ','.join(
-                            '$%04X' % struct.unpack('>H', w)[0] for w in words) +
-                            '\t; ' + self.fmt_insn(a).replace('\t', ' ')))
-                    elif kind == 'data':
-                        rendered.extend(self.fmt_data(*b))
-                    elif kind == 'bss':
-                        rendered.extend(self.fmt_bss(*b))
-                    else:
-                        rendered.append((None, a if kind == 'cmt' else b))
-        # labels
-        final = []
-        self.line_keys = [None] * len(out)
-        placed = set()
-        for key, text in rendered:
-            if key is not None and key in self.labels and key not in placed:
-                final.append(self.labels[key] + ':')
-                self.line_keys.append(None)
-                placed.add(key)
-            final.append(text)
-            self.line_keys.append(key)
-        # labels non placés (milieu d'instruction / hors limites) -> EQU
-        for key, nm in sorted(self.labels.items()):
-            if key in placed:
-                continue
-            o = self.p.owner.get(key)
-            if o and o != key and o in self.labels:
-                final.append('%s\tEQU\t%s+%d' % (nm, self.labels[o], key[1] - o[1]))
-            else:
-                final.append('%s\tEQU\t%s+%d' % (nm, 'SECSTRT_%d' % key[0], key[1]))
-        return out + final + ['\tEND', '']
-
-    def fmt_data(self, h, start, end):
-        p = self.p
-        d = p.data(h)
-        rel = p.hunks[h]['rel']
-        res = []
-        # points de coupe : labels connus, relocs, cibles de données
-        off = start
-        chunk = []
-
-        def flush():
-            nonlocal chunk
-            if not chunk:
-                return
-            o0 = chunk[0][0]
-            bs = bytes(c[1] for c in chunk)
-            # texte ?
-            printable = all(32 <= c < 127 or c in (0, 10, 13) for c in bs)
-            if len(bs) >= 4 and printable and sum(32 <= c < 127 for c in bs) >= len(bs) * 0.75:
-                parts, s = [], ''
-                for c in bs:
-                    if 32 <= c < 127 and c != 39:
-                        s += chr(c)
-                    else:
-                        if s:
-                            parts.append("'%s'" % s); s = ''
-                        parts.append('$%02X' % c)
-                if s:
-                    parts.append("'%s'" % s)
-                res.append(((h, o0), '\tDC.B\t' + ','.join(parts)))
-            else:
-                i = 0
-                first = True
-                while i < len(bs):
-                    o = o0 + i
-                    if (o & 1) == 0 and len(bs) - i >= 2:
-                        n = min(8, (len(bs) - i) // 2)
-                        ws = ['$%04X' % struct.unpack('>H', bs[i + 2 * j:i + 2 * j + 2])[0] for j in range(n)]
-                        res.append(((h, o) if first else None, '\tDC.W\t' + ','.join(ws)))
-                        i += 2 * n
-                    else:
-                        res.append(((h, o) if first else None, '\tDC.B\t$%02X' % bs[i]))
-                        i += 1
-                    first = False
-            chunk = []
-
-        while off < end:
-            if off in rel and off + 4 <= end:
-                flush()
-                t = p.reloc_target(h, off)
-                res.append(((h, off), '\tDC.L\t' + self.name(*t)))
-                off += 4
-                continue
-            if (h, off) in self.labels and chunk:
-                flush()
-            chunk.append((off, d[off]))
-            off += 1
-        flush()
-        return res
-
-    def fmt_bss(self, h, n, base=0):
-        cuts = sorted(o for (hh, o) in self.labels if hh == h and base <= o < base + n)
-        res = []
-        pts = [base] + [c for c in cuts if c > base] + [base + n]
-        for a, b in zip(pts, pts[1:]):
-            if b > a:
-                res.append(((h, a), '\tDS.B\t%d' % (b - a)))
-        return res
-
-
-# ---------------------------------------------------------------------------
-# Vérification (réassemblage)
-# ---------------------------------------------------------------------------
-
-def assemble(vasm, src, out, listing=None):
-    cmd = [vasm, '-quiet', '-Fhunkexe', '-nosym', '-no-opt', '-m68000', '-o', out]
-    if listing:
-        cmd += ['-L', listing, '-Lnf']
-    r = subprocess.run(cmd + [src], capture_output=True, text=True, errors='replace')
-    return r.returncode, r.stdout + r.stderr
-
-
-def mismatched_insns(prog, listing):
-    """Compare octets du listing avec le binaire ; renvoie les (h,off) fautifs."""
-    bad = set()
-    for line in open(listing, encoding='latin-1'):
-        m = re.match(r'^([0-9A-F]{2}):([0-9A-F]{8}) ([0-9A-F]+)\s*\t', line)
-        if not m:
-            continue
-        h, off = int(m.group(1), 16), int(m.group(2), 16)
-        b = bytes.fromhex(m.group(3))
-        if h < len(prog.hunks) and (h, off) in prog.code:
-            if prog.data(h)[off:off + len(b)] != b or len(b) != prog.code[(h, off)].size:
-                bad.add((h, off))
-    return bad
-
-
-def error_lines(msg):
-    return [int(x) for x in re.findall(r'error \d+ in line (\d+)', msg)]
-
-
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument('binary')
-    ap.add_argument('-o', '--output', required=True)
-    ap.add_argument('--ira', help='ancien source IRA (pour les noms de labels)')
-    ap.add_argument('--vasm', default='vasmm68k_mot')
-    ap.add_argument('--report')
-    a = ap.parse_args()
-
-    prog = Program(a.binary)
-    labels, header, insn_ira = {}, [], set()
-    if a.ira:
-        labels, header, insn_ira = import_labels(a.vasm, a.ira)
-    equ = {}
-    for l in header:
-        m = re.match(r'(\w+)\s+EQU\s+\$([0-9A-Fa-f]+)', l)
-        if m:
-            equ.setdefault(int(m.group(2), 16), m.group(1))
-    # SECSTRT_n : début de chaque hunk
-    for i in range(len(prog.hunks)):
-        labels.setdefault((i, 0), 'SECSTRT_%d' % i)
-
-    prog.run(extra_labels=[k for k in labels if k in insn_ira])
-
-    forced = set()
-    with tempfile.TemporaryDirectory() as tmp:
-        for it in range(200):
-            em = Emitter(prog, labels, header, equ)
-            text = em.emit(forced)
-            open(a.output, 'w', encoding='latin-1').write('\n'.join(text))
-            lst = os.path.join(tmp, 'o.lst')
-            obj = os.path.join(tmp, 'o.exe')
-            rc, msg = assemble(a.vasm, a.output, obj, lst)
-            if rc != 0:
-                # instructions refusées par vasm -> DC.W
-                bad_lines = error_lines(msg)
-                if not bad_lines:
-                    print(msg[:3000]); sys.exit(1)
-                # retrouver les clés par numéro de ligne via le texte
-                new = {em.line_keys[ln - 1] for ln in bad_lines
-                       if ln - 1 < len(em.line_keys)} - {None}
-                new &= set(prog.code)
-                if not new:
-                    print(msg[:3000]); sys.exit(1)
-                forced |= new
-                continue
-            bad = mismatched_insns(prog, lst)
-            if not bad:
-                break
-            forced |= bad
-        ok = hunkmod.compare(a.binary, obj)
-    print('%s : réassemblage %s (%d instructions forcées en DC.W)' % (
-        a.output, 'IDENTIQUE' if ok else 'DIFFÉRENT', len(forced)))
-    if a.report:
-        write_report(a, prog, insn_ira, labels, forced, ok)
-    sys.exit(0 if ok else 2)
-
-
-def _keys_for_line(prog, em, text, ln):
-    """Retrouve l'instruction (h,off) correspondant à la ligne ln du source."""
-    # on relit le rendu : chaque instruction est précédée éventuellement d'un label
-    idx = ln - 1
-    target = text[idx].strip()
-    # correspondance par recherche : premier Insn dont le rendu est identique
-    for k, I in prog.code.items():
-        try:
-            if em.fmt_insn(I).strip() == target:
-                return {k}
-        except Exception:
-            pass
-    return set()
-
-
-def write_report(a, prog, insn_ira, labels, forced, ok):
-    L = []
-    name = os.path.basename(a.binary)
-    L.append('# Rapport de désassemblage — `%s`\n' % name)
-    L.append('Réassemblage vasm : **%s**\n' % ('identique (contenu + relocations)' if ok else 'DIFFÉRENT'))
-    L.append('| Hunk | Type | Taille | Code CERTAIN | PROBABLE | HEURISTIQUE | Données | IRA: code→données | IRA: données→code |')
-    L.append('|---|---|---|---|---|---|---|---|---|')
-    tot = collections.Counter()
-    for hi, hk in enumerate(prog.hunks):
-        if hk['type'] != 'CODE':
-            continue
-        n = len(hk['data'])
-        by = collections.Counter()
-        for off in range(n):
-            o = prog.owner.get((hi, off))
-            by[prog.level[o] if o else 'DATA'] += 1
-        # comparaison IRA : par instruction de départ
-        ira_code_now_data = sum(1 for (h, o) in insn_ira if h == hi and (h, o) not in prog.owner)
-        ira_data_now_code = sum(1 for k in prog.code if k[0] == hi and k not in insn_ira)
-        tot.update(by); tot['c2d'] += ira_code_now_data; tot['d2c'] += ira_data_now_code
-        L.append('| %d | %s%s | %d | %d | %d | %d | %d | %d | %d |' % (
-            hi, hk['type'], ',' + hk['mem'] if hk['mem'] else '', n, by['CERTAIN'],
-            by['PROBABLE'], by['HEURISTIQUE'], by['DATA'], ira_code_now_data, ira_data_now_code))
-    L.append('| **Total** | | | %d | %d | %d | %d | %d | %d |\n' % (
-        tot['CERTAIN'], tot['PROBABLE'], tot['HEURISTIQUE'], tot['DATA'], tot['c2d'], tot['d2c']))
-    L.append('Colonnes « IRA : » = nombre d\'instructions dont la classification change par rapport à l\'ancien source.\n')
-
-    def lab(h, o):
-        return labels.get((h, o), '%d:$%X' % (h, o))
-
-    L.append('## Code auto-modifiant détecté (%d octets)\n' % len(prog.smc))
-    seen = set()
-    for h, b, o, why in sorted(prog.smc):
-        if o in seen:
-            continue
-        seen.add(o)
-        L.append('- instruction `%s` (%s) modifiée par %s' % (
-            prog.code[o].mn.upper() + ' ' + prog.code[o].ops, lab(*o), why))
-    L.append('\n## Anomalies dans le code CERTAIN (%d)\n' % len(prog.anomalies))
-    for h, o, t in sorted(set((x[0] if isinstance(x[0], int) else -1, x[1] or 0, x[2]) for x in prog.anomalies))[:200]:
-        L.append('- %s : %s' % (lab(h, o) if h >= 0 else str(o), t))
-    L.append('\n## Tables de sauts reconnues (%d)\n' % len(prog.jump_tables))
-    for h, o, b, n, k in prog.jump_tables:
-        L.append('- %s → table %s, %d entrées (%s)' % (lab(h, o), lab(h, b), n, k))
-    L.append('\n## Pointeurs vers du code rejetés (%d)\n' % len(prog.rejected))
-    L.append('Cibles de pointeurs dans un hunk CODE dont le décodage spéculatif échoue : ce sont des **données** (ou du code atteint autrement, à vérifier).\n')
-    for k, why in sorted(prog.rejected.items())[:300]:
-        L.append('- %s : %s' % (lab(*k), why))
-    L.append('\n## Instructions émises en DC.W (%d)\n' % len(forced))
-    L.append('Encodages que vasm ne reproduit pas à l\'identique (encodage non canonique) : conservés en DC.W avec l\'instruction en commentaire.\n')
-    for k in sorted(forced):
-        I = prog.code[k]
-        L.append('- %s : `%s %s`' % (lab(*k), I.mn, I.ops))
-    open(a.report, 'w').write('\n'.join(L) + '\n')
-
-
-if __name__ == '__main__':
-    main()
