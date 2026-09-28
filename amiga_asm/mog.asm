@@ -579,7 +579,7 @@ Combat_Run:
 Combat_Loop:
 	JSR	Combat_FrameStart
 	JSR	Combat_RunControllers
-	JSR	LAB_0328
+	JSR	Ix_RunEntities
 	JSR	LAB_0416
 	JSR	LAB_03BE
 	JSR	LAB_039E
@@ -3942,7 +3942,7 @@ LAB_018C:
 	MOVE.W	LAB_061A,D2
 	MOVEQ	#1,D3
 	MOVE.B	#$28,D5
-	JSR	LAB_02D0
+	JSR	Ent_Spawn
 	MOVE.L	A1,LAB_05F4
 	BSR.W	LAB_0177
 	LEA	LAB_07BC,A0
@@ -6172,7 +6172,7 @@ LAB_0297:
 	MOVEQ	#1,D3
 	ADDI.W	#$0037,D0
 	MOVE.L	#$00000028,D5
-	BSR.W	LAB_02D0
+	BSR.W	Ent_Spawn
 	RTS
 ; ------------------------------------------------------------------------------
 ; [PROBABLE] cible de pointeur validée (analyse m68kdis)
@@ -6588,7 +6588,7 @@ LAB_02CA:
 	MOVEA.L	#LAB_07EB,A0
 	SUBI.B	#$01,76(A1)
 	MOVEQ	#52,D5
-	BSR.W	LAB_02D0
+	BSR.W	Ent_Spawn
 	MOVE.L	#LAB_0302,42(A1)
 	MOVE.W	#$000c,64(A1)
 	MOVE.B	#$34,77(A1)
@@ -6622,7 +6622,8 @@ LAB_02CF:
 	CLR.B	(A0)+
 	DBF	D0,LAB_02CF
 	RTS
-LAB_02D0:
+; [ex LAB_02D0] Cree une entite (objet + slot) : D0-D3 position/direction, A0 script, A2 banque, D5 index controleur
+Ent_Spawn:
 	JSR	LAB_0171
 	MOVE.W	D0,4(A1)
 	MOVE.W	D1,6(A1)
@@ -7020,27 +7021,27 @@ LAB_0303:
 LAB_0304:
 	MOVE.L	LAB_05BB,(A0)+
 	DBF	D0,LAB_0304
-	LEA	LAB_0646,A0
-	MOVE.L	#LAB_0358,0(A0)
-	MOVE.L	#LAB_035B,4(A0)
-	MOVE.L	#LAB_035D,8(A0)
-	MOVE.L	#LAB_0361,12(A0)
-	MOVE.L	#LAB_0362,20(A0)
-	MOVE.L	#LAB_0363,24(A0)
-	MOVE.L	#LAB_0366,28(A0)
-	MOVE.L	#LAB_0367,36(A0)
-	MOVE.L	#LAB_0368,32(A0)
-	MOVE.L	#LAB_0372,44(A0)
-	MOVE.L	#LAB_0374,40(A0)
-	MOVE.L	#LAB_038B,48(A0)
-	MOVE.L	#LAB_038C,68(A0)
-	MOVE.L	#LAB_038E,52(A0)
-	MOVE.L	#LAB_0390,56(A0)
-	MOVE.L	#LAB_0391,60(A0)
-	MOVE.L	#LAB_0392,64(A0)
-	MOVE.L	#LAB_0393,72(A0)
-	MOVE.L	#LAB_0397,76(A0)
-	MOVE.L	#LAB_039B,80(A0)
+	LEA	t_IxOpcodes,A0
+	MOVE.L	#IxOp80_SetDir,0(A0)
+	MOVE.L	#IxOp84_Jump,4(A0)
+	MOVE.L	#IxOp88_Hold,8(A0)
+	MOVE.L	#IxOp8C_Physics,12(A0)
+	MOVE.L	#IxOp94_Loop,20(A0)
+	MOVE.L	#IxOp98_SkipIfDebug,24(A0)
+	MOVE.L	#IxOp9C_Nop,28(A0)
+	MOVE.L	#IxOpA4_Sound,36(A0)
+	MOVE.L	#IxOpA0_Move,32(A0)
+	MOVE.L	#IxOpAC_Shadow,44(A0)
+	MOVE.L	#IxOpA8_SetField,40(A0)
+	MOVE.L	#IxOpB0_Call,48(A0)
+	MOVE.L	#IxOpC4_IfSameFacing,68(A0)
+	MOVE.L	#IxOpB4_IfDead,52(A0)
+	MOVE.L	#IxOpB8_Spawn,56(A0)
+	MOVE.L	#IxOpBC_Kill,60(A0)
+	MOVE.L	#IxOpC0_SetBank,64(A0)
+	MOVE.L	#IxOpC8_IfFieldZero,72(A0)
+	MOVE.L	#IxOpCC_IfFieldNonZero,76(A0)
+	MOVE.L	#IxOpD0_Reset,80(A0)
 	MOVE.L	#LAB_064D,LAB_063F
 	MOVE.L	#LAB_064E,LAB_063E
 	JSR	LAB_03DA
@@ -7268,8 +7269,9 @@ LAB_0326:
 	RTS
 LAB_0327:
 	DC.B	"TASK & TABLE OFF",0,0
-LAB_0328:
-	JSR	LAB_0351
+; [ex LAB_0328] Moteur de scripts du combat : tri par profondeur, passe des scripts secondaires (ombres), puis une etape de script par entite
+Ix_RunEntities:
+	JSR	Ix_SortByDepth
 	LEA	t_Entities,A1
 	MOVE.W	#$0000,LAB_063D
 LAB_0329:
@@ -7292,7 +7294,7 @@ LAB_032A:
 	MOVE.W	#$0000,8(A1)
 	MOVE.L	20(A5),2(A1)
 	MOVE.L	#LAB_064C,36(A1)
-	JSR	LAB_032E
+	JSR	Ix_Step
 	MOVEA.L	LAB_0640,A1
 LAB_032B:
 	ADDA.L	#$00000032,A1
@@ -7315,14 +7317,15 @@ LAB_032C:
 	MOVE.W	#$0000,LAB_0638
 	MOVE.W	#$0000,LAB_063A
 	MOVE.W	#$0000,LAB_063B
-	JSR	LAB_032E
+	JSR	Ix_Step
 LAB_032D:
 	ADDA.L	#$00000032,A1
 	ADDQ.W	#1,LAB_063D
 	CMPI.W	#$000a,LAB_063D
 	BNE.W	LAB_032C
 	RTS
-LAB_032E:
+; [ex LAB_032E] Execute une etape (= une image) du script de l'entite : enregistrements de dessin de 6 octets et opcodes >= $80 jusqu'a FF xx
+Ix_Step:
 	MOVE.L	A1,-(A7)
 LAB_032F:
 	TST.L	2(A1)
@@ -7336,7 +7339,7 @@ LAB_0330:
 	MOVE.B	0(A6),D0
 	CMP.B	#$ff,D0
 	BNE.S	LAB_0331
-	JMP	LAB_0341
+	JMP	Ix_StepEnd
 LAB_0331:
 	CMP.B	#$fd,D0
 	BNE.S	LAB_0332
@@ -7353,7 +7356,7 @@ LAB_0333:
 	BTST	#7,D0
 	BEQ.S	LAB_0334
 	BCLR	#7,D0
-	LEA	LAB_0646,A0
+	LEA	t_IxOpcodes,A0
 	MOVEA.L	0(A0,D0.W),A0
 	JSR	(A0)
 	BRA.S	LAB_0330
@@ -7363,7 +7366,7 @@ LAB_0334:
 	MOVEA.L	0(A0,D0.W),A0
 	MOVE.B	1(A6),D0
 	MOVE.B	D0,21(A1)
-	BSR.W	LAB_034E
+	BSR.W	Ix_FrameInfo
 	BTST	#1,22(A1)
 	BNE.S	LAB_0335
 	EOR.L	D1,D1
@@ -7396,7 +7399,7 @@ LAB_0336:
 	MOVE.W	D2,D3
 	MOVE.W	16(A1),D2
 	MOVE.W	18(A1),D4
-	JSR	LAB_03B8
+	JSR	Ix_AddBBox
 	MOVEM.L	(A7)+,D0-D7/A0-A6
 LAB_0337:
 	EOR.L	D0,D0
@@ -7473,7 +7476,8 @@ LAB_033F:
 	JMP	LAB_032F
 LAB_0340:
 	DC.B	"***** Scrap pile has reached maximum *******",0,0
-LAB_0341:
+; [ex LAB_0341] Fin d'etape FF xx : Hold ($88), physique ($8C), saut differe ($84), puis xx : 00 suivante, FE boucle, FF fin (entite libre)
+Ix_StepEnd:
 	MOVEA.L	36(A1),A5
 	TST.B	1(A5)
 	BEQ.W	LAB_0342
@@ -7487,7 +7491,7 @@ LAB_0342:
 	BEQ.S	LAB_0343
 	SUBI.B	#$01,27(A5)
 	BMI.S	LAB_0344
-	JSR	LAB_0378
+	JSR	Ix_Physics
 	BRA.W	LAB_034C
 LAB_0343:
 	MOVE.B	#$00,26(A5)
@@ -7537,7 +7541,8 @@ LAB_034C:
 LAB_034D:
 	MOVEA.L	(A7)+,A1
 	RTS
-LAB_034E:
+; [ex LAB_034E] Largeur/hauteur/orientation de la frame (en-tete CEL, 10 octets par frame) ; retourne l'image si besoin
+Ix_FrameInfo:
 	MOVEM.L	D0-D3/A0-A1,-(A7)
 	MOVE.W	D0,D2
 	MOVE.W	D0,D1
@@ -7557,7 +7562,8 @@ LAB_034F:
 LAB_0350:
 	MOVEM.L	(A7)+,D0-D3/A0-A1
 	RTS
-LAB_0351:
+; [ex LAB_0351] Tri a bulles des 10 entites par profondeur (champ 10)
+Ix_SortByDepth:
 	MOVEM.L	D0-D2/A0-A2,-(A7)
 LAB_0352:
 	MOVEA.L	#t_Entities,A1
@@ -7602,7 +7608,8 @@ LAB_0357:
 ; ------------------------------------------------------------------------------
 ; [PROBABLE] cible de pointeur validée (analyse m68kdis)
 ; ------------------------------------------------------------------------------
-LAB_0358:
+; [ex LAB_0358] $80 d : direction (d=$FF inverse). 2 octets
+IxOp80_SetDir:
 	CMPI.B	#$ff,1(A6)
 	BNE.S	LAB_0359
 	EORI.B	#$02,22(A1)
@@ -7619,7 +7626,8 @@ LAB_035A:
 ; ------------------------------------------------------------------------------
 ; [PROBABLE] cible de pointeur validée (analyse m68kdis)
 ; ------------------------------------------------------------------------------
-LAB_035B:
+; [ex LAB_035B] $84 m adr.L : m=3 saut immediat, sinon saut differe a la fin de l'etape. 6 octets
+IxOp84_Jump:
 	CMPI.B	#$03,1(A6)
 	BNE.S	LAB_035C
 	MOVE.L	2(A6),2(A1)
@@ -7633,7 +7641,8 @@ LAB_035C:
 ; ------------------------------------------------------------------------------
 ; [PROBABLE] cible de pointeur validée (analyse m68kdis)
 ; ------------------------------------------------------------------------------
-LAB_035D:
+; [ex LAB_035D] $88 n : l'etape courante dure n images (n=0 : aleatoire 1-31). 2 octets
+IxOp88_Hold:
 	MOVEA.L	36(A1),A5
 	TST.B	1(A6)
 	BNE.S	LAB_035F
@@ -7655,7 +7664,8 @@ LAB_0360:
 ; ------------------------------------------------------------------------------
 ; [PROBABLE] cible de pointeur validée (analyse m68kdis)
 ; ------------------------------------------------------------------------------
-LAB_0361:
+; [ex LAB_0361] $8C a n f vy vymax vx vxmax : mouvement balistique pendant n images, reprend apres l'opcode. 8 octets
+IxOp8C_Physics:
 	MOVEA.L	36(A1),A5
 	MOVE.B	#$01,26(A5)
 	MOVE.B	1(A6),24(A5)
@@ -7671,7 +7681,8 @@ LAB_0361:
 ; ------------------------------------------------------------------------------
 ; [PROBABLE] cible de pointeur validée (analyse m68kdis)
 ; ------------------------------------------------------------------------------
-LAB_0362:
+; [ex LAB_0362] $94 n : boucle n fois (FF FE / FF FF reviennent ici). 2 octets
+IxOp94_Loop:
 	MOVEA.L	36(A1),A5
 	MOVE.B	1(A6),6(A5)
 	MOVE.B	#$01,7(A5)
@@ -7681,7 +7692,8 @@ LAB_0362:
 ; ------------------------------------------------------------------------------
 ; [PROBABLE] cible de pointeur validée (analyse m68kdis)
 ; ------------------------------------------------------------------------------
-LAB_0363:
+; [ex LAB_0363] $98 x adr.L : si LAB_06DA (mode debug), saute. 6 octets
+IxOp98_SkipIfDebug:
 	MOVEM.L	D0/A0,-(A7)
 	TST.L	LAB_06DA
 	BEQ.S	LAB_0364
@@ -7701,12 +7713,14 @@ LAB_0365:
 ; ------------------------------------------------------------------------------
 ; [PROBABLE] cible de pointeur validée (analyse m68kdis)
 ; ------------------------------------------------------------------------------
-LAB_0366:
+; [ex LAB_0366] $9C : RTS sans avancer -> bouclerait indefiniment, donc inutilise
+IxOp9C_Nop:
 	RTS
 ; ------------------------------------------------------------------------------
 ; [PROBABLE] cible de pointeur validée (analyse m68kdis)
 ; ------------------------------------------------------------------------------
-LAB_0367:
+; [ex LAB_0367] $A4 n : joue l'effet sonore n. 2 octets
+IxOpA4_Sound:
 	MOVEM.L	A0-A1/A6,-(A7)
 	EOR.L	D0,D0
 	MOVE.B	1(A6),D0
@@ -7717,7 +7731,8 @@ LAB_0367:
 ; ------------------------------------------------------------------------------
 ; [PROBABLE] cible de pointeur validée (analyse m68kdis)
 ; ------------------------------------------------------------------------------
-LAB_0368:
+; [ex LAB_0368] $A0 f dx.W dh.W dd.W : deplace (relatif a la direction) ou positionne (f bit6). 8 octets
+IxOpA0_Move:
 	BTST	#6,1(A6)
 	BEQ.S	LAB_0369
 	MOVE.W	2(A6),6(A1)
@@ -7764,7 +7779,8 @@ LAB_0371:
 ; ------------------------------------------------------------------------------
 ; [PROBABLE] cible de pointeur validée (analyse m68kdis)
 ; ------------------------------------------------------------------------------
-LAB_0372:
+; [ex LAB_0372] $AC on adr.L : script secondaire dessine avant (ombre). 6 octets
+IxOpAC_Shadow:
 	MOVEA.L	36(A1),A5
 	MOVE.L	2(A6),20(A5)
 	TST.B	1(A6)
@@ -7779,7 +7795,8 @@ LAB_0373:
 ; ------------------------------------------------------------------------------
 ; [PROBABLE] cible de pointeur validée (analyse m68kdis)
 ; ------------------------------------------------------------------------------
-LAB_0374:
+; [ex LAB_0374] $A8 t off.W val.L : ecrit dans l'objet (t bit0 octet, bit1 mot, sinon long). 8 octets
+IxOpA8_SetField:
 	MOVEA.L	24(A1),A5
 	MOVE.W	2(A6),D0
 	MOVE.L	4(A6),D1
@@ -7797,7 +7814,8 @@ LAB_0376:
 LAB_0377:
 	ADDI.L	#$00000008,2(A1)
 	RTS
-LAB_0378:
+; [ex LAB_0378] Mouvement du $8C : montee/chute (vitesse doublee/divisee par 2 jusqu'a la limite), avance/recul
+Ix_Physics:
 	CLR.W	LAB_037F
 	MOVEQ	#0,D0
 	MOVE.B	28(A5),D0
@@ -7891,7 +7909,8 @@ LAB_038A:
 ; ------------------------------------------------------------------------------
 ; [PROBABLE] cible de pointeur validée (analyse m68kdis)
 ; ------------------------------------------------------------------------------
-LAB_038B:
+; [ex LAB_038B] $B0 x adr.L : appelle une routine native (D0-D3 position/direction, A1 objet). 6 octets
+IxOpB0_Call:
 	MOVEM.L	D0-D7/A0-A6,-(A7)
 	MOVE.W	6(A1),D0
 	MOVE.W	8(A1),D1
@@ -7907,7 +7926,8 @@ LAB_038B:
 ; ------------------------------------------------------------------------------
 ; [PROBABLE] cible de pointeur validée (analyse m68kdis)
 ; ------------------------------------------------------------------------------
-LAB_038C:
+; [ex LAB_038C] $C4 x adr.L : saute si meme direction que le joueur. 6 octets
+IxOpC4_IfSameFacing:
 	MOVEM.L	D0-D7/A0-A6,-(A7)
 	LEA	v_Combatants,A2
 	MOVE.L	0(A2),D0
@@ -7928,12 +7948,13 @@ LAB_038D:
 ; ------------------------------------------------------------------------------
 ; [PROBABLE] cible de pointeur validée (analyse m68kdis)
 ; ------------------------------------------------------------------------------
-LAB_038E:
+; [ex LAB_038E] $B4 x adr.L : si PV de l'objet <= 0, saute et reinitialise. 6 octets
+IxOpB4_IfDead:
 	MOVEA.L	24(A1),A2
 	TST.W	80(A2)
 	BGT.S	LAB_038F
 	MOVE.L	2(A6),2(A1)
-	BSR.W	LAB_039C
+	BSR.W	Ix_ResetCtx
 	RTS
 LAB_038F:
 	ADDI.L	#$00000006,2(A1)
@@ -7941,7 +7962,8 @@ LAB_038F:
 ; ------------------------------------------------------------------------------
 ; [PROBABLE] cible de pointeur validée (analyse m68kdis)
 ; ------------------------------------------------------------------------------
-LAB_0390:
+; [ex LAB_0390] $B8 x adr.L : cree une entite enfant (controleur 40) jouant ce script. 6 octets
+IxOpB8_Spawn:
 	MOVEM.L	D0-D7/A0-A6,-(A7)
 	MOVEA.L	2(A6),A0
 	MOVEA.L	28(A1),A2
@@ -7951,14 +7973,15 @@ LAB_0390:
 	MOVE.B	22(A1),D3
 	MOVE.L	24(A1),D4
 	MOVE.L	#$00000028,D5
-	BSR.W	LAB_02D0
+	BSR.W	Ent_Spawn
 	MOVEM.L	(A7)+,D0-D7/A0-A6
 	ADDI.L	#$00000006,2(A1)
 	RTS
 ; ------------------------------------------------------------------------------
 ; [PROBABLE] cible de pointeur validée (analyse m68kdis)
 ; ------------------------------------------------------------------------------
-LAB_0391:
+; [ex LAB_0391] $BC : detruit l'entite. 2 octets
+IxOpBC_Kill:
 	MOVE.L	A0,-(A7)
 	MOVEA.L	24(A1),A0
 	CLR.L	(A0)
@@ -7969,7 +7992,8 @@ LAB_0391:
 ; ------------------------------------------------------------------------------
 ; [PROBABLE] cible de pointeur validée (analyse m68kdis)
 ; ------------------------------------------------------------------------------
-LAB_0392:
+; [ex LAB_0392] $C0 n : banque de CEL n (LAB_0647). 2 octets
+IxOpC0_SetBank:
 	LEA	LAB_0647,A5
 	MOVEQ	#0,D0
 	MOVE.B	1(A6),D0
@@ -7983,7 +8007,8 @@ LAB_0392:
 ; ------------------------------------------------------------------------------
 ; [PROBABLE] cible de pointeur validée (analyse m68kdis)
 ; ------------------------------------------------------------------------------
-LAB_0393:
+; [ex LAB_0393] $C8 t off.W adr.L : saute si champ de l'objet = 0. 8 octets
+IxOpC8_IfFieldZero:
 	MOVEA.L	24(A1),A5
 	MOVE.W	2(A6),D0
 	BTST	#0,1(A6)
@@ -8010,7 +8035,8 @@ LAB_0396:
 ; ------------------------------------------------------------------------------
 ; [PROBABLE] cible de pointeur validée (analyse m68kdis)
 ; ------------------------------------------------------------------------------
-LAB_0397:
+; [ex LAB_0397] $CC t off.W adr.L : saute si champ de l'objet != 0. 8 octets
+IxOpCC_IfFieldNonZero:
 	MOVEA.L	24(A1),A5
 	MOVE.W	2(A6),D0
 	BTST	#0,1(A6)
@@ -8037,11 +8063,13 @@ LAB_039A:
 ; ------------------------------------------------------------------------------
 ; [PROBABLE] cible de pointeur validée (analyse m68kdis)
 ; ------------------------------------------------------------------------------
-LAB_039B:
-	BSR.S	LAB_039C
+; [ex LAB_039B] $D0 : reinitialise le contexte de script. 2 octets
+IxOpD0_Reset:
+	BSR.S	Ix_ResetCtx
 	ADDI.L	#$00000002,2(A1)
 	RTS
-LAB_039C:
+; [ex LAB_039C] Remet a zero le contexte de script (36 octets) sauf le script secondaire
+Ix_ResetCtx:
 	MOVEM.L	D5-D6,-(A7)
 	MOVEA.L	36(A1),A5
 	MOVE.B	18(A5),D6
@@ -8275,7 +8303,8 @@ LAB_03B6:
 	DS.B	1
 L00_08671:
 	DS.B	1
-LAB_03B8:
+; [ex LAB_03B8] Union des rectangles dessines -> boite de l'entite (objet 58/60 X min/max, 112/114 Y min/max)
+Ix_AddBBox:
 	TST.W	LAB_063C
 	BNE.S	LAB_03B9
 	MOVE.W	D1,LAB_0639
@@ -9404,7 +9433,7 @@ LAB_0456:
 	MOVEQ	#1,D3
 	MOVE.L	#$00000001,D4
 	MOVEQ	#40,D5
-	JSR	LAB_02D0
+	JSR	Ent_Spawn
 	MOVE.L	LAB_05C0,D0
 	JSR	L00_0908E
 	LEA	LAB_091E,A0
@@ -9414,7 +9443,7 @@ LAB_0456:
 	JSR	LAB_049E
 	JSR	LAB_0418
 	JSR	LAB_0416
-	JSR	LAB_0328
+	JSR	Ix_RunEntities
 	JSR	LAB_0416
 	MOVE.W	#$0080,D0
 	MOVEQ	#0,D1
@@ -9432,7 +9461,7 @@ LAB_0456:
 	MOVEQ	#2,D0
 	JSR	LAB_0E55
 LAB_0457:
-	JSR	LAB_0328
+	JSR	Ix_RunEntities
 	JSR	LAB_0416
 	JSR	LAB_039E
 	MOVEQ	#5,D0
@@ -9464,7 +9493,7 @@ LAB_0457:
 	MOVEQ	#1,D3
 	MOVE.L	#$00000001,D4
 	MOVEQ	#40,D5
-	JSR	LAB_02D0
+	JSR	Ent_Spawn
 	MOVEA.L	#LAB_0979,A0
 	LEA	LAB_05E0,A2
 	MOVE.W	#$00a0,D0
@@ -9473,13 +9502,13 @@ LAB_0457:
 	MOVEQ	#1,D3
 	MOVE.L	#$00000002,D4
 	MOVEQ	#40,D5
-	JSR	LAB_02D0
+	JSR	Ent_Spawn
 	JSR	LAB_0416
 	LEA	LAB_05E6,A0
 	MOVEQ	#2,D0
 	JSR	LAB_0E55
 LAB_0458:
-	JSR	LAB_0328
+	JSR	Ix_RunEntities
 	JSR	LAB_0416
 	JSR	LAB_039E
 	MOVEQ	#6,D0
@@ -9503,7 +9532,7 @@ LAB_0458:
 	MOVEQ	#1,D3
 	MOVE.L	#$00000001,D4
 	MOVEQ	#40,D5
-	JSR	LAB_02D0
+	JSR	Ent_Spawn
 	MOVEA.L	#LAB_0933,A0
 	CMPI.W	#$0002,LAB_090B
 	BNE.S	LAB_0459
@@ -9532,7 +9561,7 @@ LAB_045C:
 	LEA	LAB_05E5,A0
 	JSR	LAB_03EE
 LAB_045D:
-	JSR	LAB_0328
+	JSR	Ix_RunEntities
 	JSR	LAB_0416
 	JSR	LAB_039E
 	MOVEQ	#4,D0
@@ -10297,7 +10326,7 @@ LAB_04A8:
 	JSR	LAB_04AB
 LAB_04A9:
 	JSR	Combat_RunControllers
-	JSR	LAB_0328
+	JSR	Ix_RunEntities
 	JSR	LAB_0416
 	JSR	LAB_039E
 	MOVEA.L	LAB_0F59,A0
@@ -10331,7 +10360,7 @@ LAB_04AB:
 	MOVE.W	#$0064,D2
 	MOVE.B	#$01,D3
 	MOVEQ	#68,D5
-	JSR	LAB_02D0
+	JSR	Ent_Spawn
 	MOVE.W	#$0005,LAB_0F5D
 	RTS
 ; ------------------------------------------------------------------------------
@@ -10552,7 +10581,7 @@ LAB_04BF:
 	MOVE.W	#$0064,D2
 	MOVE.B	#$01,D3
 	MOVEQ	#40,D5
-	JSR	LAB_02D0
+	JSR	Ent_Spawn
 	LEA	LAB_0F56,A0
 	LEA	LAB_0F5A,A2
 	MOVE.W	#$00a0,D0
@@ -10560,12 +10589,12 @@ LAB_04BF:
 	MOVE.W	#$0064,D2
 	MOVE.B	#$01,D3
 	MOVEQ	#40,D5
-	JSR	LAB_02D0
+	JSR	Ent_Spawn
 	JSR	LAB_03F1
 	JSR	LAB_0418
 	JSR	LAB_0416
 	JSR	Combat_RunControllers
-	JSR	LAB_0328
+	JSR	Ix_RunEntities
 	JSR	LAB_0416
 	JSR	LAB_039E
 	LEA	LAB_05E5,A0
@@ -10586,7 +10615,7 @@ LAB_04C0:
 	JSR	Combat_RunControllers
 	TST.W	LAB_0F58
 	BNE.S	LAB_04C1
-	JSR	LAB_0328
+	JSR	Ix_RunEntities
 	JSR	LAB_0416
 	JSR	LAB_039E
 	MOVEQ	#6,D0
@@ -12867,7 +12896,8 @@ LAB_0644:
 	DS.L	1
 LAB_0645:
 	DS.W	1
-LAB_0646:
+; [ex LAB_0646] Handlers des opcodes $80+4n du moteur de combat (differents de ceux de l'intro dans program)
+t_IxOpcodes:
 	DS.L	23
 LAB_0647:
 	DS.L	5
@@ -18283,7 +18313,7 @@ L09_007B9:
 	DC.L	$9c7c3c22,$b8061fc9,$4e71b0bc,$84d2501b
 	DC.L	$66000008
 	DC.W	$4ef9
-	DC.L	LAB_0328
+	DC.L	Ix_RunEntities
 	DC.L	$b0bc3d74,$2cf16700,$00084ef9
 	DC.L	LAB_03A7
 	DC.W	$4e75
@@ -24131,7 +24161,7 @@ LAB_0D9D:
 	JSR	LAB_0CDA
 	MOVE.L	LAB_0633,LAB_066E
 	JSR	Combat_RunControllers
-	JSR	LAB_0328
+	JSR	Ix_RunEntities
 	MOVE.L	LAB_066E,LAB_0633
 	RTS
 LAB_0D9E:
@@ -27038,7 +27068,7 @@ LAB_0F34:
 	MOVEA.L	#LAB_08BF,A0
 	MOVE.L	#$00000028,D4
 	MOVE.L	#$00000028,D5
-	JMP	LAB_02D0
+	JMP	Ent_Spawn
 
 
 	SECTION S_41,DATA
