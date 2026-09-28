@@ -133,7 +133,7 @@ SECSTRT_0:
 LAB_0001:
 	JSR	LAB_0152
 	JSR	LAB_0156
-	JSR	LAB_00B4
+	JSR	Prot_CopylockCheck
 	CMPI.W	#$0002,LAB_06DC
 	BEQ.W	LAB_0002
 	JSR	LAB_01AE
@@ -1645,13 +1645,14 @@ LAB_00B2:
 LAB_00B3:
 	JSR	SECSTRT_36
 	RTS
-LAB_00B4:
+; [ex LAB_00B4] Appelee a chaque partie depuis la boucle principale ; enchaine sur LAB_012D qui saute dans Prot_Copylock
+Prot_CopylockCheck:
 	JSR	LAB_03F1
 	JMP	LAB_012D
 ; ------------------------------------------------------------------------------
 ; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
 ; ------------------------------------------------------------------------------
-	JSR	LAB_0D7C
+	JSR	Hw_EnableInterrupts
 	MOVE	#$2000,SR
 	JSR	LAB_03A7
 	MOVE.W	#$0032,LAB_05D8
@@ -2860,7 +2861,7 @@ LAB_012D:
 	MOVEA.L	SECSTRT_35,A0
 	MOVEA.L	LAB_05C0,A1
 	JSR	LAB_0419
-	JMP	SECSTRT_9
+	JMP	Prot_Copylock
 LAB_012E:
 	MOVEQ	#3,D0
 	JSR	LAB_0100
@@ -6875,6 +6876,7 @@ LAB_02F7:
 	DBF	D7,LAB_02F7
 	MOVEQ	#-1,D0
 	RTS
+; [ex LAB_02F8] BUG ORIGINAL : MOVE.W $000A/$000C lit la table des vecteurs ; voulu : 10(A1)/12(A1) (A1 = LAB_062E)
 LAB_02F8:
 	MOVEA.L	LAB_0633,A2
 	LEA	LAB_062E,A1
@@ -17518,7 +17520,7 @@ LAB_09F4:
 	MOVE.B	(A0)+,(A2)+
 	CMPA.L	A0,A1
 	BNE.S	LAB_09F4
-	JSR	LAB_0D7B
+	JSR	Hw_DisableInterrupts
 	MOVE.L	#LAB_09F5,D0
 	MOVE.L	D0,AUTO_INT1.W
 	MOVE.L	D0,AUTO_INT2.W
@@ -17880,8 +17882,9 @@ SECSTRT_8:
 
 	SECTION S_9,CODE,CHIP
 
-SECSTRT_9:
-	JSR	LAB_0D7B
+; [ex SECSTRT_9] Protection Rob Northen Copylock : desactive le cache (MOVEC CACR), construit un handler TRACE sur la pile puis active le mode trace ; le reste du hunk est chiffre
+Prot_Copylock:
+	JSR	Hw_DisableInterrupts
 LAB_0A31:
 	MOVEM.L	LAB_0A4B(PC),D0-D7/A0-A6
 	MOVEM.L	D0-D7/A0-A7,-(A7)
@@ -17921,7 +17924,7 @@ LAB_0A33:
 	ADDQ.L	#6,TRACE.W
 	MOVEQ	#-124,D1
 	DC.W	$7108
-	BLT.S	SECSTRT_9+4
+	BLT.S	Prot_Copylock+4
 	ADD.B	-(A4),D5
 	BLT.S	LAB_0A31+2
 	DC.W	$8344
@@ -18263,11 +18266,11 @@ L09_007B9:
 	DC.W	$4e75
 LAB_0A4B:
 	DS.L	2
-	DC.L	SECSTRT_9+1980006056
+	DC.L	Prot_Copylock+1980006056
 	DC.L	SECSTRT_0-334931048
 	DC.L	SECSTRT_0-669911498
 	DC.L	SECSTRT_0-1339805294
-	DC.L	SECSTRT_9+1615290964
+	DC.L	Prot_Copylock+1615290964
 	DC.L	SECSTRT_0-1064383638
 	DC.L	$5d8d1d65
 	DC.L	SECSTRT_0-1157452998
@@ -18792,9 +18795,9 @@ LAB_0AA8:
 	TST.L	(A0)+
 	BNE.S	LAB_0AA8
 	MOVE.L	#LAB_0F73,-4(A0)
-	JSR	LAB_0D7B
+	JSR	Hw_DisableInterrupts
 	MOVE.L	#LAB_0F69,AUTO_INT4
-	JSR	LAB_0D7C
+	JSR	Hw_EnableInterrupts
 	LEA	LAB_0AC1,A0
 	MOVEA.L	LAB_05C9,A1
 	MOVE.L	#$0000d924,D0
@@ -19848,7 +19851,7 @@ LAB_0B49:
 	JSR	LAB_0D77
 	MOVE.B	JOY0DAT,LAB_0B8C
 	MOVE.B	EXT_0044,LAB_0B8D
-	JSR	LAB_0D7B
+	JSR	Hw_DisableInterrupts
 	MOVE.L	#LAB_0B4A,AUTO_INT1
 	MOVE.L	#LAB_0B4E,AUTO_INT2
 	MOVE.L	#LAB_0B55,AUTO_INT3
@@ -19860,7 +19863,7 @@ LAB_0B49:
 	MOVE.B	#$1f,CIAB_ICR
 	MOVE.W	#$1f95,INTENA
 	MOVE.W	#$a06a,INTENA
-	JSR	LAB_0D7C
+	JSR	Hw_EnableInterrupts
 	RTS
 ; ------------------------------------------------------------------------------
 ; [PROBABLE] cible de pointeur validée (analyse m68kdis)
@@ -23512,7 +23515,7 @@ LAB_0D54:
 	JSR	LAB_0D72
 	MOVEA.L	SECSTRT_35,A0
 	JSR	LAB_0D72
-	JSR	LAB_0D7B
+	JSR	Hw_DisableInterrupts
 	JSR	LAB_0D77
 	MOVE.W	#$5200,BPLCON0
 	MOVE.W	#$0000,BPLCON1
@@ -23528,7 +23531,7 @@ LAB_0D54:
 	MOVE.W	#$8040,DMACON
 	MOVE.W	#$8020,DMACON
 	MOVE.W	#$8400,DMACON
-	JSR	LAB_0D7C
+	JSR	Hw_EnableInterrupts
 	MOVEA.L	#LAB_0D94,A0
 	JSR	LAB_0D8A
 	MOVEM.L	(A7)+,D0-D7/A0-A6
@@ -23893,10 +23896,12 @@ LAB_0D7A:
 	BTST	#7,CIAA_PRA
 	BEQ.S	LAB_0D7A
 	RTS
-LAB_0D7B:
+; [ex LAB_0D7B] INTENA = $4000 (coupe le bit maitre)
+Hw_DisableInterrupts:
 	MOVE.W	#$4000,INTENA
 	RTS
-LAB_0D7C:
+; [ex LAB_0D7C] INTENA = $C000 (remet le bit maitre)
+Hw_EnableInterrupts:
 	MOVE.W	#$c000,INTENA
 	RTS
 ; ------------------------------------------------------------------------------

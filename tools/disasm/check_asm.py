@@ -60,7 +60,7 @@ def check(path, verbose=False):
         base = op.split('.')[0]
         if kind == 'insn' and re.match(r'ORI\.B\s+#\$0+,D\d', t, re.I):
             res['ORI.B #0,Dn'].append((i, t))
-        for m in re.finditer(r'(#?)\b((?:LAB|SECSTRT|L\d\d)_\w+)(\+\d+)?', t):
+        for m in re.finditer(r'(#?)\b([A-Za-z_]\w*)(\+\d+)?', t):
             imm, n, off = m.groups()
             if n not in lab:
                 continue

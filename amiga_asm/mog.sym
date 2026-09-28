@@ -1,0 +1,9 @@
+# Symboles de mog — noms donnés au fil de l'analyse.
+# Format : <hunk>:$<offset> <TAB> <nom> <TAB> <ancien nom IRA> <TAB> <commentaire>
+# Géré par tools/disasm/rename.py ; réappliqué par tools/disasm/regen.sh.
+
+0:$018DE	Prot_CopylockCheck	LAB_00B4	Appelee a chaque partie depuis la boucle principale ; enchaine sur LAB_012D qui saute dans Prot_Copylock
+0:$073AA	LAB_02F8	LAB_02F8	BUG ORIGINAL : MOVE.W $000A/$000C lit la table des vecteurs ; voulu : 10(A1)/12(A1) (A1 = LAB_062E)
+9:$00000	Prot_Copylock	SECSTRT_9	Protection Rob Northen Copylock : desactive le cache (MOVEC CACR), construit un handler TRACE sur la pile puis active le mode trace ; le reste du hunk est chiffre
+34:$006AE	Hw_DisableInterrupts	LAB_0D7B	INTENA = $4000 (coupe le bit maitre)
+34:$006B8	Hw_EnableInterrupts	LAB_0D7C	INTENA = $C000 (remet le bit maitre)

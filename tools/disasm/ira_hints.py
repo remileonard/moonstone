@@ -38,6 +38,7 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import m68kdis  # noqa: E402
 import hunk as hunkmod  # noqa: E402
+import symbols  # noqa: E402
 
 
 def linear(prog):
@@ -82,11 +83,15 @@ def main():
     ap.add_argument('--ira', required=True)
     ap.add_argument('--vasm', required=True)
     ap.add_argument('--old', help='ancien source (noms de labels à conserver)')
+    ap.add_argument('--baseline', help='source de référence pour la comparaison du rapport '
+                    '(par défaut : --old)')
+    ap.add_argument('--sym', help='fichier de symboles (noms + commentaires, prioritaire)')
     ap.add_argument('--heuristic', action='store_true')
     ap.add_argument('--cnf', help='copie du .cnf final')
     ap.add_argument('--report')
     a = ap.parse_args()
     a.ira, a.vasm = os.path.abspath(a.ira), os.path.abspath(a.vasm)
+    a.syms = symbols.load(a.sym) if a.sym else {}
 
     prog = m68kdis.Program(a.binary)
     prog.run(heuristic=a.heuristic)
@@ -134,7 +139,10 @@ def main():
     print('%s : %d racines, réassemblage %s' % (
         a.output, len(roots), 'IDENTIQUE' if ok else 'DIFFÉRENT'))
     if a.report:
-        write_report(a, prog, roots, old_labels, old_insn, new_labels, new_insn, ok, dropped)
+        base_labels, base_insn = old_labels, old_insn
+        if a.baseline:
+            base_labels, _, base_insn = m68kdis.import_labels(a.vasm, a.baseline)
+        write_report(a, prog, roots, base_labels, base_insn, new_labels, new_insn, ok, dropped)
     sys.exit(0 if ok else 2)
 
 
@@ -161,15 +169,18 @@ def build(a, cnf, old_labels):
             # certains labels) : adresse -> ancien nom, sinon L<hunk>_<off>.
             rename = {}
             for k, nn in new_labels.items():
-                if not nn.startswith('SECSTRT_'):
+                if k in a.syms:
+                    rename[nn] = a.syms[k]['name']
+                elif not nn.startswith('SECSTRT_'):
                     rename[nn] = old_labels.get(k) or 'L%02d_%05X' % k
             old_ext = {v: n for n, v in header_equs(a.old).items() if n.startswith('EXT_')}
             for n, v in header_equs(out).items():
                 if n.startswith('EXT_'):
                     rename[n] = old_ext.get(v, 'ABS_%X' % v)
             text = open(out, encoding='latin-1').read()
-            text = re.sub(r'\b(?:LAB|EXT)_[0-9A-Fa-f]+\b',
+            text = re.sub(r'\b(?:(?:LAB|EXT)_[0-9A-Fa-f]+|SECSTRT_\d+)\b',
                           lambda m: rename.get(m.group(0), m.group(0)), text)
+            text = symbols.annotate(text, a.syms)
             open(out, 'w', encoding='latin-1').write(text)
             new_labels, _, new_insn = m68kdis.import_labels(a.vasm, out)
         shutil.copy(out, a.output)
@@ -305,7 +316,10 @@ def write_report(a, prog, roots, old_labels, old_insn, new_labels, new_insn, ok,
         kept = sum(1 for k, n in old_labels.items() if new_labels.get(k) == n)
         gone = sorted((k, n) for k, n in old_labels.items() if k not in new_labels)
         R.append('\n## Labels\n')
+        renamed = sum(1 for k in old_labels if k in a.syms and new_labels.get(k) == a.syms[k]['name']
+                      and old_labels[k] != a.syms[k]['name'])
         R.append('- %d labels de l\'ancien source conservés à la même adresse.' % kept)
+        R.append('- %d labels renommés d\'après `amiga_asm/%s.sym`.' % (renamed, name))
         R.append('- %d labels anciens disparus (ils pointaient dans des données '
                  'mal décodées ou au milieu d\'instructions) :\n' % len(gone))
         R.append('  ' + ', '.join('`%s`' % n for k, n in gone[:400]))

@@ -102,7 +102,8 @@ Ces cibles sont référencées par adresse mais leur décodage échoue : ce sont
 
 ## Labels
 
-- 1450 labels de l'ancien source conservés à la même adresse.
+- 1446 labels de l'ancien source conservés à la même adresse.
+- 4 labels renommés d'après `amiga_asm/program.sym`.
 - 49 labels anciens disparus (ils pointaient dans des données mal décodées ou au milieu d'instructions) :
 
   `LAB_002B`, `LAB_0055`, `LAB_0057`, `LAB_016B`, `LAB_016C`, `LAB_016F`, `LAB_0170`, `LAB_0171`, `LAB_0172`, `LAB_0175`, `LAB_0176`, `LAB_0177`, `LAB_0178`, `LAB_0179`, `LAB_017A`, `LAB_017B`, `LAB_017C`, `LAB_017D`, `LAB_017F`, `LAB_0180`, `LAB_0182`, `LAB_0183`, `LAB_0187`, `LAB_0188`, `LAB_0189`, `LAB_018A`, `LAB_018B`, `LAB_018F`, `LAB_01A9`, `LAB_01BB`, `LAB_0268`, `LAB_029F`, `LAB_02B6`, `LAB_02B7`, `LAB_02B8`, `LAB_02BA`, `LAB_037D`, `LAB_037E`, `LAB_037F`, `LAB_0380`, `LAB_0381`, `LAB_0382`, `LAB_0388`, `LAB_0389`, `LAB_038A`, `LAB_038B`, `LAB_038C`, `LAB_0391`, `LAB_05AA`

@@ -54,11 +54,33 @@ niveau de confiance et par hunk, reclassements par rapport à l'ancien source,
 pointeurs rejetés (= données dans le code), sauts calculés, blocs retirés,
 labels disparus.
 
+## Nommer au fil des découvertes
+
+Les noms donnés aux routines, variables et tables sont enregistrés dans
+`amiga_asm/<nom>.sym` (adresse `hunk:$offset`, nom, ancien nom IRA,
+commentaire). Ce fichier fait référence : `regen.sh` le réapplique, et
+chaque définition renommée est précédée de `; [ex LAB_xxxx] commentaire`,
+ce qui permet de retrouver les noms cités dans `docs/`.
+
+```sh
+python3 tools/disasm/rename.py mog LAB_0036 Combat_Arena "Boucle de combat en arene"
+python3 tools/disasm/rename.py mog Combat_Arena Combat_Arena "commentaire corrige"
+```
+
+`rename.py` remplace le nom partout, insère le commentaire, vérifie que le
+source se réassemble toujours à l'identique (sinon il annule) et met à jour
+le `.sym`.
+
+Convention : CamelCase anglais avec un préfixe de module — `Combat_`, `Ow_`
+(overworld), `Ix_` (IMAGEXCEL), `Snd_`, `Io_`, `Unpack_`, `Hw_`, `Prot_` —
+et `v_` pour les variables, `t_` pour les tables. Ne renommer que ce qui est
+vérifié ; en cas de doute, un commentaire seul (même nom) suffit.
+
 ## Utilisation
 
 ```sh
 tools/disasm/setup.sh        # IRA 2.11 (aminet) + patch, vasm, capstone, lhafile
-tools/disasm/regen.sh        # régénère program, mog, nb (+ .cnf + rapports)
+tools/disasm/regen.sh        # régénère program, mog, nb (+ .cnf + rapports, .sym réappliqué)
 python3 tools/disasm/check_asm.py amiga_asm/mog.asm -v
 ```
 

@@ -59,15 +59,15 @@ _KNOWN_NAMES: dict[str, str] = {
 # ---------------------------------------------------------------------------
 
 # Match a label definition line: LAB_XXXX:
-RE_LABEL   = re.compile(r'^(LAB_[0-9A-Fa-f]+):')
+RE_LABEL   = re.compile(r'^([A-Za-z_]\w*):')
 # Match DC.L with one or more hex values: DC.L $HHHHHHHH[,$HHHHHHHH,...]
 RE_DCL_HEX = re.compile(r'^\s+DC\.L\s+((?:\$[0-9A-Fa-f]{1,8},?\s*)+)', re.IGNORECASE)
 # Match DC.W with one or more hex values
 RE_DCW_HEX = re.compile(r'^\s+DC\.W\s+((?:\$[0-9A-Fa-f]{1,4},?\s*)+)', re.IGNORECASE)
 # Match DC.L LAB_YYYY (label reference)
-RE_DCL_LAB = re.compile(r'^\s+DC\.L\s+(LAB_[0-9A-Fa-f]+)', re.IGNORECASE)
+RE_DCL_LAB = re.compile(r'^\s+DC\.L\s+([A-Za-z_]\w*)', re.IGNORECASE)
 # Match DC.W LAB_YYYY (label reference — rare but possible)
-RE_DCW_LAB = re.compile(r'^\s+DC\.W\s+(LAB_[0-9A-Fa-f]+)', re.IGNORECASE)
+RE_DCW_LAB = re.compile(r'^\s+DC\.W\s+([A-Za-z_]\w*)', re.IGNORECASE)
 
 
 class Block:

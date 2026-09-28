@@ -150,7 +150,7 @@ SECSTRT_0:
 	JSR	LAB_005B
 LAB_0000:
 	LEA	LAB_0004,A0
-	JMP	SECSTRT_4
+	JMP	Io_HunkLoader
 LAB_0001:
 	LEA	LAB_00A2,A0
 	JSR	LAB_0054
@@ -2688,7 +2688,8 @@ LAB_0124:
 
 	SECTION S_4,CODE
 
-SECSTRT_4:
+; [ex SECSTRT_4] Chargeur/relogeur d'executables hunk (charge mog)
+Io_HunkLoader:
 	MOVE.L	A0,LAB_0160
 	MOVE.L	EXT_0008.W,LAB_015A
 	MOVE.L	EXT_0009.W,LAB_0154
@@ -3327,7 +3328,7 @@ LAB_0185:
 	JSR	LAB_03B2
 	JSR	LAB_03DA
 	MOVEA.L	LAB_0124,A0
-	BRA.W	LAB_0190
+	BRA.W	Unpack_Rnc1
 LAB_018C:
 	RTS
 LAB_018D:
@@ -3458,7 +3459,8 @@ LAB_018E:
 	JSR	LAB_03B2
 	JSR	LAB_03DA
 	MOVEA.L	LAB_0124,A0
-LAB_0190:
+; [ex LAB_0190] Decompresseur RNC ProPack type 1 (music.cmp / vmusic.cmp)
+Unpack_Rnc1:
 	MOVEM.L	D1-D7/A0-A6,-(A7)
 	MOVEA.L	A0,A1
 	BSR.S	LAB_0196
@@ -7491,7 +7493,7 @@ LAB_0406:
 	LEA	SECSTRT_27,A2
 	MOVE.W	#$0001,LAB_0528
 	MOVE.L	(A7)+,D0
-	JSR	LAB_049C
+	JSR	Unpack_Lzss
 	RTS
 LAB_0407:
 	ADDQ.L	#1,A0
@@ -7862,7 +7864,8 @@ SECSTRT_21:
 ; ------------------------------------------------------------------------------
 ; [HEURISTIQUE] bloc non atteint, décodage valide - A VERIFIER
 ; ------------------------------------------------------------------------------
-LAB_0448:
+; [ex LAB_0448] Decompresseur RLE 2 bits des .stile (porte dans libmoon_assets/src/rle_stile.c)
+Unpack_StileRle:
 	MOVEQ	#7,D6
 	MOVEQ	#7,D5
 LAB_0449:
@@ -8431,7 +8434,7 @@ LAB_0494:
 	LEA	10(A2,D0.W),A1
 	MOVE.L	A1,2(A2)
 	MOVE.L	6(A2),D7
-	JSR	LAB_0448(PC)
+	JSR	Unpack_StileRle(PC)
 	SUBA.L	LAB_04A4,A1
 	MOVE.L	A1,LAB_04A4
 	RTS
@@ -8486,7 +8489,7 @@ LAB_0495:
 	LEA	10(A2,D0.W),A1
 	MOVE.L	A1,2(A2)
 	MOVE.L	6(A2),D7
-	JSR	LAB_0448(PC)
+	JSR	Unpack_StileRle(PC)
 	SUBA.L	LAB_04A4,A1
 	MOVE.L	A1,LAB_04A4
 	RTS
@@ -8543,7 +8546,7 @@ LAB_0499:
 	MOVE.L	LAB_04F8,D0
 	LEA	LAB_052A,A0
 	LEA	SECSTRT_27,A2
-	JSR	LAB_049C
+	JSR	Unpack_Lzss
 	MOVE.W	LAB_04F7,D1
 	MULU	#$000a,D1
 	ADDI.W	#$000a,D1
@@ -8598,7 +8601,7 @@ LAB_049A:
 	MOVE.L	LAB_04F8,D0
 	LEA	SECSTRT_27,A2
 	MOVE.W	#$0001,LAB_0528
-	JSR	LAB_049C
+	JSR	Unpack_Lzss
 	MOVE.W	LAB_04F7,D1
 	MULU	#$000a,D1
 	ADDI.W	#$000a,D1
@@ -8623,7 +8626,7 @@ LAB_049A:
 	MOVEA.L	(A7)+,A0
 	LEA	SECSTRT_27,A2
 	MOVE.W	#$0001,LAB_0528
-	JMP	LAB_049C
+	JMP	Unpack_Lzss
 ; ------------------------------------------------------------------------------
 ; [PROBABLE] cible de pointeur validée (analyse m68kdis)
 ; ------------------------------------------------------------------------------
@@ -8632,7 +8635,8 @@ LAB_049B:
 	SUBA.L	A1,A2
 	MOVE.L	A2,D0
 	RTS
-LAB_049C:
+; [ex LAB_049C] Decompresseur LZSS des .cel/.PIV (fenetre 2 Ko) ; boucle de copie deroulee LAB_03E2
+Unpack_Lzss:
 	MOVEA.L	A1,A2
 	LEA	0(A0,D0.L),A1
 	MOVE.L	A2,-(A7)
