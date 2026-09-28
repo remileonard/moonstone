@@ -44,6 +44,34 @@ def reassembles(binary, asm):
         return not hunkmod.diff_offsets(binary, exe)
 
 
+def split_comment(line):
+    """Sépare code et commentaire (';' hors chaîne entre guillemets)."""
+    q = None
+    for i, c in enumerate(line):
+        if q:
+            if c == q:
+                q = None
+        elif c in '"\'':
+            q = c
+        elif c == ';':
+            return line[:i], line[i:]
+    return line, ''
+
+
+def in_code(text, name):
+    pat = re.compile(r'\b%s\b' % re.escape(name))
+    return any(pat.search(split_comment(l)[0]) for l in text.split('\n'))
+
+
+def replace_in_code(text, old, new):
+    pat = re.compile(r'\b%s\b' % re.escape(old))
+    out = []
+    for l in text.split('\n'):
+        code, com = split_comment(l)
+        out.append(pat.sub(new, code) + com)
+    return '\n'.join(out)
+
+
 def main():
     if len(sys.argv) < 4:
         sys.exit(__doc__)
@@ -56,7 +84,7 @@ def main():
         sys.exit('nom invalide : %s' % new)
 
     text = open(asm, encoding='latin-1').read()
-    if old != new and re.search(r'\b%s\b' % re.escape(new), text):
+    if old != new and in_code(text, new):
         sys.exit('%s existe déjà dans %s.asm' % (new, name))
 
     labels, _, _ = m68kdis.import_labels(VASM, asm)
@@ -79,7 +107,7 @@ def main():
     if prev:
         for c in symbols.comment_lines(prev):
             text = text.replace(c + '\n' + old + ':', old + ':')
-    text = re.sub(r'\b%s\b' % re.escape(old), new, text)
+    text = replace_in_code(text, old, new)
     text = symbols.annotate(text, {addr: entry})
 
     backup = asm + '.bak'
