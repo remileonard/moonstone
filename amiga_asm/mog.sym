@@ -9,6 +9,7 @@
 0:$00A6C	Combat_CheckEnd	LAB_004B	PV joueur < 0 -> fin : delai 50 images (16(v_Combatants)) ; touche $20 = pause
 0:$00AB4	Combat_StartPvP	LAB_004F	Duel chevalier contre chevalier : prepare les deux chevaliers puis Combat_Run
 0:$018DE	Prot_CopylockCheck	LAB_00B4	Appelee a chaque partie depuis la boucle principale ; enchaine sur LAB_012D qui saute dans Prot_Copylock
+0:$03BB2	Combat_ClearHitLinks	LAB_0161	Remet a zero 14 (a touche) et 18 (touche par) de tous les objets, en debut de collisions
 0:$05118	Ctl_HumanKnight	LAB_01CA	Controleur joystick : 62 = bits stick (0 D,1 G,2 B,3 H,4 feu), marche en 4 phases (12), feu -> Ctl_HumanAttack ; 14/18 non nuls = reaction a un coup
 0:$05334	Ctl_HumanAttack	LAB_01DD	Feu + direction -> index d'attaque (t_AttackStickR/L) -> script 34(chevalier)[index]
 0:$06EC8	Ctl_Return	LAB_02BA	Fin commune des controleurs : A0 = v_CtlScript, D0-D3 depuis l'objet (4,6,8,10)
@@ -45,11 +46,19 @@
 0:$08388	IxOpD0_Reset	LAB_039B	$D0 : reinitialise le contexte de script. 2 octets
 0:$08394	Ix_ResetCtx	LAB_039C	Remet a zero le contexte de script (36 octets) sauf le script secondaire
 0:$08672	Ix_AddBBox	LAB_03B8	Union des rectangles dessines -> boite de l'entite (objet 58/60 X min/max, 112/114 Y min/max)
+0:$086D8	Combat_Collisions	LAB_03BE	Chaque entite (frames 'frappe', liste 40) contre chaque autre entite a moins de 10 de profondeur (frames 'corps', liste 44) ; 1er contact : attaquant.14 = cible, cible.18 = attaquant, cible.122/124 = point d'impact
+0:$087B8	Combat_ClearFrameLists	LAB_03C7	Vide les listes de frames frappe/corps (reconstruites a chaque image par Ix_Step)
+0:$087E2	Col_SpanOverlap	LAB_03CA	Recouvrement de deux intervalles : D5 += 1 si [D0,D1] et [D2,D3] se chevauchent
+0:$087FC	Col_LoadHitData	LAB_03CE	Pour une CEL (nom en A0) : lit ses points d'impact dans collide.hit et les enregistre dans t_HitDataByCel
+0:$088D6	Col_InitHitFile	LAB_03DA	Charge collide.hit (texte) en memoire
+0:$0892A	Col_PixelHit	LAB_03DB	Points d'impact de collide.hit de la frame 'frappe' (miroir si retournee) contre les pixels opaques de la frame 'corps' ; D0=1 si touche, point dans v_HitX/v_HitY
 1:$0010E	v_FrameVbls	LAB_05BA	VBL par image : 6 en combat (8,33 i/s PAL), 2 sur la carte
 1:$001D0	v_Combatants	LAB_05E4	0 objet joueur, 4 objet adversaire, 8 octet combat actif, 16 octet delai de fin
 1:$00C0C	v_CtlScript	LAB_061D	Script choisi par le controleur (-1 = aucun changement)
 1:$00D30	t_IxOpcodes	LAB_0646	Handlers des opcodes $80+4n du moteur de combat (differents de ceux de l'intro dans program)
 1:$00DB4	t_Entities	LAB_0649	10 entites x 50 octets : 0 actif, 1 occupe, 2 script, 6/8/10 X/hauteur/profondeur, 22 direction, 24 objet (chevalier/creature), 32 index controleur
+1:$0146A	t_StrikeFrames	LAB_064F	10 x 8 enregistrements de 10 octets (CEL.L, frame.W, X.W, Y.W) : frames dessinees avec le drapeau bit 1 (frappe)
+1:$0178A	t_BodyFrames	LAB_0650	10 x 8 enregistrements de 10 octets : frames dessinees avec le drapeau bit 0 (corps, peut etre touche)
 4:$01022	t_AttackStickR	LAB_07D9	Bits stick -> index d'attaque, chevalier tourne a droite
 4:$01038	t_AttackStickL	LAB_07DA	Bits stick -> index d'attaque, chevalier tourne a gauche
 4:$06ED8	t_Controllers	LAB_08C7	Controleur par type d'entite (meme index que t_CreatureInit / champ 77 de l'objet) : 0 chevalier ennemi, 4 Mudmen, 12 chevalier humain, 16 chevalier noir, 20 Dragon, 36 Ratmen...
@@ -58,7 +67,14 @@
 4:$06F72	t_WalkStepUp	LAB_08CA	Pas vers le haut par phase de marche
 4:$06F7A	t_WalkStepDown	LAB_08CB	Pas vers le bas par phase de marche
 9:$00000	Prot_Copylock	SECSTRT_9	Protection Rob Northen Copylock : desactive le cache (MOVEC CACR), construit un handler TRACE sur la pile puis active le mode trace ; le reste du hunk est chiffre
+10:$00014	t_HitDataByCel	LAB_0A51	Paires (CEL, donnees de points d'impact)
+10:$00068	v_HitX	LAB_0A52	X du point d'impact du dernier contact
+10:$0006A	v_HitY	LAB_0A53	Y du point d'impact du dernier contact
+10:$0006C	v_HitMirrorW	LAB_0A54	Largeur de la frame si retournee (points d'impact en miroir), sinon 0
+10:$0006E	t_Popcount4	LAB_0A55	Nombre de bits a 1 de 0 a 15 : nombre de plans a tester
+10:$00090	s_CollideHit	LAB_0A57	Nom du fichier collide.hit
 22:$0000A	v_VblCounter	LAB_0B9D	Compteur incremente a chaque VBL
+28:$00056	Cel_FlipFrame	LAB_0CCE	Retourne une frame CEL en place ; octet d'orientation : 1 = sens d'origine, sinon decalage d'alignement << 4
 34:$00658	Hw_WaitVbls	LAB_0D74	Attend D0 VBL (scrutation VHPOSR = $F5)
 34:$006AE	Hw_DisableInterrupts	LAB_0D7B	INTENA = $4000 (coupe le bit maitre)
 34:$006B8	Hw_EnableInterrupts	LAB_0D7C	INTENA = $C000 (remet le bit maitre)

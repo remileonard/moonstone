@@ -581,7 +581,7 @@ Combat_Loop:
 	JSR	Combat_RunControllers
 	JSR	Ix_RunEntities
 	JSR	LAB_0416
-	JSR	LAB_03BE
+	JSR	Combat_Collisions
 	JSR	LAB_039E
 	JSR	Combat_LowHpIndicator
 	TST.W	LAB_06FC
@@ -996,7 +996,7 @@ LAB_0067:
 	MOVE.W	LAB_05B3,D0
 	MOVE.W	D0,D1
 	ADD.W	LAB_05B1,D1
-	JSR	LAB_03CA
+	JSR	Col_SpanOverlap
 	TST.L	D5
 	BEQ.S	LAB_0068
 	MOVE.W	LAB_05B4,D0
@@ -1005,7 +1005,7 @@ LAB_0067:
 	MOVE.W	LAB_05B6,D2
 	MOVE.W	D2,D3
 	ADD.W	LAB_05AF,D3
-	JSR	LAB_03CA
+	JSR	Col_SpanOverlap
 LAB_0068:
 	RTS
 LAB_0069:
@@ -2422,7 +2422,7 @@ LAB_0115:
 	LEA	LAB_05E1,A0
 	MOVE.L	A1,12(A0)
 	LEA	LAB_0772,A0
-	JSR	LAB_03CE
+	JSR	Col_LoadHitData
 	MOVE.L	LAB_0A4D,LAB_0A4F
 	MOVE.L	LAB_0A4E,LAB_0A50
 	LEA	LAB_0774,A0
@@ -2496,7 +2496,7 @@ LAB_0119:
 	MOVE.L	A1,12(A0)
 	MOVE.L	A1,16(A0)
 	LEA	LAB_077B,A0
-	JSR	LAB_03CE
+	JSR	Col_LoadHitData
 	JSR	LAB_0AB1
 	RTS
 ; ------------------------------------------------------------------------------
@@ -2524,7 +2524,7 @@ LAB_011B:
 	LEA	LAB_05E0,A0
 	MOVE.L	A1,4(A0)
 	LEA	LAB_0779,A0
-	JSR	LAB_03CE
+	JSR	Col_LoadHitData
 	JSR	LAB_0AB1
 	RTS
 ; ------------------------------------------------------------------------------
@@ -2541,7 +2541,7 @@ LAB_011C:
 	LEA	LAB_05E0,A0
 	MOVE.L	A1,0(A0)
 	LEA	LAB_077C,A0
-	JSR	LAB_03CE
+	JSR	Col_LoadHitData
 	LEA	LAB_077C,A0
 	JSR	LAB_0CB6
 	LEA	LAB_05E0,A0
@@ -2564,7 +2564,7 @@ LAB_011E:
 	LEA	LAB_05E0,A0
 	MOVE.L	A1,0(A0)
 	LEA	LAB_0782,A0
-	JSR	LAB_03CE
+	JSR	Col_LoadHitData
 	LEA	LAB_05B9,A1
 	MOVEA.L	44(A1),A1
 	LEA	LAB_05E0,A0
@@ -2585,7 +2585,7 @@ LAB_011F:
 	LEA	LAB_05E0,A0
 	MOVE.L	A1,0(A0)
 	LEA	LAB_0785,A0
-	JSR	LAB_03CE
+	JSR	Col_LoadHitData
 	LEA	LAB_0785,A0
 	JSR	LAB_0CB6
 	LEA	LAB_05E0,A0
@@ -2620,7 +2620,7 @@ LAB_0121:
 	LEA	LAB_05E0,A0
 	MOVE.L	A1,0(A0)
 	LEA	LAB_0780,A0
-	JSR	LAB_03CE
+	JSR	Col_LoadHitData
 	LEA	LAB_0780,A0
 	JSR	LAB_0CB6
 	LEA	LAB_05E0,A0
@@ -2629,7 +2629,7 @@ LAB_0121:
 	LEA	LAB_05E0,A0
 	MOVE.L	A1,4(A0)
 	LEA	LAB_0781,A0
-	JSR	LAB_03CE
+	JSR	Col_LoadHitData
 	LEA	LAB_0781,A0
 	JSR	LAB_0CB6
 	LEA	LAB_05E0,A0
@@ -2637,7 +2637,7 @@ LAB_0121:
 	ADDA.L	D0,A1
 	MOVE.L	A1,16(A0)
 	LEA	LAB_0122,A0
-	JSR	LAB_03CE
+	JSR	Col_LoadHitData
 	JSR	LAB_0AAC
 	LEA	LAB_05E1,A0
 	LEA	LAB_05B9,A1
@@ -2662,7 +2662,7 @@ LAB_0124:
 	LEA	LAB_05E0,A0
 	MOVE.L	A1,0(A0)
 	LEA	LAB_077E,A0
-	JSR	LAB_03CE
+	JSR	Col_LoadHitData
 	LEA	LAB_077E,A0
 	JSR	LAB_0CB6
 	LEA	LAB_05E0,A0
@@ -2696,7 +2696,7 @@ LAB_0125:
 	LEA	LAB_05E0,A0
 	MOVE.L	A1,0(A0)
 	LEA	LAB_07B1,A0
-	JSR	LAB_03CE
+	JSR	Col_LoadHitData
 	LEA	LAB_07B1,A0
 	JSR	LAB_0CB6
 	LEA	LAB_05E0,A0
@@ -2705,7 +2705,7 @@ LAB_0125:
 	LEA	LAB_05E0,A0
 	MOVE.L	A1,8(A0)
 	LEA	LAB_07B2,A0
-	JSR	LAB_03CE
+	JSR	Col_LoadHitData
 	JSR	LAB_0AAE
 	RTS
 ; ------------------------------------------------------------------------------
@@ -2721,7 +2721,7 @@ LAB_0126:
 	MOVE.L	LAB_0632,0(A1)
 	LEA	LAB_07B4,A0
 	MOVEA.L	LAB_0632,A1
-	JSR	LAB_03CE
+	JSR	Col_LoadHitData
 	LEA	LAB_07B4,A0
 	JSR	LAB_0CB6
 	ADD.L	D0,LAB_0632
@@ -2729,7 +2729,7 @@ LAB_0126:
 	MOVE.L	LAB_0632,4(A1)
 	LEA	LAB_07B5,A0
 	MOVEA.L	LAB_0632,A1
-	JSR	LAB_03CE
+	JSR	Col_LoadHitData
 LAB_0127:
 	LEA	LAB_05E1,A0
 	LEA	LAB_05B9,A1
@@ -3513,7 +3513,8 @@ LAB_0160:
 	ADDA.L	#$00000084,A1
 	DBF	D7,LAB_0160
 	RTS
-LAB_0161:
+; [ex LAB_0161] Remet a zero 14 (a touche) et 18 (touche par) de tous les objets, en debut de collisions
+Combat_ClearHitLinks:
 	LEA	LAB_0617,A1
 	MOVE.L	#$00000000,14(A1)
 	MOVE.L	#$00000000,18(A1)
@@ -7044,7 +7045,7 @@ LAB_0304:
 	MOVE.L	#IxOpD0_Reset,80(A0)
 	MOVE.L	#LAB_064D,LAB_063F
 	MOVE.L	#LAB_064E,LAB_063E
-	JSR	LAB_03DA
+	JSR	Col_InitHitFile
 	RTS
 LAB_0305:
 	LEA	t_Entities,A0
@@ -7058,11 +7059,11 @@ LAB_0307:
 	MOVE.B	#$00,(A0)+
 	DBF	D0,LAB_0307
 	JSR	LAB_03A7
-	BSR.W	LAB_03C7
+	BSR.W	Combat_ClearFrameLists
 	LEA	t_Entities,A0
 	MOVE.L	#$00000009,D0
-	LEA	LAB_064F,A2
-	LEA	LAB_0650,A3
+	LEA	t_StrikeFrames,A2
+	LEA	t_BodyFrames,A3
 LAB_0308:
 	MOVE.L	A2,40(A0)
 	MOVE.L	A3,44(A0)
@@ -7080,7 +7081,7 @@ LAB_0309:
 	ADDA.L	#$00000024,A1
 	ADDA.L	#$00000032,A0
 	DBF	D0,LAB_0309
-	JSR	LAB_0161
+	JSR	Combat_ClearHitLinks
 	MOVE.L	LAB_0A4F,LAB_0A4D
 	MOVE.L	LAB_0A50,LAB_0A4E
 	RTS
@@ -7558,7 +7559,7 @@ Ix_FrameInfo:
 LAB_034F:
 	CMP.B	22(A1),D3
 	BEQ.S	LAB_0350
-	JSR	LAB_0CCE
+	JSR	Cel_FlipFrame
 LAB_0350:
 	MOVEM.L	(A7)+,D0-D3/A0-A1
 	RTS
@@ -8244,12 +8245,12 @@ LAB_03AE:
 	ADD.W	LAB_0635,D1
 	MOVE.W	58(A1),D2
 	MOVE.W	60(A1),D3
-	JSR	LAB_03CA
+	JSR	Col_SpanOverlap
 	MOVE.W	112(A0),D0
 	MOVE.W	114(A0),D1
 	MOVE.W	112(A1),D2
 	MOVE.W	114(A1),D3
-	JSR	LAB_03CA
+	JSR	Col_SpanOverlap
 	CMP.L	#$00000002,D5
 	BNE.S	LAB_03AF
 	BCLR	D6,L00_08671
@@ -8263,7 +8264,7 @@ LAB_03AF:
 	MOVE.W	60(A0),D1
 	MOVE.W	58(A1),D2
 	MOVE.W	60(A1),D3
-	JSR	LAB_03CA
+	JSR	Col_SpanOverlap
 	MOVE.W	8(A1),D1
 	MOVE.W	8(A0),D2
 	SUB.W	D1,D2
@@ -8280,7 +8281,7 @@ LAB_03B1:
 	MOVE.W	114(A0),D1
 	MOVE.W	112(A1),D2
 	MOVE.W	114(A1),D3
-	JSR	LAB_03CA
+	JSR	Col_SpanOverlap
 	CMP.L	#$00000002,D5
 	BNE.S	LAB_03B2
 	BCLR	D6,L00_08671
@@ -8332,8 +8333,9 @@ LAB_03BC:
 	MOVE.W	D3,LAB_063B
 LAB_03BD:
 	RTS
-LAB_03BE:
-	JSR	LAB_0161
+; [ex LAB_03BE] Chaque entite (frames 'frappe', liste 40) contre chaque autre entite a moins de 10 de profondeur (frames 'corps', liste 44) ; 1er contact : attaquant.14 = cible, cible.18 = attaquant, cible.122/124 = point d'impact
+Combat_Collisions:
+	JSR	Combat_ClearHitLinks
 	LEA	t_Entities,A6
 	MOVEQ	#9,D7
 	EOR.L	D0,D0
@@ -8375,7 +8377,7 @@ LAB_03C3:
 	MOVE.W	4(A4),D5
 	MOVE.W	6(A4),D3
 	MOVE.W	8(A4),D4
-	JSR	LAB_03DB
+	JSR	Col_PixelHit
 	MOVEM.L	(A7)+,D1-D7/A0-A6
 	TST.L	D0
 	BEQ.S	LAB_03C4
@@ -8383,8 +8385,8 @@ LAB_03C3:
 	MOVEA.L	24(A5),A1
 	MOVE.L	24(A5),14(A0)
 	MOVE.L	24(A6),18(A1)
-	MOVE.W	LAB_0A52,122(A1)
-	MOVE.W	LAB_0A53,124(A1)
+	MOVE.W	v_HitX,122(A1)
+	MOVE.W	v_HitY,124(A1)
 	BRA.S	LAB_03C6
 LAB_03C4:
 	ADDA.L	#$0000000a,A3
@@ -8397,19 +8399,21 @@ LAB_03C5:
 LAB_03C6:
 	ADDA.L	#$00000032,A6
 	DBF	D7,LAB_03BF
-LAB_03C7:
-	LEA	LAB_064F,A0
+; [ex LAB_03C7] Vide les listes de frames frappe/corps (reconstruites a chaque image par Ix_Step)
+Combat_ClearFrameLists:
+	LEA	t_StrikeFrames,A0
 	MOVE.L	#$0000031f,D7
 LAB_03C8:
 	MOVE.B	#$00,(A0)+
 	DBF	D7,LAB_03C8
-	LEA	LAB_0650,A0
+	LEA	t_BodyFrames,A0
 	MOVE.L	#$0000031f,D7
 LAB_03C9:
 	MOVE.B	#$00,(A0)+
 	DBF	D7,LAB_03C9
 	RTS
-LAB_03CA:
+; [ex LAB_03CA] Recouvrement de deux intervalles : D5 += 1 si [D0,D1] et [D2,D3] se chevauchent
+Col_SpanOverlap:
 	CMP.L	D0,D2
 	BMI.S	LAB_03CC
 	CMP.L	D1,D2
@@ -8426,7 +8430,8 @@ LAB_03CC:
 	BGE.S	LAB_03CB
 LAB_03CD:
 	RTS
-LAB_03CE:
+; [ex LAB_03CE] Pour une CEL (nom en A0) : lit ses points d'impact dans collide.hit et les enregistre dans t_HitDataByCel
+Col_LoadHitData:
 	LEA	LAB_05B9,A2
 	MOVEA.L	84(A2),A2
 	MOVE.L	SECSTRT_10,D7
@@ -8511,12 +8516,13 @@ LAB_03D9:
 	ADD.B	(A2)+,D0
 	SUBI.W	#$0030,D0
 	RTS
-LAB_03DA:
+; [ex LAB_03DA] Charge collide.hit (texte) en memoire
+Col_InitHitFile:
 	LEA	LAB_05B9,A0
 	MOVE.L	88(A0),LAB_0A4D
 	MOVE.L	88(A0),LAB_0A4F
-	MOVE.L	#LAB_0A51,LAB_0A4E
-	LEA	LAB_0A57,A0
+	MOVE.L	#t_HitDataByCel,LAB_0A4E
+	LEA	s_CollideHit,A0
 	JSR	LAB_0BB5
 	LEA	LAB_05B9,A0
 	MOVEA.L	84(A0),A0
@@ -8525,16 +8531,17 @@ LAB_03DA:
 	JSR	LAB_0BFF
 	MOVE.L	L23_0000E,SECSTRT_10
 	RTS
-LAB_03DB:
-	CLR.W	LAB_0A54
+; [ex LAB_03DB] Points d'impact de collide.hit de la frame 'frappe' (miroir si retournee) contre les pixels opaques de la frame 'corps' ; D0=1 si touche, point dans v_HitX/v_HitY
+Col_PixelHit:
+	CLR.W	v_HitMirrorW
 	MOVE.W	D5,D6
 	MULU	#$000a,D6
 	MOVE.B	18(A1,D6.W),D7
 	BTST	#0,D7
 	BNE.S	LAB_03DC
-	MOVE.W	14(A1,D6.W),LAB_0A54
+	MOVE.W	14(A1,D6.W),v_HitMirrorW
 LAB_03DC:
-	LEA	LAB_0A51,A2
+	LEA	t_HitDataByCel,A2
 LAB_03DD:
 	CMPA.L	(A2),A1
 	BEQ.S	LAB_03DE
@@ -8570,13 +8577,13 @@ LAB_03E1:
 	MOVEQ	#0,D3
 	MOVE.B	2(A1),D3
 	MOVE.W	4(A7),D2
-	TST.W	LAB_0A54
+	TST.W	v_HitMirrorW
 	BEQ.S	LAB_03E2
-	ADD.W	LAB_0A54,D2
+	ADD.W	v_HitMirrorW,D2
 	SUB.W	D3,D2
 LAB_03E2:
 	ADD.W	D2,D3
-	JSR	LAB_03CA
+	JSR	Col_SpanOverlap
 	MOVE.W	2(A7),D0
 	MOVE.W	D0,D1
 	ADD.W	6(A2),D1
@@ -8584,7 +8591,7 @@ LAB_03E2:
 	MOVE.B	3(A1),D3
 	MOVE.W	6(A7),D2
 	ADD.W	D2,D3
-	JSR	LAB_03CA
+	JSR	Col_SpanOverlap
 	MOVEM.W	(A7)+,D1-D4
 	CMP.W	#$0002,D5
 	BEQ.S	LAB_03E4
@@ -8609,10 +8616,10 @@ LAB_03E4:
 LAB_03E5:
 	MOVEQ	#0,D5
 	MOVE.B	(A1)+,D5
-	TST.W	LAB_0A54
+	TST.W	v_HitMirrorW
 	BEQ.S	LAB_03E6
 	NEG.W	D5
-	ADD.W	LAB_0A54,D5
+	ADD.W	v_HitMirrorW,D5
 LAB_03E6:
 	ADD.W	D3,D5
 	CMP.W	D1,D5
@@ -8631,12 +8638,12 @@ LAB_03E6:
 	MOVEQ	#0,D5
 	MOVE.B	-2(A1),D5
 	ADD.W	D3,D5
-	MOVE.W	D5,LAB_0A52
+	MOVE.W	D5,v_HitX
 	SUB.W	D1,D5
 	MOVEQ	#0,D6
 	MOVE.B	-1(A1),D6
 	ADD.W	D4,D6
-	MOVE.W	D6,LAB_0A53
+	MOVE.W	D6,v_HitY
 	SUB.W	D2,D6
 	MOVE.W	D7,-(A7)
 	MOVE.W	4(A2),D7
@@ -8655,7 +8662,7 @@ LAB_03E6:
 	MOVE.W	8(A2),D6
 	ANDI.W	#$00ff,D6
 	ADD.W	D6,D6
-	LEA	LAB_0A55,A5
+	LEA	t_Popcount4,A5
 	MOVE.W	0(A5,D6.W),D6
 	SUBQ.W	#1,D6
 LAB_03E7:
@@ -8671,8 +8678,8 @@ LAB_03E7:
 LAB_03E8:
 	MOVE.W	(A7)+,D6
 	MOVEQ	#1,D0
-	MOVE.W	LAB_0A52,D1
-	MOVE.W	LAB_0A53,D2
+	MOVE.W	v_HitX,D1
+	MOVE.W	v_HitY,D2
 	RTS
 LAB_03E9:
 	ADDQ.L	#1,A1
@@ -9385,14 +9392,14 @@ LAB_0452:
 	MOVE.W	12(A0),D2
 	MOVE.W	D2,D3
 	ADD.W	4(A0),D3
-	JSR	LAB_03CA
+	JSR	Col_SpanOverlap
 	MOVE.W	LAB_08DB,D0
 	MOVE.W	D0,D1
 	ADDQ.W	#1,D1
 	MOVE.W	14(A0),D2
 	MOVE.W	D2,D3
 	ADD.W	6(A0),D3
-	JSR	LAB_03CA
+	JSR	Col_SpanOverlap
 	CMP.L	#$00000002,D5
 	BEQ.S	LAB_0453
 	ADDA.L	#$00000018,A0
@@ -10933,7 +10940,7 @@ LAB_04EE:
 	TST.W	D3
 	BNE.S	LAB_04F1
 LAB_04EF:
-	JSR	LAB_0CCE
+	JSR	Cel_FlipFrame
 	BRA.S	LAB_04F1
 LAB_04F0:
 	TST.W	D3
@@ -12917,9 +12924,11 @@ LAB_064D:
 	DS.L	90
 LAB_064E:
 	DS.L	90
-LAB_064F:
+; [ex LAB_064F] 10 x 8 enregistrements de 10 octets (CEL.L, frame.W, X.W, Y.W) : frames dessinees avec le drapeau bit 1 (frappe)
+t_StrikeFrames:
 	DS.L	200
-LAB_0650:
+; [ex LAB_0650] 10 x 8 enregistrements de 10 octets : frames dessinees avec le drapeau bit 0 (corps, peut etre touche)
+t_BodyFrames:
 	DS.L	200
 	DS.W	1
 LAB_0651:
@@ -18342,25 +18351,31 @@ SECSTRT_10:
 LAB_0A4D:
 	DS.L	1
 LAB_0A4E:
-	DC.L	LAB_0A51
+	DC.L	t_HitDataByCel
 LAB_0A4F:
 	DS.L	1
 LAB_0A50:
-	DC.L	LAB_0A51
-LAB_0A51:
+	DC.L	t_HitDataByCel
+; [ex LAB_0A51] Paires (CEL, donnees de points d'impact)
+t_HitDataByCel:
 	DS.L	21
-LAB_0A52:
+; [ex LAB_0A52] X du point d'impact du dernier contact
+v_HitX:
 	DS.W	1
-LAB_0A53:
+; [ex LAB_0A53] Y du point d'impact du dernier contact
+v_HitY:
 	DS.W	1
-LAB_0A54:
+; [ex LAB_0A54] Largeur de la frame si retournee (points d'impact en miroir), sinon 0
+v_HitMirrorW:
 	DS.W	1
-LAB_0A55:
+; [ex LAB_0A55] Nombre de bits a 1 de 0 a 15 : nombre de plans a tester
+t_Popcount4:
 	DC.L	$00000001,$00010002,$00010002,$00020003
 	DC.L	$00010002,$00020003,$00020003,$00030004
 LAB_0A56:
 	DS.W	1
-LAB_0A57:
+; [ex LAB_0A57] Nom du fichier collide.hit
+s_CollideHit:
 	DC.B	"collide.hit",0
 
 
@@ -18656,7 +18671,7 @@ LAB_0A72:
 	MOVE.W	2(A1),D1
 	MOVE.W	LAB_0A77,D2
 	MOVE.W	LAB_0A78,D3
-	JSR	LAB_03CA
+	JSR	Col_SpanOverlap
 	TST.L	D5
 	BEQ.S	LAB_0A75
 	EOR.L	D0,D0
@@ -18671,7 +18686,7 @@ LAB_0A72:
 	MOVE.W	114(A0),D2
 	MOVE.W	D2,D3
 	ADDI.W	#$0001,D3
-	JSR	LAB_03CA
+	JSR	Col_SpanOverlap
 	TST.L	D5
 	BEQ.S	LAB_0A74
 	MOVE.W	LAB_0A77,D2
@@ -22524,7 +22539,8 @@ LAB_0CCD:
 	ADD.W	D0,D1
 	MOVE.W	D1,LAB_0D28
 	RTS
-LAB_0CCE:
+; [ex LAB_0CCE] Retourne une frame CEL en place ; octet d'orientation : 1 = sens d'origine, sinon decalage d'alignement << 4
+Cel_FlipFrame:
 	TST.W	D0
 	BLT.W	LAB_0CF1
 	CMP.W	(A0),D0
