@@ -567,6 +567,54 @@ void mog_boot_knight_cels(IxVM *vm)
     mog_load_cel(vm, MOG_LAB_0774, ix_rl(vm, MOG_LAB_05BB));
 }
 
+/* LAB_020F : réactions du chevalier humain, selon le contrôleur de
+ * l'adversaire (LAB_0621 : touché par ; LAB_0622 : a touché). */
+void mog_boot_reactions(IxVM *vm)
+{
+    static const struct { uint8_t off; uint32_t fn; } hit_by[] = {
+        { 0, MOG_LAB_0206 }, { 4, MOG_LAB_020B }, { 8, MOG_LAB_01F9 }, { 12, MOG_LAB_0205 },
+        { 16, MOG_LAB_0205 }, { 20, MOG_LAB_0200 }, { 24, MOG_LAB_01F2 }, { 28, MOG_LAB_01F2 },
+        { 32, MOG_LAB_01F6 }, { 48, MOG_LAB_01ED }, { 52, MOG_LAB_020B }, { 36, MOG_LAB_01EF },
+        { 44, MOG_LAB_0203 }, { 64, MOG_LAB_01FD }, { 40, MOG_LAB_0201 },
+    };
+    for (unsigned i = 0; i < sizeof hit_by / sizeof hit_by[0]; i++)
+        wl(vm, MOG_LAB_0621 + hit_by[i].off, hit_by[i].fn);
+    static const uint8_t knights[] = { 0, 4, 8, 12, 16, 20, 24, 28, 32, 48, 52, 36, 44, 64 };
+    for (unsigned i = 0; i < sizeof knights; i++)
+        wl(vm, MOG_LAB_0622 + knights[i], MOG_LAB_01E1);
+    wl(vm, MOG_LAB_0622 + 40, MOG_LAB_0201);
+}
+
+/* Charge une suite de CEL à la suite dans la banque `bank` (5 poignées),
+ * à partir de rl(LAB_05B8 + 8) ; comme LAB_0116 et suivantes. */
+static uint32_t load_bank(IxVM *vm, uint32_t bank, const uint32_t *names, int n)
+{
+    uint32_t a1 = ix_rl(vm, MOG_LAB_05B8 + 8);
+    ix_wl(vm, bank, a1);
+    for (int i = 0; i < n; i++) {
+        mog_load_cel(vm, names[i], a1);
+        uint32_t size = mog_cel_size(vm, names[i]);
+        if (i + 1 < n) {
+            a1 = ix_rl(vm, bank + 4u * (unsigned)i) + size;
+            ix_wl(vm, bank + 4u * (unsigned)i + 4, a1);
+        }
+    }
+    return a1;
+}
+
+/* LAB_0116 : chevalier adverse (He1..He3.ob) dans LAB_05E0 ; armes
+ * (banques 3 et 4) partagées avec le chevalier du joueur. */
+void mog_load_enemy_knight(IxVM *vm)
+{
+    if (ix_rb(vm, MOG_LAB_05DF) == 0x0C)
+        return;
+    ix_wb(vm, MOG_LAB_05DF, 0x0C);
+    static const uint32_t he[3] = { MOG_LAB_0775, MOG_LAB_0776, MOG_LAB_0777 };
+    load_bank(vm, MOG_LAB_05E0, he, 3);
+    ix_wl(vm, MOG_LAB_05E0 + 12, ix_rl(vm, MOG_LAB_05E1 + 12));
+    ix_wl(vm, MOG_LAB_05E0 + 16, ix_rl(vm, MOG_LAB_05E1 + 16));
+}
+
 int mog_boot_memory(IxVM *vm)
 {
     /* même disposition que tools/mog_ref.py */

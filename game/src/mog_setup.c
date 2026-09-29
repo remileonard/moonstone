@@ -207,9 +207,9 @@ static uint16_t entry_depth(MogCombat *m, int rank)
     return r;
 }
 
-/* LAB_01A8 / LAB_01A9 : profondeur d'entrée (rangs 3, 2, 1 à tour de
- * rôle), puis entité sur le script de repos 22(objet). */
-void mog_enter_object(MogCombat *m, uint32_t a1)
+/* LAB_01A9 : profondeur d'entrée (rangs 3, 2, 1 à tour de rôle), puis
+ * entité de l'objet a1 sur `script`. */
+void mog_enter_object_with(MogCombat *m, uint32_t a1, uint32_t script)
 {
     uint16_t n;
     do {
@@ -217,9 +217,15 @@ void mog_enter_object(MogCombat *m, uint32_t a1)
         ww(m, MOG_LAB_01AD, n);
     } while (!n);
     ww(m, a1 + 8, entry_depth(m, n));
-    ix_start_entity(&m->eng, ix_rl(VM, a1 + 22), a1, ix_rl(VM, a1 + 38),
+    ix_start_entity(&m->eng, script, a1, ix_rl(VM, a1 + 38),
                     (int16_t)ix_rw(VM, a1 + 4), (int16_t)ix_rw(VM, a1 + 6),
                     (int16_t)ix_rw(VM, a1 + 8), ix_rb(VM, a1 + 10), ix_rb(VM, a1 + 77));
+}
+
+/* LAB_01A8 : idem sur le script de repos 22(objet). */
+void mog_enter_object(MogCombat *m, uint32_t a1)
+{
+    mog_enter_object_with(m, a1, ix_rl(VM, a1 + 22));
 }
 
 /* LAB_0174 : nouvel adversaire décrit par l'enregistrement `rec`

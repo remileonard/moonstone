@@ -22,6 +22,9 @@ void mog_boot_tables(IxVM *vm);
 /* LAB_0303 (sans Col_InitHitFile) : banques CEL, opcodes, tampons. */
 void mog_boot_engine(IxVM *vm);
 
+/* LAB_020F : tables de réaction du chevalier humain (LAB_0621/LAB_0622). */
+void mog_boot_reactions(IxVM *vm);
+
 /* Chargeurs (noms : chaînes en mémoire de mog ; fichiers lus par
  * moon_file_read, moon_init() doit avoir été appelé). */
 void     mog_load_cel(IxVM *vm, uint32_t name, uint32_t dest);        /* LAB_0CBB */
@@ -29,5 +32,6 @@ uint32_t mog_cel_size(IxVM *vm, uint32_t name);                       /* LAB_0CB
 void     mog_hit_init(IxVM *vm);                                      /* Col_InitHitFile */
 int      mog_load_hit_cel(IxVM *vm, uint32_t name, uint32_t dest);    /* Col_LoadHitData */
 void     mog_boot_knight_cels(IxVM *vm);                              /* LAB_0115 */
+void     mog_load_enemy_knight(IxVM *vm);                             /* LAB_0116 */
 
 #endif /* MOG_BOOT_H */

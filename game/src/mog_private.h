@@ -44,8 +44,10 @@ void mog_kill_entity_of(MogCombat *m, uint32_t obj);
 
 /* Routine « adversaire suivant » de LAB_05F0 (mog_setup.c). 0 si non portée. */
 int mog_next_opponent(MogCombat *m, uint32_t fn);
-/* LAB_01A8 : profondeur d'entrée, entité sur le script de repos. */
+/* LAB_01A8 : profondeur d'entrée, entité sur le script de repos ;
+ * LAB_01A9 : idem sur un script donné. */
 void mog_enter_object(MogCombat *m, uint32_t obj);
+void mog_enter_object_with(MogCombat *m, uint32_t obj, uint32_t script);
 
 /* LAB_028E : déplacement du Dragon (mog_ai.c ; aussi routine $B0) */
 void mog_dragon_move(MogCombat *m);

@@ -29,6 +29,7 @@ set(GAME_SOURCES
     src/mog_ai.c
     src/mog_setup.c
     src/mog_boot.c
+    src/mog_loop.c
     data/ix_program.c
     data/ix_mog.c
 )

@@ -330,3 +330,31 @@ de l'émulateur) ainsi que les sons et palettes sont comparés.
 ```
 python3 tools/mog_difftest.py <données> [--cpu | --encounter LAB_xxxx] [--frames N]   (défaut : duel)
 ```
+
+### Bilan (données complètes, 600 images par rencontre)
+
+| Rencontre / mode | Contrôleurs | Résultat |
+|---|---|---|
+| duel (`LAB_0002`) | 12, 12, 52 | 0 écart (jusqu'à 2000 images, 7 duels) |
+| duel contre chevalier IA | 12, 16 | 0 écart |
+| `LAB_0188` chevalier qui traverse | 0 | 0 écart |
+| `LAB_0168` Troggs à la hache | 24 | 0 écart |
+| `LAB_016A` | 28 | 0 écart |
+| `LAB_0175` | 32 | 0 écart |
+| `LAB_018C` hommes-rats | 36, 40 | 0 écart |
+| `LAB_019A` Mudmen | 4 | 0 écart |
+| `LAB_01A0` Démon | 8 | 0 écart |
+| `LAB_0192` Dragon | 20, 44 | 0 écart |
+| `LAB_0196` | 48 | 0 écart |
+| `LAB_019E` | 64 | 0 écart |
+
+### Démarrage (`game/src/mog_boot.c`)
+
+Déjà porté et identique à l'original (`tools/mog_bootcheck.py`) :
+découpage mémoire `LAB_0004`, tables `LAB_0152`/`LAB_0156`, `LAB_0303`,
+tables de réaction `LAB_020F`, chargeur de CEL `LAB_0CBB` (LZSS : un octet
+de contrôle pour 8 jetons, copie arrière de 34 − (mot >> 11) octets),
+`Col_InitHitFile`, `Col_LoadHitData` (qui charge aussi la CEL), CEL du
+chevalier `LAB_0115`. Écrits, pas encore vérifiés : CEL du chevalier
+adverse `LAB_0116`, mise en route `Combat_Run` et image de `Combat_Loop`
+(partie logique, `game/src/mog_loop.c`).

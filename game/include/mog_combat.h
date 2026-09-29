@@ -48,4 +48,11 @@ void mog_run_controllers(MogCombat *m);
  * frappe/corps au pixel près -> liens 14/18 des objets. */
 void mog_collisions(MogCombat *m);
 
+/* Combat_Run [LAB_0036] : mise en route du combat (après sa préparation). */
+void mog_combat_begin(MogCombat *m);
+
+/* Une image de Combat_Loop [LAB_0037] (partie logique : contrôleurs,
+ * moteur, collisions, fin). Renvoie 0 quand le combat est terminé. */
+int mog_combat_frame(MogCombat *m);
+
 #endif /* MOG_COMBAT_H */
