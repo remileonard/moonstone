@@ -177,6 +177,7 @@ static void set_palette(MogCombat *m, uint32_t a0)
     uint16_t c[32];
     for (int i = 0; i < 32; i++)
         c[i] = ix_rw(VM, a0 + 2u * (unsigned)i);
+    mog_wait_vbls(m, 1);                                /* LAB_0D8A : LAB_0D77 */
     if (m->palette)
         m->palette(m->out.user, c);
     uint32_t a1 = ix_rl(VM, MOG_LAB_0E93);

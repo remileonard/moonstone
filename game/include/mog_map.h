@@ -20,4 +20,11 @@ int  mog_map_frame(MogCombat *m);
 /* LAB_0DCB : le dragon entre sur la carte (à partir de la 3e manche). */
 void mog_map_dragon(MogCombat *m);
 
+/* LAB_0442 : nombre d0 écrit en décimal en a2 ; renvoie la fin */
+uint32_t mog_number(MogCombat *m, uint32_t d0, uint32_t a2);
+/* LAB_0E02, LAB_0E05, LAB_0E06 : effets des objets magiques */
+void mog_map_0E02(MogCombat *m);
+void mog_map_0E05(MogCombat *m, uint32_t a0);
+void mog_map_0E06(MogCombat *m);
+
 #endif /* MOG_MAP_H */

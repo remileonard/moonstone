@@ -10,6 +10,7 @@
  */
 #include "mog_fight.h"
 #include "mog_boot.h"
+#include "mog_screens.h"
 #include "mog_encounter.h"
 #include "ix_mog_syms.h"
 
@@ -146,6 +147,7 @@ int mog_fight_boot(MogFight *f)
     mog_combat_init(&f->m, VM, &h);
     f->m.voice = h_voice;
     f->m.palette = h_palette;
+    mog_pointer_boot(&f->m);                            /* LAB_0572 */
     mog_new_game(&f->m);                                /* LAB_01AE, LAB_01BE, LAB_0011 */
     mog_boot_reactions(VM);                             /* LAB_020F */
     f->booted = 1;

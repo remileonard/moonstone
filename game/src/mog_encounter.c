@@ -49,6 +49,12 @@ void mog_fade_to(MogCombat *m, uint32_t a)
     m->palette(m->out.user, c);
 }
 
+/* LAB_03F0 : fondu au noir (LAB_08D8), sans toucher au son */
+void mog_fade_black(MogCombat *m)
+{
+    mog_fade_to(m, MOG_LAB_08D8);
+}
+
 /* LAB_03F1 : fondu au noir (LAB_08D8, volume baissé : LAB_0FC4), puis
  * LAB_0AA9 (voies libérées, son $A7 sur chacune) */
 void mog_fade_out(MogCombat *m)

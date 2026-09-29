@@ -13,6 +13,7 @@
 #include "mog_text.h"
 #include "mog_boot.h"
 #include "mog_vbl.h"
+#include "mog_screens.h"
 #include "mog_encounter.h"
 #include "ix_mog_syms.h"
 
@@ -934,10 +935,8 @@ static int pvp(MogCombat *m, uint32_t a0, uint32_t a1)
         a0 = rl(m, MOG_v_Combatants);
         a1 = rl(m, MOG_v_Combatants + 4);
         if (rb(m, MOG_LAB_05DC) == 3) {                 /* LAB_0055 : les deux à terre */
-            if (rl(m, a0 + 54) != 4) {
-                todo(m, "LAB_04CF 9 (après un double K.-O.)");
-                return MOG_MAP_UNPORTED;
-            }
+            if (rl(m, a0 + 54) != 4)
+                mog_screen_run(m, 9);                   /* LAB_04CF */
             back_to_map(m);
             return 0;
         }
@@ -955,8 +954,14 @@ static int pvp(MogCombat *m, uint32_t a0, uint32_t a1)
         back_to_map(m);
         return 0;
     }
-    todo(m, "LAB_04CF 1 (écran du vainqueur)");
-    return MOG_MAP_UNPORTED;
+    mog_screen_run(m, 1);                               /* LAB_04CF */
+    if (rw(m, MOG_LAB_05AD)) {
+        uint32_t d0 = rl(m, MOG_v_Combatants);
+        wl(m, MOG_v_Combatants, rl(m, MOG_v_Combatants + 4));
+        wl(m, MOG_v_Combatants + 4, d0);
+    }
+    back_to_map(m);                                     /* LAB_0054 */
+    return 0;
 }
 
 /* LAB_0083 : le dragon s'abat sur le chevalier du tour : combat (LAB_0192)
@@ -980,8 +985,7 @@ static int dragon_attack(MogCombat *m)
         wb(m, MOG_LAB_0617 + 73, 0xFF);
         a0 = rl(m, MOG_LAB_05F2);
         ww(m, a0 + 78, (uint16_t)(rw(m, a0 + 78) + 2));
-        todo(m, "LAB_04CF 10 (trésor du dragon)");
-        return MOG_MAP_UNPORTED;
+        mog_screen_run(m, 10);                          /* LAB_04CF */
     }
     ww(m, MOG_LAB_0655, rw(m, MOG_LAB_0665));           /* LAB_00B2 */
     back_to_map(m);                                     /* SECSTRT_36 */
@@ -1435,9 +1439,9 @@ int mog_map_frame(MogCombat *m)
         if (rl(m, CUR + 54) != 4) {
             if (c == 0x20) {
                 map_colours_off(m);
-                todo(m, "LAB_04CF (écran d'inventaire)");
-                clear_keys(m);
-                return MOG_MAP_UNPORTED;
+                mog_screen_run(m, 9);                   /* LAB_04CF */
+                clear_keys(m);                          /* LAB_0B82 */
+                return MOG_MAP_ENTER;
             }
             if (c == 0x45)
                 ww(m, MOG_LAB_0655, rw(m, MOG_LAB_0665));
@@ -1477,4 +1481,29 @@ int mog_map_frame(MogCombat *m)
     copy_screen(m, rl(m, MOG_LAB_05C0), rl(m, MOG_LAB_0D92));
     mog_frame_wait(m);
     return MOG_MAP_CONTINUE;
+}
+
+/* LAB_0E02 : le chevalier courant mémorise sa position (bottes) */
+void mog_map_0E02(MogCombat *m)
+{
+    ww(m, MOG_LAB_065E, 1);
+    wl(m, MOG_LAB_065F, rl(m, CUR + 126));
+}
+
+/* LAB_0E05 : idem pour le chevalier a0 */
+void mog_map_0E05(MogCombat *m, uint32_t a0)
+{
+    ww(m, MOG_LAB_0660, 1);
+    ww(m, MOG_LAB_065C, 1);
+    wl(m, MOG_LAB_065F, rl(m, a0 + 126));
+}
+
+/* LAB_0E06 : le chevalier courant est jeté au hasard sur la carte */
+void mog_map_0E06(MogCombat *m)
+{
+    uint32_t a0 = CUR;
+    ww(m, a0 + 126, (uint16_t)(mog_random(m) & 0xFF));
+    ww(m, a0 + 128, (uint16_t)(mog_random(m) & 0x7F));
+    ww(m, a0 + 128, (uint16_t)(rw(m, a0 + 128) + 0x24));
+    ww(m, a0 + 126, (uint16_t)(rw(m, a0 + 126) + 0x20));
 }

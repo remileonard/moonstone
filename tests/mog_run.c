@@ -7,11 +7,13 @@
  * <programme> : « map » (carte du monde, LAB_0DAB). À chaque début d'image
  * (Combat_FrameStart), la mémoire est écrite dans <fichier_image>, puis
  * « F » sur stdout ; une ligne est lue sur stdin : « J joy0 joy1 » (image
- * suivante) ou « Q ». Autres sorties : « M texte », « S n », « END code ».
+ * suivante ; « J joy0 joy1 touche » : touche
+ * écrite dans SECSTRT_21) ou « Q ». Autres sorties : « M texte », « S n », « END code ».
  */
 #include "mog_combat.h"
 #include "mog_map.h"
 #include "moon_assets.h"
+#include "ix_mog_syms.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,11 +38,14 @@ static void frame_start(void *u)
     char line[128];
     if (!fgets(line, sizeof line, stdin) || line[0] == 'Q')
         exit(0);
-    unsigned a = 0, b = 0;
-    if (sscanf(line, "J %u %u", &a, &b) == 2) {
+    unsigned a = 0, b = 0, k = 0;
+    int n = sscanf(line, "J %u %u %u", &a, &b, &k);
+    if (n >= 2) {
         m.joy[0] = (uint16_t)a;
         m.joy[1] = (uint16_t)b;
     }
+    if (n == 3)                                     /* touche (SECSTRT_21) */
+        ix_ww(&vm, MOG_SECSTRT_21, (uint16_t)k);
 }
 
 int main(int argc, char **argv)

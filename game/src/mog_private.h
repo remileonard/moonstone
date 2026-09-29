@@ -64,6 +64,9 @@ void mog_piv_decode(MogCombat *m, uint32_t a0);
 void mog_reset_entities(MogCombat *m);
 void mog_fade_to(MogCombat *m, uint32_t a);
 void mog_fade_out(MogCombat *m);                  /* LAB_03F1 */
+void mog_fade_black(MogCombat *m);                /* LAB_03F0 */
+/* LAB_039E : fonds sauvés remis en place (mog_loop.c) */
+void mog_restore_areas(MogCombat *m);
 /* LAB_001C : a0 prend le butin de a1 (mog_map.c) */
 void mog_loot(MogCombat *m, uint32_t a0, uint32_t a1);
 

@@ -214,6 +214,11 @@ static void cel_flip_frame(IxEngine *e, uint32_t cel, unsigned frame)
     }
 }
 
+void ix_flip_frame(IxEngine *e, uint32_t cel, unsigned frame)
+{
+    cel_flip_frame(e, cel, frame);
+}
+
 /* Ix_FrameInfo [LAB_034E] : dimensions lues dans la CEL en mémoire ; la
  * frame est retournée si son orientation diffère de celle de l'entité. */
 static void frame_info(IxEngine *e, uint32_t cel, unsigned frame, uint32_t en)

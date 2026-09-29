@@ -182,7 +182,9 @@ class MogRef:
         self.hook(S['LAB_0BB3'], self.h_message)
         self.hook(S['LAB_0AA2'], self.h_sound)
         self.hook(S['LAB_0F8C'], self.h_voice)          # son sur un canal (D1)
-        self.hook(S['LAB_0D8A'], self.h_palette)        # palette -> registres couleur
+        # palette -> registres couleur (routine réelle : attente d'une VBL)
+        uc.hook_add(U.UC_HOOK_CODE, lambda uc, a, sz, u: self.h_palette(), None,
+                    begin=S['LAB_0D8A'], end=S['LAB_0D8A'])
         self.blitter = Blitter(uc) if blitter else None
         if self.blitter:                                # dessins réels, blitter émulé
             uc.hook_add(U.UC_HOOK_MEM_WRITE, self.h_bltsize, None,
@@ -212,6 +214,20 @@ class MogRef:
         uc.hook_add(U.UC_HOOK_CODE, self.h_main_loop, None,
                     begin=self.combat_exit, end=self.combat_exit)
         uc.hook_add(U.UC_HOOK_MEM_UNMAPPED, self.h_unmapped)
+        # Serveur d'interruption LAB_057D (pointeur des écrans LAB_04CF) : mené
+        # à chaque VBL tant que LAB_097C est levé ; registres préservés.
+        stub = self.stack_top - 0x80
+        code = (b'\x48\xe7\xff\xfe'                         # MOVEM.L D0-D7/A0-A6,-(A7)
+                + b'\x4a\x79' + struct.pack('>I', S['LAB_097C'])  # TST.W LAB_097C
+                + b'\x67\x06'                                 # BEQ.S +6
+                + b'\x4e\xb9' + struct.pack('>I', S['LAB_057D'])  # JSR LAB_057D
+                + b'\x4c\xdf\x7f\xff'                         # MOVEM.L (A7)+,D0-D7/A0-A6
+                + b'\x4e\x75')                                # RTS
+        uc.mem_write(stub, code)
+        uc.mem_write(S['LAB_0D77'], b'\x4e\xf9' + struct.pack('>I', stub))
+        # boucle des écrans LAB_04CF : rendez-vous comme un début d'image
+        uc.hook_add(U.UC_HOOK_CODE, self.h_frame, None,
+                    begin=S['LAB_04D0'], end=S['LAB_04D0'])
 
     # -- accès -------------------------------------------------------------
     def r(self, reg):

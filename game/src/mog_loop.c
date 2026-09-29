@@ -11,6 +11,7 @@
 #include "mog_private.h"
 #include "ix_mog_syms.h"
 #include "mog_vbl.h"
+#include "mog_screens.h"
 
 #define VM (m->eng.vm)
 
@@ -106,7 +107,7 @@ static void restore_area(MogCombat *m, uint32_t a6)
 }
 
 /* LAB_039E : zones notées à l'image d'avant restaurées (au plus 45) */
-static void restore_areas(MogCombat *m)
+void mog_restore_areas(MogCombat *m)
 {
     ix_wl(VM, MOG_LAB_0631, 0);
     ix_wl(VM, MOG_LAB_0642, ix_rl(VM, MOG_LAB_0D92));
@@ -250,7 +251,7 @@ int mog_combat_frame(MogCombat *m)
     ix_run_entities(&m->eng);
     mog_swap_screens(m);
     mog_collisions(m);
-    restore_areas(m);
+    mog_restore_areas(m);
     check_end(m);
     return still_running(m);
 }
@@ -284,7 +285,7 @@ void mog_combat_run(MogCombat *m)
         ix_run_entities(&m->eng);
         mog_swap_screens(m);
         mog_collisions(m);
-        restore_areas(m);
+        mog_restore_areas(m);
         low_hp(m);
         check_end(m);
         mog_frame_wait(m);
@@ -319,6 +320,7 @@ void mog_wait_vbls(MogCombat *m, unsigned n)
             m->wait_vbl(m->out.user);
         else
             ix_wl(VM, MOG_v_VblCounter, ix_rl(VM, MOG_v_VblCounter) + 1);
+        mog_screen_vbl(m);                              /* LAB_057D (serveur) */
     }
 }
 

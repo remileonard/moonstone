@@ -109,6 +109,9 @@ uint32_t ix_spawn(IxEngine *e, uint32_t script, uint32_t banks, int x,
 /* LAB_0315 : entité dont l'objet est `object` (0 si aucune). */
 uint32_t ix_find_entity(IxEngine *e, uint32_t object);
 
+/* Cel_FlipFrame [LAB_0CCE] : frame retournée en place (CEL en mémoire). */
+void ix_flip_frame(IxEngine *e, uint32_t cel, unsigned frame);
+
 /* Combat_ClearFrameLists [LAB_03C7]. */
 void ix_clear_frame_lists(IxEngine *e);
 

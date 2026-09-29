@@ -8,7 +8,10 @@ carte comme combats), toute la mémoire est comparée, écrans compris.
   python3 tools/mog_lockstep.py <dossier_données> [--frames N] [--seed S]
 
 Programme : nouvelle partie à un joueur puis la carte (LAB_0DAB) ; le
-joueur se déplace sans arrêt (joystick 2, sans feu).
+joueur se déplace sans arrêt (joystick 2, sans feu). Avec --space N, la
+barre d'espace est frappée toutes les N images (écran d'inventaire,
+LAB_04CF 9). Dans les écrans LAB_04CF, le pointeur erre et clique au
+hasard (--wander rendez-vous), puis va sur la sortie (zone 7) et clique.
 """
 import argparse
 import os
@@ -21,9 +24,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 from mog_ref import MogRef, STACK_SIZE, Stop  # noqa: E402
+import unicorn.m68k_const as M  # noqa: E402
 
 RUN = os.path.join(ROOT, 'build', 'tests', 'mog_run')
-IGNORE = ['v_VblCounter']
+IGNORE = []
 
 
 def new_game_map(ref):
@@ -66,8 +70,11 @@ class CSide:
             if l.startswith('END'):
                 return False
 
-    def step(self, joy):
-        self.p.stdin.write('J %d %d\n' % (joy[0], joy[1]))
+    def step(self, joy, key=None):
+        if key is None:
+            self.p.stdin.write('J %d %d\n' % (joy[0], joy[1]))
+        else:
+            self.p.stdin.write('J %d %d %d\n' % (joy[0], joy[1], key))
         self.p.stdin.flush()
 
     def memory(self):
@@ -110,11 +117,32 @@ def compare(ref, om, cm, what, lines):
     return False
 
 
+def to_exit(ref):
+    """Joystick qui mène le pointeur sur la sortie (zone 7), puis feu."""
+    S = ref.S
+    x, y = ref.rw(S['LAB_097F']), ref.rw(S['LAB_0980'])
+    a0 = ref.rl(S['SECSTRT_14'])
+    while ref.rw(a0 + 4):
+        if ref.rl(a0 + 16) == 7:
+            tx = ref.rw(a0 + 12) + ref.rw(a0 + 4) // 2
+            ty = ref.rw(a0 + 14) + ref.rw(a0 + 6) // 2
+            d = 0
+            if x < tx - 2: d |= 1
+            elif x > tx + 2: d |= 2
+            if y < ty - 2: d |= 4
+            elif y > ty + 2: d |= 8
+            return d or 0x10
+        a0 += 24
+    return 0x10
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('data')
     ap.add_argument('--frames', type=int, default=500)
     ap.add_argument('--seed', type=int, default=1)
+    ap.add_argument('--space', type=int, default=0)
+    ap.add_argument('--wander', type=int, default=40)
     a = ap.parse_args()
     rng = random.Random(a.seed)
 
@@ -135,16 +163,40 @@ def main():
         sys.exit(1)
     ok = compare(ref, ref.snapshot(), c.memory(), 'image 0', c.lines)
     fails += not ok
+    in_screen = 0
+    screens = screen_frames = 0
     for f in range(1, a.frames + 1):
         if not ok:
             break
-        if not joy or rng.random() < 0.05:
-            joy = rng.choice([1, 2, 4, 8, 5, 6, 9, 10])
-        ref.joy = [0, joy]
-        c.step([0, joy])
+        key = None
+        if ref.uc.reg_read(M.UC_M68K_REG_PC) == S['LAB_04D0']:                # écran LAB_04CF
+            in_screen += 1
+            screen_frames += 1
+            screens += in_screen == 1
+            if in_screen < a.wander:
+                d = rng.choice([1, 2, 4, 8, 5, 6, 9, 10])
+                joy = d | (0x10 if rng.random() < 0.15 else 0)
+            else:
+                joy = to_exit(ref)
+            j = [joy, joy]
+        else:
+            in_screen = 0
+            if not joy or joy & 0x10 or rng.random() < 0.05:
+                joy = rng.choice([1, 2, 4, 8, 5, 6, 9, 10])
+            j = [0, joy]
+            if a.space and f % a.space == 0:
+                key = 0x39
+        if key is not None:
+            ref.ww(S['SECSTRT_21'], key)
+        if os.environ.get('MOG_TRACE'):
+            print('%d écran %d ptr %d,%d joy %s key %s cur %X' % (
+                f, ref.uc.reg_read(M.UC_M68K_REG_PC) == S['LAB_04D0'], ref.rw(S['LAB_097F']), ref.rw(S['LAB_0980']),
+                j, key, ref.rl(S['LAB_0633'])))
+        ref.joy = list(j)
+        c.step(j, key)
         if os.environ.get('MOG_SAVE'):
             with open(os.environ['MOG_SAVE'] + '.joy', 'a') as jf:
-                jf.write('J 0 %d\n' % joy)
+                jf.write('J %d %d%s\n' % (j[0], j[1], '' if key is None else ' %d' % key))
         try:
             ref.run_frames(1)
         except Stop as ex:
@@ -158,7 +210,8 @@ def main():
             print('C terminé : %s' % c.lines[-3:])
             break
     c.close()
-    print('%d images comparées, %d échecs' % (frames, fails))
+    print('%d images comparées (%d dans %d écrans LAB_04CF), %d échecs' % (
+        frames, screen_frames, screens, fails))
     sys.exit(1 if fails else 0)
 
 
