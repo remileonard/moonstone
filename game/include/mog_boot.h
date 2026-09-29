@@ -54,4 +54,8 @@ int      mog_load_hit_cel(IxVM *vm, uint32_t name, uint32_t dest);    /* Col_Loa
 void     mog_boot_knight_cels(IxVM *vm);                              /* LAB_0115 */
 void     mog_load_enemy_knight(IxVM *vm);                             /* LAB_0116 */
 
+/* LAB_012C (polices, écrans de message, sons) et LAB_0128 (carte) */
+void mog_boot_ui(IxVM *vm);
+void mog_boot_map(IxVM *vm);
+
 #endif /* MOG_BOOT_H */

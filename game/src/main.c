@@ -1,7 +1,7 @@
 /*
  * main.c — Entry point for the Moonstone game executable
  *
- * Usage: moonstone [asset_dir] [scale] [--combat rencontre|all [lieu]]
+ * Usage: moonstone [asset_dir] [scale] [--combat rencontre|all [lieu]] [--mog]
  *
  *   asset_dir : path to the directory containing Moonstone game data
  *               (PIV, CEL, CMP files).  Defaults to current directory.
@@ -15,6 +15,9 @@
  * 12 chevalier noir, 20 Dragon, 24/28 Troggs, 32 Troggs à lance, 36
  * hommes-rats, 48 Balok, 64 Troll) ou « all » pour les enchaîner ;
  * lieu = 0 forêt, 1 friche, 2 marais, 3 plaine.
+ *
+ * --mog : le jeu complet porté de l'original (carte, lieux, écrans,
+ * combats ; moon_mog.c).
  */
 
 #include "moon_game.h"
@@ -29,9 +32,13 @@ int main(int argc, char *argv[])
     const char *asset_dir = ".";
     int scale = 2;
 
-    int combat = -1, combat_all = 0, place = -1;
+    int combat = -1, combat_all = 0, place = -1, mog = 0;
     for (int i = 1; i < argc; i++)
-        if (!strcmp(argv[i], "--combat") && i + 1 < argc) {
+        if (!strcmp(argv[i], "--mog")) {
+            mog = 1;
+            argc = i;
+            break;
+        } else if (!strcmp(argv[i], "--combat") && i + 1 < argc) {
             combat_all = !strcmp(argv[i + 1], "all");
             combat = combat_all ? 0 : atoi(argv[i + 1]);
             if (i + 2 < argc)
@@ -60,7 +67,9 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    if (combat >= 0) {
+    if (mog) {
+        game_run_mog(&ctx);
+    } else if (combat >= 0) {
         static const int all[] = { 12, 24, 20, 36, 48, 4, 64, 32, 0, 28, 8 };
         Knight *k = &ctx.knights[0];
         k->id = KNIGHT_RICHARD;

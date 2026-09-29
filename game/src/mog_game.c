@@ -18,6 +18,7 @@
 #include "ix_mog_syms.h"
 
 #include <string.h>
+#include <stdio.h>
 
 #define VM (&g->vm)
 
@@ -81,7 +82,10 @@ static void vbl(void *u)
 {
     MogGame *g = u;
     ix_wl(VM, MOG_v_VblCounter, ix_rl(VM, MOG_v_VblCounter) + 1);
-    mog_vbl_colours(VM, g->colour);                     /* LAB_0E5D */
+    mog_vbl_colours(VM, NULL);                          /* LAB_0E5D */
+    uint32_t pal = ix_rl(VM, MOG_LAB_0E93);             /* registres couleur */
+    for (int i = 0; i < 32; i++)
+        g->colour[i] = ix_rw(VM, pal + 2u * (unsigned)i);
     if (!g->vbl)
         return;
     mog_game_render(g);
@@ -120,9 +124,13 @@ int mog_game_boot(MogGame *g)
     memset(&g->vm, 0, sizeof g->vm);
     if (mog_boot_memory(VM) < 0)
         return -1;
+    /* LAB_04A5 : graine du hasard selon le faisceau (VHPOSR & 3) */
+    ix_wl(VM, MOG_LAB_0973, ix_rl(VM, MOG_LAB_0974 + 4u * (unsigned)(g->seed & 3)));
     mog_boot_graphics(VM);                              /* SECSTRT_30, SECSTRT_28 */
     ix_wl(VM, MOG_LAB_0E93, MOG_LAB_08D6);              /* LAB_0E53 : palette courante */
+    mog_boot_ui(VM);                                    /* LAB_012C */
     mog_boot_engine(VM);                                /* LAB_0303 */
+    mog_boot_map(VM);                                   /* LAB_0128 */
     mog_hit_init(VM);
     mog_boot_knight_cels(VM);                           /* LAB_0115 */
     mog_boot_backgrounds(VM);                           /* LAB_013A */

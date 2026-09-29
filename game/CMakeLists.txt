@@ -37,6 +37,7 @@ set(GAME_SOURCES
     src/mog_screens.c
     src/mog_town.c
     src/mog_game.c
+    src/moon_mog.c
     src/mog_boot.c
     src/mog_loop.c
     data/ix_program.c

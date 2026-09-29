@@ -28,6 +28,7 @@ struct MogGame {
     uint16_t  colour[32];               /* registres couleur (LAB_0E5D) */
     uint32_t  fb[MOG_GAME_W * MOG_GAME_H];
     int       quit;
+    int       seed;                     /* 0-3 : graine LAB_0974 (LAB_04A5) */
     /* Une VBL de l'hôte : présenter fb, attendre 1/50 s, lire les entrées. */
     void    (*vbl)(void *user, MogGame *g, MogGameInput *in);
     void     *user;

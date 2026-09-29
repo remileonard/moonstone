@@ -677,3 +677,42 @@ void mog_boot_graphics(IxVM *vm)
         ix_wb(vm, MOG_LAB_0CD9 + i, r);
     }
 }
+
+/* Lecture brute de n octets du fichier `name` (après `skip` octets) */
+static void read_file(IxVM *vm, uint32_t name, uint32_t dst, uint32_t skip, uint32_t n)
+{
+    MogFile f;
+    mog_file_open(vm, name, &f);
+    f.pos = f.len < skip ? f.len : skip;
+    mog_file_read(vm, &f, dst, n);
+    mog_file_close(&f);
+}
+
+/* LAB_012C (ressources) : écran d'attente (PIV LAB_07AE en LAB_05B9+52),
+ * polices LAB_078B / LAB_078C (LAB_05E3+16, LAB_05E3), sons LAB_0AA7
+ * (LAB_0AC1 en LAB_05C9), écran « jour suivant » (LAB_07AF en
+ * LAB_05B9+56). L'écran de présentation dessiné ensuite est laissé. */
+void mog_boot_ui(IxVM *vm)
+{
+    read_file(vm, MOG_LAB_07AE, ix_rl(vm, MOG_LAB_05B9 + 52), 0, 0xE6F);
+    ix_wl(vm, MOG_LAB_05E3 + 16, ix_rl(vm, MOG_LAB_05B9 + 40));
+    mog_load_cel(vm, MOG_LAB_078B, ix_rl(vm, MOG_LAB_05E3 + 16));
+    read_file(vm, MOG_LAB_0AC1, ix_rl(vm, MOG_LAB_05C9), 0x20, 0xD924);   /* LAB_0AA7 */
+    ix_ww(vm, MOG_LAB_0AA6, 0);
+    ix_wl(vm, MOG_LAB_05E3, ix_rl(vm, MOG_LAB_05E3 + 16) + mog_cel_size(vm, MOG_LAB_078B));
+    mog_load_cel(vm, MOG_LAB_078C, ix_rl(vm, MOG_LAB_05E3));
+    read_file(vm, MOG_LAB_07AF, ix_rl(vm, MOG_LAB_05B9 + 56), 0, 0x25F6);
+    ix_wl(vm, MOG_LAB_0705, ix_rl(vm, MOG_LAB_05E3 + 16));
+    ix_wl(vm, MOG_v_Combatants + 10, ix_rl(vm, MOG_LAB_05E3 + 16));
+}
+
+/* LAB_0128 : icônes de la carte (LAB_070E en LAB_0664), ki.cel (LAB_0784) */
+void mog_boot_map(IxVM *vm)
+{
+    uint32_t a1 = ix_rl(vm, MOG_LAB_05B9 + 48);
+    ix_wl(vm, MOG_LAB_05E2, ix_rl(vm, MOG_LAB_0664));
+    for (uint32_t i = 1; i < 5; i++)
+        ix_wl(vm, MOG_LAB_05E2 + 4 * i, a1);
+    mog_load_cel(vm, MOG_LAB_0784, a1);
+    mog_load_cel(vm, MOG_LAB_070E, ix_rl(vm, MOG_LAB_0664));
+}

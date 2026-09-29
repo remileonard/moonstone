@@ -98,3 +98,27 @@ target_include_directories(mog_run PRIVATE
     ${CMAKE_SOURCE_DIR}/game/include ${CMAKE_SOURCE_DIR}/game/data)
 target_link_libraries(mog_run PRIVATE moon_assets)
 target_compile_definitions(mog_run PRIVATE MOG_VBL_TRACE)
+
+# Jeu complet sans écran, mené par un script (game/src/mog_game.c)
+add_executable(mog_game_shot mog_game_shot.c
+    ${CMAKE_SOURCE_DIR}/game/src/ix_vm.c
+    ${CMAKE_SOURCE_DIR}/game/src/ix_engine.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_ctl.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_col.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_native.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_ai.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_setup.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_encounter.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_loop.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_boot.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_blit.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_vbl.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_text.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_map.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_screens.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_town.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_game.c
+    ${CMAKE_SOURCE_DIR}/game/data/ix_mog.c)
+target_include_directories(mog_game_shot PRIVATE
+    ${CMAKE_SOURCE_DIR}/game/include ${CMAKE_SOURCE_DIR}/game/data)
+target_link_libraries(mog_game_shot PRIVATE moon_assets)
