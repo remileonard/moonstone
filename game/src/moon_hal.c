@@ -4,6 +4,7 @@
 
 #include "moon_hal.h"
 
+#define SDL_MAIN_HANDLED           /* main() ordinaire, aussi sous Windows */
 #include <SDL2/SDL.h>
 #ifdef HAVE_SDL2_MIXER
 #include "SDL_mixer.h"
@@ -54,6 +55,7 @@ int hal_init(const char *title, int scale)
     flags |= SDL_INIT_AUDIO;
 #endif
 
+    SDL_SetMainReady();
     if (SDL_Init(flags) != 0) {
         fprintf(stderr, "SDL_Init error: %s\n", SDL_GetError());
         return -1;
