@@ -243,3 +243,43 @@ Le test au pixel du C suit `Col_PixelHit`, mais :
   par les scripts et les contrôleurs : le combat C doit reproduire cette
   architecture (entités + contrôleurs + moteur de scripts) plutôt qu'une
   machine à états codée en dur.
+
+## 10. Moteur C (`game/src/ix_engine.c`)
+
+Portage routine par routine des §1–7 : chaque fonction C indique la routine
+de `mog.asm` qu'elle traduit.
+
+- **Mémoire** : `game/src/ix_vm.c` charge l'image de `mog` (hunks +
+  relocations, générée par `tools/ix_scripts.py` dans `game/data/ix_mog.c`)
+  à `IX_VM_BASE`. Entités, contextes, objets, scripts et tables y sont aux
+  mêmes adresses et au même format (big-endian) que sur l'Amiga ; les
+  adresses sont dans `game/data/ix_mog_syms.h` (`MOG_<label>`).
+- **Hôte** (`IxHost`) : ce qui sort du moteur — dimensions et dessin d'une
+  frame CEL (la « CEL » est une poignée : l'adresse rangée dans la table de
+  banques), sons (`$A4`), routines natives (`$B0`), messages.
+- **Hors moteur** (à porter à part) : contrôleurs (`t_Controllers`),
+  collisions (§8), restauration du décor (pile `LAB_0641`).
+
+### Validation
+
+`tools/ix_difftest.py` exécute le code 68000 d'origine (`Ix_RunEntities`)
+sous Unicorn et le moteur C (`tests/ix_trace.c`) sur les mêmes scénarios,
+puis compare à chaque image les appels (dessins, sons, `$B0`) et une
+empreinte CRC32 de toute la mémoire. État actuel : chacun des 259 scripts
+seul puis en paire, et 40 scénarios à 4 entités, 60 images chacun :
+**558 scénarios, 0 écart**.
+
+```
+cmake --build build --target ix_trace
+python3 tools/ix_difftest.py [--frames 60] [--only LAB_07F2] [--seed 1]
+```
+
+### Visionneuse
+
+`moon-ix-view <dossier_données>` monte le chevalier comme `mog` (banques
+`LAB_05E1` = kn1, kn2, kn3, kn4, Kn5.ob — `LAB_0115`, `LAB_0120` ; objet
+comme `LAB_0167`) et joue ses scripts : 1–8 attaques (`LAB_05F5`), flèches
+marche (`LAB_0610`), espace change de sens, N parcourt les 259 scripts.
+`--png fichier.png [images]` produit une planche sans écran. La marche
+anime sur place : le déplacement est fait par le contrôleur natif
+(`LAB_0DCB`), pas par le script.

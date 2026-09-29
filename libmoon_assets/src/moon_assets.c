@@ -10,6 +10,9 @@
  *   ob.c     — OB character sprite sheets
  */
 
+#if !defined(_WIN32) && !defined(_POSIX_C_SOURCE)
+#define _POSIX_C_SOURCE 200809L   /* opendir / readdir */
+#endif
 #include "moon_private.h"
 
 #include <ctype.h>
@@ -51,6 +54,32 @@ void moon_shutdown(void)
 /* File I/O helper                                                     */
 /* ------------------------------------------------------------------ */
 
+#ifndef _WIN32
+#include <dirent.h>
+
+/* The game names its files with inconsistent case ("kn2.ob" for KN2.ob):
+ * on a case-sensitive file system, look the name up in the directory. */
+static FILE *open_nocase(const char *dir, const char *name, char *path, size_t n)
+{
+    DIR *d = opendir(dir[0] ? dir : ".");
+    if (!d)
+        return NULL;
+    FILE *f = NULL;
+    struct dirent *de;
+    while (!f && (de = readdir(d)) != NULL) {
+        const char *a = de->d_name, *b = name;
+        while (*a && tolower((unsigned char)*a) == tolower((unsigned char)*b))
+            a++, b++;
+        if (*a || *b)
+            continue;
+        snprintf(path, n, "%s/%s", dir[0] ? dir : ".", de->d_name);
+        f = fopen(path, "rb");
+    }
+    closedir(d);
+    return f;
+}
+#endif
+
 uint8_t *moon_file_read(const char *name, size_t *out_size)
 {
     char path[768];
@@ -73,6 +102,10 @@ uint8_t *moon_file_read(const char *name, size_t *out_size)
             strncpy(path, lower, sizeof(path) - 1);
         f = fopen(path, "rb");
     }
+#ifndef _WIN32
+    if (!f && !strchr(name, '/'))
+        f = open_nocase(g_ctx.asset_dir, name, path, sizeof(path));
+#endif
     if (!f)
         return NULL;
 

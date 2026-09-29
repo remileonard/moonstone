@@ -47,3 +47,18 @@ install(TARGETS
     moon-view-test moon-anim-dw1 moon-anim-viewer
     RUNTIME DESTINATION bin
 )
+
+# moon-ix-view: moteur IMAGEXCEL C (game/src/ix_engine.c) avec les vraies données
+set(GAME_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../game)
+add_executable(moon-ix-view ix_view.c
+    ${GAME_DIR}/src/ix_vm.c ${GAME_DIR}/src/ix_engine.c ${GAME_DIR}/data/ix_mog.c
+    ${GAME_DIR}/src/moon_hal.c ${GAME_DIR}/src/moon_render.c)
+target_include_directories(moon-ix-view PRIVATE
+    ${GAME_DIR}/include ${GAME_DIR}/data ${SDL2_INCLUDE_DIRS})
+target_link_libraries(moon-ix-view PRIVATE moon_assets SDL2::SDL2 m)
+target_compile_definitions(moon-ix-view PRIVATE HAVE_SDL2=1)
+if(SDL2_mixer_FOUND)
+    target_link_libraries(moon-ix-view PRIVATE SDL2_mixer::SDL2_mixer)
+    target_compile_definitions(moon-ix-view PRIVATE HAVE_SDL2_MIXER=1)
+endif()
+install(TARGETS moon-ix-view RUNTIME DESTINATION bin)
