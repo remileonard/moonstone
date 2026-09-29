@@ -19,7 +19,9 @@ Crochets (routine remplacée par un RTS + fonction Python) :
   VBL       LAB_0D77 (attente d'une VBL) incrémente v_VblCounter ;
   messages  LAB_0BB3 (traces du jeu) ;
   sons      LAB_0AA2, LAB_0F8C (canal), palette LAB_0D8A (notés dans events) ;
-  dessin    LAB_0CDA (noté dans draws).
+  dessin    LAB_0CDA (noté dans draws) ; avec blitter=True, les routines
+            de dessin s'exécutent et le blitter est émulé (écriture de
+            BLTSIZE, voir Blitter).
 
   python3 tools/mog_ref.py <dossier_données> [--duel | --encounter LAB_0168]
                            [--frames N] [-v]
@@ -75,8 +77,82 @@ class Stop(Exception):
     pass
 
 
+class Blitter:
+    """Blitter de l'Amiga (mode copie : canaux A-D, décalages, masques de
+    premier/dernier mot, modulos, minterm, mode descendant), lancé par
+    l'écriture de BLTSIZE. Les registres sont lus dans la RAM custom."""
+    BASE = 0xDFF000
+
+    def __init__(self, uc):
+        self.uc = uc
+        self.olda = 0                    # dernier mot A / B (barillet)
+        self.oldb = 0
+        self.count = 0
+
+    def rw(self, off):
+        return struct.unpack('>H', bytes(self.uc.mem_read(self.BASE + off, 2)))[0]
+
+    def rl(self, off):
+        return struct.unpack('>I', bytes(self.uc.mem_read(self.BASE + off, 4)))[0] & 0xFFFFFE
+
+    def run(self, size):
+        self.count += 1
+        con0, con1 = self.rw(0x40), self.rw(0x42)
+        if con1 & 0x19:
+            raise Stop('blitter : mode ligne ou remplissage (BLTCON1=%04X)' % con1)
+        h = (size >> 6) or 1024
+        w = (size & 63) or 64
+        use = [(con0 >> 11) & 1, (con0 >> 10) & 1, (con0 >> 9) & 1, (con0 >> 8) & 1]
+        ash, bsh, mt = con0 >> 12, con1 >> 12, con0 & 0xFF
+        desc = con1 & 2
+        fwm, lwm = self.rw(0x44), self.rw(0x46)
+        pa, pb, pc, pd = self.rl(0x50), self.rl(0x4C), self.rl(0x48), self.rl(0x54)
+        s16 = lambda v: v - 0x10000 if v & 0x8000 else v
+        ma, mb, mc, md = s16(self.rw(0x64)), s16(self.rw(0x62)), s16(self.rw(0x60)), s16(self.rw(0x66))
+        adat, bdat, cdat = self.rw(0x74), self.rw(0x72), self.rw(0x70)
+        step = -2 if desc else 2
+        if desc:
+            ma, mb, mc, md = -ma, -mb, -mc, -md
+        uc = self.uc
+        rd = lambda a: (uc.mem_read(a, 2)[0] << 8) | uc.mem_read(a + 1, 1)[0]
+        terms = [k for k in range(8) if mt >> k & 1]
+        for r in range(h):
+            for i in range(w):
+                a = rd(pa) if use[0] else adat
+                if i == 0:
+                    a &= fwm
+                if i == w - 1:
+                    a &= lwm
+                b = rd(pb) if use[1] else bdat
+                c = rd(pc) if use[2] else cdat
+                if desc:
+                    sa = ((a << ash) | (self.olda >> (16 - ash))) & 0xFFFF if ash else a
+                    sb = ((b << bsh) | (self.oldb >> (16 - bsh))) & 0xFFFF if bsh else b
+                else:
+                    sa = (((self.olda << 16) | a) >> ash) & 0xFFFF
+                    sb = (((self.oldb << 16) | b) >> bsh) & 0xFFFF
+                self.olda, self.oldb = a, b
+                d = 0
+                for k in terms:
+                    d |= ((sa if k & 4 else ~sa) & (sb if k & 2 else ~sb)
+                          & (c if k & 1 else ~c))
+                d &= 0xFFFF
+                if use[3]:
+                    uc.mem_write(pd, bytes((d >> 8, d & 0xFF)))
+                if use[0]: pa += step
+                if use[1]: pb += step
+                if use[2]: pc += step
+                if use[3]: pd += step
+            if use[0]: pa += ma
+            if use[1]: pb += mb
+            if use[2]: pc += mc
+            if use[3]: pd += md
+        for off, v in ((0x50, pa), (0x4C, pb), (0x48, pc), (0x54, pd)):
+            uc.mem_write(self.BASE + off, struct.pack('>I', v & 0xFFFFFFFF))
+
+
 class MogRef:
-    def __init__(self, data_dir, log=None):
+    def __init__(self, data_dir, log=None, blitter=False):
         self.data_dir = data_dir
         self.log = log or (lambda s: None)
         self.S = syms()
@@ -107,8 +183,15 @@ class MogRef:
         self.hook(S['LAB_0AA2'], self.h_sound)
         self.hook(S['LAB_0F8C'], self.h_voice)          # son sur un canal (D1)
         self.hook(S['LAB_0D8A'], self.h_palette)        # palette -> registres couleur
-        self.hook(S['LAB_0CDA'], self.h_draw)           # blit d'une frame CEL
-        self.hook(S['LAB_0D07'], lambda: None)          # copie de décor (restauration)
+        self.blitter = Blitter(uc) if blitter else None
+        if self.blitter:                                # dessins réels, blitter émulé
+            uc.hook_add(U.UC_HOOK_MEM_WRITE, self.h_bltsize, None,
+                        begin=0xDFF058, end=0xDFF059)
+            uc.hook_add(U.UC_HOOK_CODE, self.h_draw_trace, None,
+                        begin=S['LAB_0CDA'], end=S['LAB_0CDA'])
+        else:
+            self.hook(S['LAB_0CDA'], self.h_draw)       # blit d'une frame CEL
+            self.hook(S['LAB_0D07'], lambda: None)      # copie de décor (restauration)
         self.draws = []
         self.events = []                 # sons joués (« S n »)
         self.hook(S['LAB_00EE'], self.h_joy)
@@ -270,6 +353,13 @@ class MogRef:
         self.draws.append((self.r('A0'), self.r('D0') & 0xFFFF,
                            s16(self.r('D1') & 0xFFFF), s16(self.r('D2') & 0xFFFF)))
 
+    def h_bltsize(self, uc, access, addr, size, value, user):
+        if addr == 0xDFF058:
+            self.blitter.run(value & 0xFFFF)
+
+    def h_draw_trace(self, uc, addr, size, user):
+        self.h_draw()
+
     def h_voice(self):                   # LAB_0F8C : son D0 sur le canal D1
         self.events.append('V %d %d' % (self.r('D1') & 3, self.r('D0') & 0xFFFF))
 
@@ -380,6 +470,25 @@ class MogRef:
         self.w('A7', sp)
         self.run_frames(0, start=S['Combat_Run'])
 
+    def start_map(self):
+        """Nouvelle partie à un joueur (chevalier LAB_0613, port 1 comme
+        LAB_00E5 ; la saisie du nom LAB_00C9 est omise) puis la carte
+        (LAB_0DAB) jusqu'au début de sa première image."""
+        S = self.S
+        self.left_combat = False
+        self.frame_limit = None
+        self.call(S['LAB_01AE'])
+        self.call(S['LAB_0011'])
+        k = S['LAB_0613']                         # LAB_00D3 / LAB_00E5
+        self.wl(S['LAB_06B4'], S['LAB_06B6'])
+        self.wl(k + 54, 0)
+        self.wb(k + 11, 2)
+        self.call(S['LAB_01BE'])
+        self.call(S['LAB_020F'])
+        self.call(S['LAB_03F1'])
+        self.call(S['SECSTRT_36'])
+        self.run_frames(0, start=S['LAB_0DAB'])
+
     def start_duel(self, cpu=False):
         """Duel (LAB_0002) jusqu'à Combat_Loop : deux joueurs humains, ou
         (cpu) le second chevalier géré par l'ordinateur (contrôleur 16,
@@ -416,6 +525,7 @@ def main():
     ap.add_argument('data')
     ap.add_argument('--duel', action='store_true', help='duel à deux joueurs')
     ap.add_argument('--cpu', action='store_true', help='duel contre un chevalier IA')
+    ap.add_argument('--map', action='store_true', help='carte du monde (un joueur)')
     ap.add_argument('--encounter', help='rencontre (%s)' % ', '.join(MogRef.ENCOUNTERS))
     ap.add_argument('--frames', type=int, default=40)
     ap.add_argument('-v', action='store_true', help='journal (fichiers, messages)')
@@ -424,7 +534,13 @@ def main():
     try:
         ref.boot()
         print('initialisation terminée')
-        if a.duel or a.cpu or a.encounter:
+        if a.map:
+            ref.start_map()
+            print('carte : image', ref.frame_no)
+            ref.run_frames(a.frames)
+            k = ref.S['LAB_0613']
+            print('image %d : joueur %d,%d' % (ref.frame_no, ref.rw(k + 126), ref.rw(k + 128)))
+        elif a.duel or a.cpu or a.encounter:
             if a.encounter:
                 ref.start_encounter(a.encounter)
             else:

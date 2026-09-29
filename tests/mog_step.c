@@ -16,6 +16,7 @@
  */
 #include "mog_combat.h"
 #include "mog_encounter.h"
+#include "mog_blit.h"
 #include "moon_assets.h"
 #include "ix_mog_syms.h"
 
@@ -79,6 +80,13 @@ int main(int argc, char **argv)
             ix_run_entities(&m.eng);
         else if (!strcmp(r, "Combat_Collisions"))
             mog_collisions(&m);
+        else if (!strncmp(r, "Draw:", 5)) {             /* Draw:cel:frame:x:y (LAB_0CDA) */
+            unsigned long c, fr, x, y;
+            if (sscanf(r + 5, "%lx:%lx:%lx:%lx", &c, &fr, &x, &y) == 4) {
+                static MogBlitter blt;
+                mog_draw_cel(&vm, &blt, (uint32_t)c, (uint16_t)fr, (uint16_t)x, (uint16_t)y);
+            }
+        }
         else if (!strcmp(r, "Combat_Run"))
             mog_combat_begin(&m);
         else {

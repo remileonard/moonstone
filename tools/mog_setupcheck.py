@@ -40,7 +40,7 @@ def ranges(diffs):
 
 
 def check(data, init):
-    ref = MogRef(data)
+    ref = MogRef(data, blitter=BLIT)
     ref.boot()
     ref.prepare_knights()
     S = ref.S
@@ -63,10 +63,12 @@ def check(data, init):
     for n in IGNORE:
         if n in S:
             skip.update(range(S[n], S[n] + 4))
-    # écrans : le banc n'émule pas le blitter (terrain, copies d'écran)
-    for n in SCREENS:
-        a = ref.rl(S[n])
-        skip.update(range(a, a + 5 * 0x1F40))
+    # écrans : sans l'émulation du blitter, terrain et copies d'écran ne
+    # sont pas faits par le banc
+    if not BLIT:
+        for n in SCREENS:
+            a = ref.rl(S[n])
+            skip.update(range(a, a + 5 * 0x1F40))
     # palette courante du fondu (rl(LAB_0E93), tenue par l'interruption)
     skip.update(range(ref.rl(S['LAB_0E93']), ref.rl(S['LAB_0E93']) + 66))
     limit = ref.stack_top - STACK_SIZE
@@ -79,9 +81,17 @@ def check(data, init):
     return not diffs
 
 
+BLIT = False
+
+
 def main():
-    data = sys.argv[1]
-    inits = sys.argv[2:] or ['LAB_0164', 'LAB_0168', 'LAB_016A', 'LAB_0175', 'LAB_0188',
+    global BLIT
+    args = sys.argv[1:]
+    if '--blitter' in args:
+        args.remove('--blitter')
+        BLIT = True
+    data = args[0]
+    inits = args[1:] or ['LAB_0164', 'LAB_0168', 'LAB_016A', 'LAB_0175', 'LAB_0188',
                              'LAB_018C', 'LAB_0192', 'LAB_0196', 'LAB_019A', 'LAB_019E',
                              'LAB_01A0']
     ok = all([check(data, i) for i in inits])

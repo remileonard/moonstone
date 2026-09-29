@@ -30,6 +30,7 @@ add_executable(mog_step mog_step.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_encounter.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_loop.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_boot.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_blit.c
     ${CMAKE_SOURCE_DIR}/game/data/ix_mog.c)
 target_include_directories(mog_step PRIVATE
     ${CMAKE_SOURCE_DIR}/game/include ${CMAKE_SOURCE_DIR}/game/data)
