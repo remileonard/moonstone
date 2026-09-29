@@ -310,6 +310,254 @@ static void trainer(MogCombat *m)
 }
 
 /* ------------------------------------------------------------------ */
+/* Jeu de hasard (LAB_04A6)                                            */
+/* ------------------------------------------------------------------ */
+
+/* LAB_03EB : couleurs à zéro (33 mots, comme l'original) */
+static void black_palette(MogCombat *m)
+{
+    uint32_t a2 = rl(m, MOG_LAB_0E93);
+    for (int i = 0; i < 33; i++)
+        ww(m, a2 + 2u * (unsigned)i, 0);
+}
+
+/* LAB_0D8A (une VBL, registres couleur) puis LAB_03EE (palette courante) */
+static void load_palette(MogCombat *m, uint32_t a0)
+{
+    uint16_t c[32];
+    for (int i = 0; i < 32; i++)
+        c[i] = rw(m, a0 + 2u * (unsigned)i);
+    mog_wait_vbls(m, 1);
+    if (m->palette)
+        m->palette(m->out.user, c);
+    uint32_t a1 = rl(m, MOG_LAB_0E93);
+    for (int i = 0; i < 32; i++)
+        ww(m, a1 + 2u * (unsigned)i, c[i]);
+}
+
+/* LAB_041F : 40000 octets */
+static void copy_40000(MogCombat *m, uint32_t src, uint32_t dst)
+{
+    for (uint32_t i = 0; i < 40000; i++)
+        wb(m, dst + i, rb(m, src + i));
+}
+
+/* LAB_02CE : objets effacés */
+static void clear_objects(MogCombat *m)
+{
+    uint32_t a0 = rl(m, MOG_LAB_05C3);
+    for (uint32_t i = 0; i < 0xA50; i++)
+        wb(m, a0 + i, 0);
+}
+
+/* LAB_04C5 : couleurs d0.. de la palette a0 selon le chevalier du tour */
+static void knight_colours(MogCombat *m, uint32_t a0, uint32_t d0)
+{
+    static const uint16_t c[4][5] = {
+        { 0x05D, 0x03B, 0x028, 0x016, 0x003 },          /* 0 */
+        { 0xFA0, 0xC60, 0xB40, 0x930, 0x710 },          /* 1 */
+        { 0x0C5, 0x0A3, 0x082, 0x061, 0x040 },          /* 2 */
+        { 0xE00, 0xB00, 0x900, 0x600, 0x300 },          /* 3 */
+    };
+    uint32_t k = rl(m, CUR + 54);
+    if (k > 3)
+        return;
+    for (uint32_t i = 0; i < 5; i++)
+        ww(m, a0 + d0 + 2 * i, c[k][i]);
+}
+
+/* LAB_04AC : contrôleur du croupier : feu sur une mise (zone 1, genre =
+ * mise) ou sur « partir » (zone 2) */
+int mog_gamble_ctl(MogCombat *m, uint32_t a0, CtlResult *out)
+{
+    wl(m, MOG_LAB_0633, a0);
+    if (rw(m, MOG_LAB_0F5B)) {                          /* LAB_04B1 */
+        ww(m, MOG_LAB_0F5B, 2);
+        *out = mog_set_script(m, 0);
+        return 1;
+    }
+    if (mog_read_joy(m) & MOG_JOY_FIRE) {               /* LAB_04AE */
+        uint32_t z = mog_zone_at(m, rw(m, MOG_LAB_097F), rw(m, MOG_LAB_0980));
+        if ((uint16_t)z) {
+            if (rl(m, z + 16) == 1) {                   /* LAB_04B0 */
+                ww(m, MOG_LAB_0F62, rw(m, z + 20));
+                uint32_t k = rl(m, MOG_LAB_0F59);
+                uint16_t bet = rw(m, MOG_LAB_0F62);
+                if (!((int16_t)bet > (int16_t)rw(m, k + 74))) {
+                    ww(m, k + 74, (uint16_t)(rw(m, k + 74) - bet));
+                    ww(m, MOG_LAB_0F5B, 1);
+                    ww(m, MOG_LAB_0F5D, 3);
+                    *out = mog_set_script(m, MOG_LAB_0F55);
+                    return 1;
+                }
+            } else if (rl(m, z + 16) == 2) {
+                ww(m, MOG_LAB_04AF, 1);
+            }
+        }
+    } else {
+        ww(m, MOG_LAB_0F5B, 0);
+    }
+    ww(m, MOG_LAB_0F5D, 6);                             /* LAB_04AD */
+    *out = mog_set_script(m, MOG_LAB_0F54);
+    return 1;
+}
+
+/* LAB_04B7 : « gp. » après le nombre */
+static void gp(MogCombat *m, uint32_t a2)
+{
+    static const char s[] = " gp.";
+    for (int i = 0; i < 5; i++)
+        wb(m, a2 + (uint32_t)i, (uint8_t)s[i]);
+}
+
+/* LAB_04B4 : trois dés (0 à 5), triés (LAB_04BC) ; gain selon LAB_0F63 */
+static void roll(MogCombat *m)
+{
+    for (uint32_t i = 0; i < 3; i++) {
+        uint32_t d0;
+        do
+            d0 = mog_random(m) & 7;
+        while ((int8_t)d0 > 5);
+        wb(m, MOG_LAB_0F5F + i, (uint8_t)d0);
+    }
+    black_palette(m);                                   /* LAB_03EB */
+    mog_pointer_off(m);                                 /* LAB_057B */
+    copy_40000(m, rl(m, MOG_LAB_0F5C), rl(m, MOG_LAB_05C0));   /* LAB_041F */
+    mog_set_planes(m, rl(m, MOG_LAB_05C0));
+    uint32_t cel = rl(m, MOG_LAB_0F5A);
+    mog_draw_cel(VM, &m->blt, cel, rb(m, MOG_LAB_0F5F), 0x73, 0x0F);
+    mog_draw_cel(VM, &m->blt, cel, rb(m, MOG_LAB_0F60), 0x31, 0x26);
+    mog_draw_cel(VM, &m->blt, cel, rb(m, MOG_LAB_0F61), 0x4B, 0x58);
+    for (int sw = 1; sw;) {                             /* LAB_04BC */
+        sw = 0;
+        for (uint32_t i = 0; i < 2; i++) {
+            uint8_t a = rb(m, MOG_LAB_0F5F + i), b = rb(m, MOG_LAB_0F5F + i + 1);
+            if (b < a) {
+                wb(m, MOG_LAB_0F5F + i, b);
+                wb(m, MOG_LAB_0F5F + i + 1, a);
+                sw = 1;
+            }
+        }
+    }
+    uint32_t dice = rl(m, MOG_LAB_0F5F), a1 = MOG_LAB_0F63;
+    int win = 0;
+    for (int i = 0; i < 12; i++, a1 += 6)
+        if (rl(m, a1) == dice) {
+            win = 1;
+            break;
+        }
+    uint32_t k = rl(m, MOG_LAB_0F59);
+    if (win) {                                          /* LAB_04B8 */
+        uint32_t d0 = (uint32_t)rw(m, MOG_LAB_0F62) * rb(m, a1 + 4);
+        ww(m, k + 74, (uint16_t)(rw(m, k + 74) + d0));
+        gp(m, mog_number(m, d0, MOG_LAB_0F49));
+        gp(m, mog_number(m, (d0 & 0xFFFF0000u) | rw(m, k + 74), MOG_LAB_0F4B));
+        mog_text_records(m, MOG_LAB_0F43);
+    } else {
+        gp(m, mog_number(m, rw(m, MOG_LAB_0F62), MOG_LAB_0F47));
+        gp(m, mog_number(m, rw(m, k + 74), MOG_LAB_0F4B));
+        mog_text_records(m, MOG_LAB_0F42);
+    }
+    mog_show_background(m);                             /* LAB_04B9 : LAB_0418 */
+    mog_wait_vbls(m, 1);                                /* LAB_0D77 */
+    load_palette(m, MOG_LAB_05E6);
+    mog_wait_vbls(m, 20);
+    mog_wait_fire(m);                                   /* LAB_00EC */
+}
+
+/* LAB_04A6 : le jeu de dés (mises par le croupier, LAB_04AC) */
+static void gamble(MogCombat *m)
+{
+    if (!((int16_t)rw(m, CUR + 74) > 0))
+        return;
+    ww(m, MOG_LAB_05DF, 0xFFFF);                        /* LAB_04A7 */
+    wl(m, MOG_v_Combatants + 10, rl(m, MOG_LAB_05E3));
+    mog_set_planes(m, rl(m, MOG_LAB_05C2));
+    mog_load_picture(m, MOG_LAB_0F4D, rl(m, MOG_LAB_0D92));
+    for (uint32_t i = 0; i < 32; i++)                   /* LAB_0422 */
+        ww(m, MOG_LAB_05E5 + 2 * i, rw(m, MOG_LAB_0D2B + 2 * i));
+    wl(m, MOG_LAB_0F5C, rl(m, MOG_LAB_05B8 + 8));
+    mog_set_planes(m, rl(m, MOG_LAB_0F5C));
+    mog_load_picture(m, MOG_LAB_0F4E, rl(m, MOG_LAB_0D92));
+    for (uint32_t i = 0; i < 32; i++)
+        ww(m, MOG_LAB_05E6 + 2 * i, rw(m, MOG_LAB_0D2B + 2 * i));
+    wl(m, MOG_LAB_0F5A, rl(m, MOG_LAB_05B8 + 8) + 0x9C40);
+    mog_load_cel(VM, MOG_LAB_0F4F, rl(m, MOG_LAB_0F5A));
+    wl(m, MOG_v_Combatants + 10, rl(m, MOG_LAB_05E3));
+    wl(m, MOG_LAB_0F59, CUR);
+    mog_clear_zones(m);                                 /* LAB_044E */
+    zone_xy(m, 0x10C, 0x26);
+    zone_wh(m, 0x2B, 0x18);
+    wl(m, MOG_LAB_0A58 + 8, 0);
+    zone_id(m, 1);
+    ww(m, MOG_LAB_0A58 + 20, 1);
+    ww(m, MOG_LAB_0A58 + 22, 0x4A);
+    mog_add_zone(m);
+    static const uint16_t ys[4] = { 0x42, 0x5E, 0x79, 0x93 };
+    for (int i = 0; i < 4; i++) {
+        ww(m, MOG_LAB_0A58 + 14, ys[i]);
+        ww(m, MOG_LAB_0A58 + 20, (uint16_t)(i + 2));
+        mog_add_zone(m);
+    }
+    zone_xy(m, 0x10C, 0xB5);
+    zone_wh(m, 0x2D, 0x10);
+    zone_id(m, 2);
+    ww(m, MOG_LAB_0A58 + 22, 0x4A);
+    mog_add_zone(m);
+    mog_fade_black(m);                                  /* LAB_03F0 */
+    ww(m, MOG_LAB_04AF, 0);
+    knight_colours(m, MOG_LAB_05E5, 0x0C);              /* LAB_04C5 */
+    mog_voice(m, 0, 0x7D);                              /* SECSTRT_16 */
+    mog_voice(m, 1, 0x7E);                              /* LAB_0A9B */
+    mog_voice(m, 2, 0x7F);                              /* LAB_0A9C */
+    for (;;) {                                          /* LAB_04A8 */
+        black_palette(m);                               /* LAB_03EB */
+        ww(m, MOG_LAB_097F, 0x118);
+        mog_pointer_on(m);
+        if (!((int16_t)rw(m, rl(m, MOG_LAB_0F59) + 74) > 0))
+            break;
+        clear_objects(m);                               /* LAB_02CE */
+        mog_reset_entities(m);                          /* LAB_0305 */
+        copy_40000(m, rl(m, MOG_LAB_05C2), rl(m, MOG_LAB_05C0));
+        mog_show_background(m);                         /* LAB_0418 */
+        mog_swap_screens(m);                            /* LAB_0416 */
+        mog_wait_vbls(m, 1);                            /* LAB_0D77 */
+        load_palette(m, MOG_LAB_05E5);
+        ww(m, MOG_LAB_0F5B, 0);
+        ix_spawn(&m->eng, MOG_LAB_0F54, MOG_LAB_0F5A, 0xA0, 0, 0x64, 1, 68);  /* LAB_04AB */
+        ww(m, MOG_LAB_0F5D, 5);
+        int rolled = 0;
+        for (;;) {                                      /* LAB_04A9 */
+            if (m->frame_start)         /* point de rendez-vous (pas dans mog) */
+                m->frame_start(m->out.user);
+            mog_run_controllers(m);
+            ix_run_entities(&m->eng);
+            mog_swap_screens(m);
+            mog_restore_areas(m);
+            wl(m, MOG_LAB_0F5E, 0);
+            uint32_t g = (uint32_t)(int32_t)(int16_t)rw(m, rl(m, MOG_LAB_0F59) + 74);
+            mog_number(m, g, MOG_LAB_0F5E);
+            mog_text(m, MOG_LAB_0F5E, 0x11A, 0x0E, 2);
+            if (rw(m, MOG_LAB_0F5B) == 2) {
+                rolled = 1;
+                break;
+            }
+            mog_wait_vbls(m, rw(m, MOG_LAB_0F5D));
+            if (rw(m, MOG_LAB_04AF))
+                break;
+        }
+        if (!rolled)
+            break;
+        roll(m);                                        /* LAB_04B2 : LAB_04B4 */
+        if ((int16_t)rw(m, rl(m, MOG_LAB_0F59) + 74) < 0)
+            ww(m, MOG_LAB_04AF, 1);
+    }
+    mog_pointer_off(m);                                 /* LAB_04AA */
+    mog_fade_out(m);                                    /* LAB_03F1 */
+    wl(m, MOG_LAB_0633, rl(m, MOG_LAB_0F59));
+}
+
+/* ------------------------------------------------------------------ */
 /* Villes                                                              */
 /* ------------------------------------------------------------------ */
 
@@ -421,8 +669,9 @@ static int town_menu(MogCombat *m, int kind)
             break;
         case 2:                                         /* LAB_008F / LAB_0097 */
             mog_pointer_off(m);
-            todo(m, "LAB_04A6 (jeu de hasard)");
-            return MOG_MAP_UNPORTED;
+            gamble(m);                                  /* LAB_04A6 */
+            mog_fade_black(m);
+            break;
         case 3:                                         /* LAB_0091 / LAB_009A */
             mog_fade_black(m);
             mog_pointer_off(m);

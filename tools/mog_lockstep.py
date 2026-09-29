@@ -126,8 +126,11 @@ def to_exit(ref, exit_id=7, field=16):
     while ref.rw(a0 + 4):
         v = ref.rl(a0 + 16) if field == 16 else ref.rw(a0 + field)
         if v == exit_id:
-            tx = ref.rw(a0 + 12) + ref.rw(a0 + 4) // 2
-            ty = ref.rw(a0 + 14) + ref.rw(a0 + 6) // 2
+            zx, zy = ref.rw(a0 + 12), ref.rw(a0 + 14)
+            zw, zh = ref.rw(a0 + 4), ref.rw(a0 + 6)
+            if zx + 1 <= x <= zx + zw - 2 and zy + 1 <= y <= zy + zh - 2:
+                return 0x10
+            tx, ty = zx + zw // 2, zy + zh // 2
             d = 0
             if x < tx - 2: d |= 1
             elif x > tx + 2: d |= 2
@@ -145,6 +148,8 @@ def main():
     ap.add_argument('--seed', type=int, default=1)
     ap.add_argument('--space', type=int, default=0)
     ap.add_argument('--fire', type=float, default=0.0)
+    ap.add_argument('--place', type=lambda v: int(v, 0), default=None,
+                    help='genre de lieu (LAB_069F) où poser le chevalier au départ')
     ap.add_argument('--wander', type=int, default=40)
     ap.add_argument('--replay', help='fichier .joy (MOG_SAVE) à rejouer')
     a = ap.parse_args()
@@ -156,6 +161,16 @@ def main():
     ref.boot()
     S = ref.S
     new_game_map(ref)
+    if a.place is not None:                             # chevalier posé sur le lieu
+        e = S['LAB_069F']
+        while not ref.rw(e) & 0x8000:
+            if ref.rw(e) == a.place:
+                ref.ww(S['LAB_0613'] + 126, ref.rw(e + 2))
+                ref.ww(S['LAB_0613'] + 128, ref.rw(e + 4))
+                break
+            e += 6
+        else:
+            sys.exit('lieu %#x absent' % a.place)
     c = CSide(ref.snapshot(), 'map', a.data)
     if os.environ.get('MOG_SAVE'):
         open(os.environ['MOG_SAVE'] + '.in', 'wb').write(ref.snapshot())
@@ -180,22 +195,27 @@ def main():
         pc = ref.uc.reg_read(M.UC_M68K_REG_PC)
         kinds[ref.where(pc)] = kinds.get(ref.where(pc), 0) + 1
         if pc == S['LAB_0E40']:                         # menu des lieux : « 1 »
-            key = 1
+            key = 2
         if pc in (S['LAB_00EC'], S['LAB_00ED']):        # attente du feu : appui, relâché
             j = [0x10, 0x10] if pc == S['LAB_00EC'] else [0, 0]
-        elif pc in (S['LAB_04D0'], S['LAB_008C'], S['LAB_0095'], S['LAB_0496']):
+        elif pc in (S['LAB_04D0'], S['LAB_008C'], S['LAB_0095'], S['LAB_0496'],
+                    S['LAB_04A9']):
             # écran LAB_04CF, menu de ville, or proposé : errance, clics,
             # puis sortie (zone 7, enseigne 5, bouton « accepter »)
             town = pc != S['LAB_04D0']
             in_screen += 1
             screen_frames += 1
             screens += in_screen == 1
-            if in_screen < a.wander:
+            if pc == S['LAB_04A9'] and in_screen < a.wander:
+                joy = to_exit(ref, 1)                   # une mise
+            elif in_screen < a.wander:
                 d = rng.choice([1, 2, 4, 8, 5, 6, 9, 10])
                 joy = d | (0x10 if rng.random() < 0.15 else 0)
             else:
                 if pc == S['LAB_0496']:
                     joy = to_exit(ref, 3, 20)
+                elif pc == S['LAB_04A9']:
+                    joy = to_exit(ref, 2)
                 else:
                     joy = to_exit(ref, 5 if town else 7)
             j = [joy, joy]
@@ -204,6 +224,8 @@ def main():
             if not joy or joy & 0x10 or rng.random() < 0.05:
                 joy = rng.choice([1, 2, 4, 8, 5, 6, 9, 10])
             j = [0, joy | (0x10 if rng.random() < a.fire else 0)]
+            if a.place is not None and f <= 2:
+                j = [0, 0x10]                           # feu sur le lieu
             in_combat = ref.where(ref.rl(ref.r('A7'))).startswith('Combat_Loop')
             if key is None and a.space and f % a.space == 0 and not in_combat:
                 key = 0x39

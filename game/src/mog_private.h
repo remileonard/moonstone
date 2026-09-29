@@ -81,7 +81,9 @@ void mog_select_knight(MogCombat *m);
 void mog_clear_keys(MogCombat *m);
 uint16_t mog_read_joy(MogCombat *m);
 uint32_t mog_pick_stat(MogCombat *m);             /* LAB_0469 : D1 */
-uint32_t mog_d100(MogCombat *m);                  /* LAB_04A3 */
+uint32_t mog_d100(MogCombat *m);
+/* LAB_04AC : contrôleur du jeu de dés (mog_town.c) */
+int mog_gamble_ctl(MogCombat *m, uint32_t a0, CtlResult *out);                  /* LAB_04A3 */
 /* LAB_007B : ville, temple... de genre d0 (mog_town.c) ; renvoie D0 */
 int mog_town(MogCombat *m, uint32_t d0);
 /* LAB_001C : a0 prend le butin de a1 (mog_map.c) */

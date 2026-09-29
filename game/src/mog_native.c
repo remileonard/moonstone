@@ -330,6 +330,12 @@ int mog_native(MogCombat *m, uint32_t routine, uint32_t en)
         return 1;
     }
     case MOG_LAB_0EF7: demon_throw(m); return 1;
+    case MOG_LAB_04BA:                                  /* dés qui roulent : son */
+        /* l'original tire un nombre (perdu : MOVEQ #0,D0) puis joue
+         * LAB_04BB[0] sur le canal 3 (LAB_0A9D) */
+        mog_random(m);
+        mog_voice(m, 3, ix_rb(VM, MOG_LAB_04BB));
+        return 1;
     case MOG_LAB_02E9: sound_sequence(m, MOG_LAB_02EE); return 1;
     }
     return 0;

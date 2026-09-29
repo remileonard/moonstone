@@ -1867,6 +1867,7 @@ int mog_ai_controller(MogCombat *m, uint32_t fn, uint32_t obj, CtlResult *out)
     case MOG_LAB_027A: *out = dragon(m, obj); return 1;
     case MOG_LAB_0298: *out = dragon_part(m, obj); return 1;
     case MOG_LAB_0DCF: return mog_map_dragon_ctl(m, obj, out);
+    case MOG_LAB_04AC: return mog_gamble_ctl(m, obj, out);
     }
     return 0;
 }
