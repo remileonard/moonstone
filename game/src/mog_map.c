@@ -959,6 +959,35 @@ static int pvp(MogCombat *m, uint32_t a0, uint32_t a1)
     return MOG_MAP_UNPORTED;
 }
 
+/* LAB_0083 : le dragon s'abat sur le chevalier du tour : combat (LAB_0192)
+ * ou, pour un chevalier noir ou à terre, une vie de moins et le butin. */
+static int dragon_attack(MogCombat *m)
+{
+    wl(m, MOG_LAB_05F2, CUR);
+    uint32_t a0 = rl(m, MOG_LAB_05F2);
+    int lost = 1;
+    if (rl(m, a0 + 54) == 4) {
+        wb(m, a0 + 73, (uint8_t)(rb(m, a0 + 73) - 1));
+    } else if (!rb(m, a0 + 82) && rb(m, a0 + 73)) {
+        mog_encounter_init(m, MOG_LAB_0192);
+        mog_combat_run(m);
+        lost = rb(m, MOG_LAB_05DC) & 1;
+    }
+    if (lost) {                                         /* LAB_0085 */
+        mog_loot(m, MOG_LAB_0617, rl(m, MOG_LAB_05F2));
+        wb(m, MOG_LAB_05DC, rb(m, MOG_LAB_05DC) | 1);
+    } else {                                            /* LAB_0086 : dragon tué */
+        wb(m, MOG_LAB_0617 + 73, 0xFF);
+        a0 = rl(m, MOG_LAB_05F2);
+        ww(m, a0 + 78, (uint16_t)(rw(m, a0 + 78) + 2));
+        todo(m, "LAB_04CF 10 (trésor du dragon)");
+        return MOG_MAP_UNPORTED;
+    }
+    ww(m, MOG_LAB_0655, rw(m, MOG_LAB_0665));           /* LAB_00B2 */
+    back_to_map(m);                                     /* SECSTRT_36 */
+    return 0;
+}
+
 /* LAB_0E17 : arrivé en ville, sur la cible ou sur la créature visée */
 static int arrived(MogCombat *m)
 {
@@ -1432,8 +1461,10 @@ int mog_map_frame(MogCombat *m)
         for (uint32_t i = 0; i < 4; i++)
             if (rl(m, MOG_LAB_069E + 4 * i) == CUR) {
                 map_colours_off(m);
-                todo(m, "LAB_0083 (le dragon attaque)");
-                return MOG_MAP_UNPORTED;
+                int ev = dragon_attack(m);              /* LAB_0083 */
+                if (ev)
+                    return ev;
+                break;
             }
     }
     if (!(sw(rw(m, MOG_LAB_0655)) < sw(rw(m, MOG_LAB_0665)))) {   /* LAB_0DB9 */
