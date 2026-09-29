@@ -21,6 +21,10 @@ set(GAME_SOURCES
     src/moon_stonehenge.c
     src/moon_valley.c
     src/moon_ending.c
+    src/ix_vm.c
+    src/ix_engine.c
+    data/ix_program.c
+    data/ix_mog.c
 )
 
 add_executable(moonstone ${GAME_SOURCES})
@@ -28,6 +32,7 @@ add_executable(moonstone ${GAME_SOURCES})
 target_include_directories(moonstone
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/data
         ${CMAKE_CURRENT_SOURCE_DIR}/../libmoon_assets/include
         ${SDL2_INCLUDE_DIRS}
 )

@@ -664,104 +664,130 @@ def write_markdown(b, scripts, rejected, role, tables, tab_role, path):
     open(path, 'w', encoding='utf-8').write('\n'.join(L) + '\n')
 
 
+VM_BASE = 0x00100000     # adresse virtuelle du premier hunk (0 reste « nul »)
+
+
+def hunk_bases(b):
+    """Adresses virtuelles des hunks : bout à bout (taille allouée), comme IRA."""
+    base, acc = [], VM_BASE
+    for h in b.hunks:
+        base.append(acc)
+        acc += h['size']
+    return base, acc - VM_BASE
+
+
+def va(b, k):
+    return hunk_bases(b)[0][k[0]] + k[1]
+
+
 def write_c(b, scripts, tables, path):
+    """Image mémoire complète du binaire + index des scripts et tables."""
     pre = 'ix_%s' % b.bin
+    bases, total = hunk_bases(b)
     L = ['/*',
-         ' * %s.c — données IMAGEXCEL de `%s` (générées par tools/ix_scripts.py).' % (pre, b.bin),
+         ' * %s.c — image mémoire de `%s` pour le moteur IMAGEXCEL' % (pre, b.bin),
+         ' * (générée par tools/ix_scripts.py ; ne pas modifier).',
          ' *',
-         ' * Hunks de données tels qu\'en mémoire, avec leurs relocations : un',
-         ' * pointeur relogé est un mot long big-endian dont la valeur est un',
-         ' * offset dans le hunk cible (IxReloc). Les scripts et tables sont',
-         ' * repérés par (hunk, offset). Ne pas modifier à la main.',
+         ' * Chaque hunk est placé à l\'adresse virtuelle IX_VM_BASE + somme des',
+         ' * tailles allouées des hunks précédents ; ix_vm_load() copie les données,',
+         ' * met le reste (BSS) à zéro et applique les relocations.',
          ' */', '', '#include "ix_data.h"', '']
-    used = sorted({k[0] for k in list(scripts) + list(tables)})
-    # hunks utiles : ceux qui contiennent scripts/tables + cibles des scripts
-    need = set(used)
-    for s in scripts.values():
-        for _, kind, t in s['refs']:
-            if kind != 'code':
-                need.add(t[0])
-    need = sorted(h for h in need if b.hunks[h]['type'] != 'BSS')
-    for h in need:
-        d = b.data(h)
-        L.append('static const uint8_t %s_h%d[%d] = {' % (pre, h, len(d)))
-        for i in range(0, len(d), 16):
-            L.append('    ' + ', '.join('0x%02X' % x for x in d[i:i + 16]) + ',')
-        L.append('};')
+    types = {'CODE': 'IX_HUNK_CODE', 'DATA': 'IX_HUNK_DATA', 'BSS': 'IX_HUNK_BSS'}
+    for h, hk in enumerate(b.hunks):
+        d = hk['data']
+        if d:
+            L.append('static const uint8_t %s_h%d[%d] = {' % (pre, h, len(d)))
+            for i in range(0, len(d), 16):
+                L.append('    ' + ', '.join('0x%02X' % x for x in d[i:i + 16]) + ',')
+            L.append('};')
         rel = sorted(b.rel[h].items())
-        L.append('static const IxReloc %s_h%d_rel[%d] = {' % (pre, h, max(1, len(rel))))
-        for pos, t in rel:
-            L.append('    { 0x%05X, %d },' % (pos, t))
-        if not rel:
-            L.append('    { 0, 0 },')
-        L.append('};')
+        if rel:
+            L.append('static const IxReloc %s_h%d_rel[%d] = {' % (pre, h, len(rel)))
+            for pos, t in rel:
+                L.append('    { 0x%05X, %d },' % (pos, t))
+            L.append('};')
         L.append('')
-    L.append('const IxHunk %s_hunks[] = {' % pre)
-    for h in need:
-        L.append('    { %d, %s_h%d, sizeof %s_h%d, %s_h%d_rel, %d },' % (
-            h, pre, h, pre, h, pre, h, len(b.rel[h])))
+    L.append('static const IxHunk %s_hunk_list[%d] = {' % (pre, len(b.hunks)))
+    for h, hk in enumerate(b.hunks):
+        L.append('    { %s, 0x%08X, %d, %s, %d, %s, %d },' % (
+            types[hk['type']], bases[h], hk['size'],
+            ('%s_h%d' % (pre, h)) if hk['data'] else 'NULL', len(hk['data']),
+            ('%s_h%d_rel' % (pre, h)) if b.rel[h] else 'NULL', len(b.rel[h])))
     L.append('};')
-    L.append('const int %s_hunk_count = %d;' % (pre, len(need)))
     L.append('')
-    L.append('const IxSymbol %s_scripts[] = {' % pre)
+    L.append('static const uint32_t %s_script_list[%d] = {' % (pre, max(1, len(scripts))))
     for k in sorted(scripts):
-        L.append('    { "%s", %d, 0x%05X },' % (b.name(k), k[0], k[1]))
+        L.append('    0x%08X,  /* %s */' % (va(b, k), b.name(k)))
     L.append('};')
-    L.append('const int %s_script_count = %d;' % (pre, len(scripts)))
     L.append('')
-    L.append('const IxSymbol %s_tables[] = {' % pre)
-    for k in sorted(tables):
-        L.append('    { "%s", %d, 0x%05X },' % (b.name(k), k[0], k[1]))
+    L.append('const IxImage %s_image = {' % pre)
+    L.append('    "%s", %s_hunk_list, %d, 0x%X,' % (b.bin, pre, len(b.hunks), total))
+    L.append('    %s_script_list, %d' % (pre, len(scripts)))
     L.append('};')
-    L.append('const int %s_table_count = %d;' % (pre, len(tables)))
     os.makedirs(os.path.dirname(path), exist_ok=True)
     open(path, 'w').write('\n'.join(L) + '\n')
 
+    # en-tête des symboles : adresse virtuelle de chaque label
+    up = b.bin.upper()
+    H = ['/*', ' * %s_syms.h — adresses virtuelles des labels de amiga_asm/%s.asm' % (pre, b.bin),
+         ' * (générées par tools/ix_scripts.py ; ne pas modifier).', ' */',
+         '#ifndef IX_%s_SYMS_H' % up, '#define IX_%s_SYMS_H' % up, '']
+    seen = set()
+    for k, n in sorted(b.labels.items()):
+        if n in seen or not re.match(r'^[A-Za-z_]\w*$', n):
+            continue
+        seen.add(n)
+        H.append('#define %s_%s 0x%08Xu' % (up, n, va(b, k)))
+    H += ['', '#endif', '']
+    open(os.path.join(os.path.dirname(path), '%s_syms.h' % pre), 'w').write('\n'.join(H))
 
-HEADER = '''/*
- * ix_data.h — types des données IMAGEXCEL générées par tools/ix_scripts.py
- * (game/data/ix_program.c, game/data/ix_mog.c).
+
+HEADER = """/*
+ * ix_data.h — images mémoire des binaires Amiga pour le moteur IMAGEXCEL
+ * (générées par tools/ix_scripts.py dans game/data/).
  */
 #ifndef IX_DATA_H
 #define IX_DATA_H
 
+#include <stddef.h>
 #include <stdint.h>
 
-/* Relocation : le mot long big-endian à `offset` est un offset dans le
- * hunk `target` ; le chargeur le remplace par l'adresse réelle. */
+#define IX_VM_BASE 0x00100000u   /* adresse virtuelle du premier hunk */
+
+enum { IX_HUNK_CODE, IX_HUNK_DATA, IX_HUNK_BSS };
+
+/* Relocation : le mot long big-endian à `offset` (dans le hunk) est un
+ * offset dans le hunk `target` ; ix_vm_load() y ajoute l'adresse virtuelle
+ * du hunk cible. */
 typedef struct {
     uint32_t offset;
     uint16_t target;
 } IxReloc;
 
 typedef struct {
-    int             index;       /* numéro du hunk dans l'exécutable   */
-    const uint8_t  *data;
-    uint32_t        size;
+    int             type;        /* IX_HUNK_CODE / DATA / BSS            */
+    uint32_t        va;          /* adresse virtuelle                     */
+    uint32_t        size;        /* taille allouée (BSS compris)          */
+    const uint8_t  *data;        /* contenu initial (NULL pour un BSS)    */
+    uint32_t        data_size;
     const IxReloc  *relocs;
     int             reloc_count;
 } IxHunk;
 
-/* Script ou table de scripts : (hunk, offset). */
 typedef struct {
-    const char *name;            /* label dans amiga_asm/<bin>.asm     */
-    int         hunk;
-    uint32_t    offset;
-} IxSymbol;
+    const char      *name;
+    const IxHunk    *hunks;
+    int              hunk_count;
+    uint32_t         total_size; /* octets à partir de IX_VM_BASE         */
+    const uint32_t  *scripts;    /* adresses des scripts identifiés       */
+    int              script_count;
+} IxImage;
 
-#define IX_DECLARE(bin)                                   \\
-    extern const IxHunk   ix_##bin##_hunks[];             \\
-    extern const int      ix_##bin##_hunk_count;          \\
-    extern const IxSymbol ix_##bin##_scripts[];           \\
-    extern const int      ix_##bin##_script_count;        \\
-    extern const IxSymbol ix_##bin##_tables[];            \\
-    extern const int      ix_##bin##_table_count;
-
-IX_DECLARE(program)
-IX_DECLARE(mog)
+extern const IxImage ix_program_image;
+extern const IxImage ix_mog_image;
 
 #endif /* IX_DATA_H */
-'''
+"""
 
 
 def main():

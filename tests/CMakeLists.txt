@@ -10,3 +10,10 @@ add_executable(test_cache test_cache.c)
 target_link_libraries(test_cache PRIVATE moon_assets)
 
 add_test(NAME test_cache COMMAND test_cache)
+
+# Trace du moteur IMAGEXCEL (utilisée par tools/ix_difftest.py)
+add_executable(ix_trace ix_trace.c
+    ${CMAKE_SOURCE_DIR}/game/src/ix_vm.c
+    ${CMAKE_SOURCE_DIR}/game/src/ix_engine.c)
+target_include_directories(ix_trace PRIVATE
+    ${CMAKE_SOURCE_DIR}/game/include ${CMAKE_SOURCE_DIR}/game/data)
