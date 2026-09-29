@@ -10,7 +10,9 @@ enum {
     MOG_MAP_CONTINUE = 0,   /* image suivante (LAB_0DAD)                  */
     MOG_MAP_ENTER,          /* carte redessinée : mog_map_enter (LAB_0DAB) */
     MOG_MAP_OVER,           /* fin de partie (LAB_0064)                    */
-    MOG_MAP_UNPORTED        /* routine d'origine pas encore portée         */
+    MOG_MAP_UNPORTED,       /* routine d'origine pas encore portée         */
+    MOG_MAP_WIN             /* Pierre de lune rendue : fin (SECSTRT_5 lance
+                             * « program » ; indicateurs en EXT_000e $3E0) */
 };
 
 /* LAB_0DAB : carte dessinée pour le chevalier dont c'est le tour. */

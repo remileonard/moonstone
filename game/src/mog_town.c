@@ -697,6 +697,168 @@ static int town_menu(MogCombat *m, int kind)
 }
 
 /* ------------------------------------------------------------------ */
+/* Repaire du Démon, temple de la Pierre de lune                       */
+/* ------------------------------------------------------------------ */
+
+/* LAB_0DCA : touches, chevalier du tour, un des 4 symboles (22 de
+ * l'inventaire) gagné au hasard ; renvoie D0 (0 à 3) */
+static int demon_reward(MogCombat *m)
+{
+    mog_clear_keys(m);                                  /* LAB_0B82 */
+    mog_select_knight(m);                               /* LAB_0DBD */
+    uint32_t d0 = mog_random(m) & 3;                    /* LAB_04A1 */
+    uint32_t a0 = rl(m, CUR + 96);
+    wb(m, a0 + 22, (uint8_t)(rb(m, a0 + 22) | (1u << d0)));
+    return (int)d0;
+}
+
+/* LAB_009D : repaire du Démon (objet 20 = $0F requis) */
+static int demon_lair(MogCombat *m)
+{
+    if (rb(m, rl(m, CUR + 96) + 20) != 0x0F) {
+        mog_message_screen(m, MOG_LAB_06E8, 0);         /* LAB_0136 */
+        mog_wait_fire(m);                               /* LAB_00EC */
+        mog_back_to_map(m);                             /* LAB_00B3 : SECSTRT_36 */
+        return MOG_MAP_ENTER;
+    }
+    mog_select_knight(m);                               /* LAB_009E */
+    mog_encounter_init(m, MOG_LAB_01A0);
+    mog_combat_run(m);
+    wl(m, MOG_LAB_0662, 0);
+    if (rb(m, MOG_LAB_05DC) & 1) {                      /* vaincu */
+        mog_select_knight(m);
+        uint32_t d1 = mog_pick_stat(m);                 /* LAB_0469 */
+        uint32_t a0 = CUR;
+        wb(m, a0 + 73, (uint8_t)(rb(m, a0 + 73) - 2));
+        if (rb(m, a0 + d1) != 1)
+            wb(m, a0 + d1, (uint8_t)(rb(m, a0 + d1) - 1));
+        return inventory_leave(m);                      /* LAB_00B1 */
+    }
+    uint32_t a0 = CUR;                                  /* LAB_00A0 */
+    ww(m, a0 + 78, (uint16_t)(rw(m, a0 + 78) + 3));
+    wb(m, rl(m, a0 + 96) + 20, 0);
+    mog_message_screen(m, MOG_LAB_06E1, 1);             /* LAB_0137 */
+    mog_wait_fire(m);
+    mog_wait_vbls(m, 10);
+    return demon_reward(m) ? MOG_MAP_ENTER : 0;         /* JMP LAB_0DCA */
+}
+
+/* LAB_04CA : 4 couleurs de la palette a0 (+d0) selon le chevalier */
+static void knight_colours4(MogCombat *m, uint32_t a0, uint32_t d0)
+{
+    static const uint16_t c[4][4] = {
+        { 0x05D, 0x028, 0x016, 0x003 },
+        { 0xFA0, 0xB40, 0x930, 0x710 },
+        { 0x0C5, 0x082, 0x061, 0x040 },
+        { 0xE00, 0x900, 0x600, 0x300 },
+    };
+    uint32_t k = rl(m, CUR + 54);
+    if (k > 3)
+        return;
+    for (uint32_t i = 0; i < 4; i++)
+        ww(m, a0 + d0 + 2 * i, c[k][i]);
+}
+
+int mog_sacrifice_ctl(MogCombat *m, uint32_t a0, CtlResult *out)
+{
+    wl(m, MOG_LAB_0633, a0);
+    ww(m, MOG_LAB_0F58, 1);
+    *out = mog_set_script(m, 0);
+    return 1;
+}
+
+/* LAB_04BF : le sacrifice au temple (scène animée) */
+static void sacrifice(MogCombat *m)
+{
+    clear_objects(m);                                   /* LAB_02CE */
+    mog_reset_entities(m);                              /* LAB_0305 */
+    /* LAB_0100 (disquette 3) : sans objet */
+    mog_message_screen(m, MOG_SECSTRT_42, 1);           /* LAB_0137 */
+    wb(m, MOG_LAB_05DF, 0xFF);
+    mog_set_planes(m, rl(m, MOG_LAB_05C0));
+    mog_load_picture(m, MOG_LAB_0F50, rl(m, MOG_LAB_0D92));
+    for (uint32_t i = 0; i < 32; i++)                   /* LAB_0422 */
+        ww(m, MOG_LAB_05E5 + 2 * i, rw(m, MOG_LAB_0D2B + 2 * i));
+    wl(m, MOG_LAB_0F5A, rl(m, MOG_LAB_05B8 + 8));
+    mog_load_cel(VM, MOG_LAB_0F51, rl(m, MOG_LAB_0F5A));
+    mog_load_sounds(m, MOG_LAB_0AC2, MOG_LAB_05C8, 0x2F78);    /* LAB_0AB0 */
+    wl(m, MOG_t_Controllers + 40, MOG_LAB_04C4);
+    ix_spawn(&m->eng, MOG_LAB_0F57, MOG_LAB_0F5A, 0xA0, 0, 0x64, 1, 40);
+    ix_spawn(&m->eng, MOG_LAB_0F56, MOG_LAB_0F5A, 0xA0, 0, 0x64, 1, 40);
+    mog_fade_out(m);                                    /* LAB_03F1 */
+    mog_show_background(m);                             /* LAB_0418 */
+    mog_swap_screens(m);                                /* LAB_0416 */
+    mog_run_controllers(m);
+    ix_run_entities(&m->eng);
+    mog_swap_screens(m);
+    mog_restore_areas(m);                               /* LAB_039E */
+    knight_colours4(m, MOG_LAB_05E5, 0x10);             /* LAB_04CA */
+    mog_voice(m, 0, 0x9E);                              /* SECSTRT_16 */
+    mog_voice(m, 1, 0x9F);                              /* LAB_0A9B */
+    mog_voice(m, 2, 0xA0);                              /* LAB_0A9C */
+    wl(m, MOG_SECSTRT_39, MOG_LAB_05E5);                /* LAB_0E55 : fondu, 4 */
+    ww(m, MOG_LAB_0E91, 4);
+    ww(m, MOG_LAB_0E92, 4);
+    ww(m, MOG_LAB_0F58, 0);
+    ww(m, MOG_LAB_0F5D, 6);
+    for (;;) {                                          /* LAB_04C0 */
+        mog_run_controllers(m);
+        if (rw(m, MOG_LAB_0F58))
+            break;
+        ix_run_entities(&m->eng);
+        mog_swap_screens(m);
+        mog_restore_areas(m);
+        mog_wait_vbls(m, 6);
+    }
+    mog_fade_out(m);                                    /* LAB_04C1 : LAB_03F1 */
+}
+
+/* LAB_00A1 : temple de la Pierre de lune : au bon moment (v_Combatants
+ * +18) avec le bon symbole, c'est la fin ; sinon un sacrifice possible
+ * (écran 3, LAB_04BF). */
+static int temple(MogCombat *m)
+{
+    uint16_t d0 = rw(m, MOG_v_Combatants + 18);
+    uint32_t a1 = rl(m, MOG_v_Combatants);
+    uint8_t d1 = rb(m, rl(m, a1 + 96) + 22);
+    int win = ((d1 & 4) && d0 == 0x2E) || ((d1 & 8) && d0 == 0x2E)
+           || ((d1 & 2) && d0 == 0x2D) || ((d1 & 1) && d0 == 0x31);
+    if (win) {                                          /* LAB_00A8 */
+        uint16_t d7 = 0;
+        if (d0 == 0x2E) d7 |= 1;
+        if (d0 == 0x2D) d7 |= 4;
+        if (d0 == 0x31) d7 |= 2;
+        uint32_t k = rl(m, a1 + 54);
+        if (k == 3) d7 |= 8;
+        if (k == 0) d7 |= 0x10;
+        if (k == 1) d7 |= 0x20;
+        if (k == 2) d7 |= 0x40;
+        mog_message_screen(m, MOG_LAB_06D1, 0);         /* LAB_0136 */
+        mog_wait_vbls(m, 20);
+        mog_wait_fire(m);
+        /* LAB_0100 (disquette 1) : sans objet */
+        ww(m, 0x3E0, (uint16_t)(d7 | 0x80));            /* EXT_000e */
+        return MOG_MAP_WIN;                             /* SECSTRT_5 « program » */
+    }
+    mog_message_screen(m, MOG_LAB_06CD, 1);             /* LAB_00A5 : LAB_0137 */
+    mog_wait_fire(m);
+    mog_fade_black(m);
+    ww(m, MOG_LAB_053B, 0xFFFF);
+    mog_screen_run(m, 3);
+    if (rw(m, MOG_LAB_053B) != 0xFFFF) {
+        sacrifice(m);                                   /* LAB_04BF */
+        uint32_t a0 = rl(m, MOG_v_Combatants);
+        if (rb(m, a0 + 73) != 5)
+            wb(m, a0 + 73, (uint8_t)(rb(m, a0 + 73) + 1));
+        mog_knight_hp(m, a0);                           /* LAB_0013 */
+        ww(m, a0 + 80, rw(m, a0 + 84));
+        wb(m, a0 + 130, 0);
+    }
+    mog_fade_black(m);                                  /* LAB_00A7 */
+    return inventory_leave(m);                          /* LAB_00B1 */
+}
+
+/* ------------------------------------------------------------------ */
 /* LAB_007B                                                            */
 /* ------------------------------------------------------------------ */
 
@@ -720,11 +882,9 @@ int mog_town(MogCombat *m, uint32_t d0)
     case 0x1A:
         return town_menu(m, 1);                         /* LAB_008A */
     case 0x1B:
-        todo(m, "LAB_00A1 (temple de la Pierre de lune)");
-        return MOG_MAP_UNPORTED;
+        return temple(m);                               /* LAB_00A1 */
     case 0x1C:
-        todo(m, "LAB_009D (repaire du Démon)");
-        return MOG_MAP_UNPORTED;
+        return demon_lair(m);                           /* LAB_009D */
     case 0x1E:
         todo(m, "LAB_007C (LAB_0456)");
         return MOG_MAP_UNPORTED;

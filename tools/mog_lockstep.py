@@ -148,6 +148,8 @@ def main():
     ap.add_argument('--seed', type=int, default=1)
     ap.add_argument('--space', type=int, default=0)
     ap.add_argument('--fire', type=float, default=0.0)
+    ap.add_argument('--inv', action='append', default=[],
+                    help='IDX=VAL : octet de l\'inventaire (96) du chevalier 1')
     ap.add_argument('--place', type=lambda v: int(v, 0), default=None,
                     help='genre de lieu (LAB_069F) où poser le chevalier au départ')
     ap.add_argument('--wander', type=int, default=40)
@@ -157,10 +159,14 @@ def main():
 
     if a.replay:
         os.environ['MOG_VBLTRACE'] = '1'
-    ref = MogRef(a.data, blitter=True)
+    ref = MogRef(a.data, blitter=True,
+                 log=(lambda s: print('orig : ' + s)) if os.environ.get('MOG_LOG') else None)
     ref.boot()
     S = ref.S
     new_game_map(ref)
+    for iv in a.inv:                                    # inventaire imposé
+        i, v = (int(x, 0) for x in iv.split('='))
+        ref.wb(ref.rl(S['LAB_0613'] + 96) + i, v)
     if a.place is not None:                             # chevalier posé sur le lieu
         e = S['LAB_069F']
         while not ref.rw(e) & 0x8000:
@@ -252,6 +258,14 @@ def main():
             print('original arrêté : %s' % ex)
             break
         alive = c.wait()
+        if not alive:                   # fin côté C : plus d'image à comparer
+            for l in c.lines:
+                if l.startswith('M '):
+                    print('C %s' % l)
+            print('C terminé : %s (original en %s)' % (
+                c.lines[-3:], ref.where(ref.uc.reg_read(M.UC_M68K_REG_PC))))
+            frames = f
+            break
         ok = compare(ref, ref.snapshot(), c.memory(), 'image %d (joy %d)' % (f, joy), c.lines)
         fails += not ok
         if ref.vbl_trace is not None:

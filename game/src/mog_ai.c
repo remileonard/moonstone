@@ -1364,7 +1364,9 @@ static void demon_release(MogCombat *m, uint8_t wait)
     mog_toggle_freeze(m, ix_rl(VM, MOG_LAB_05F2));
     mog_restart_entity(m, ix_rl(VM, MOG_LAB_05F2), MOG_LAB_07FB);
     bclr8(m, DEMON_STATE, 6);
-    ix_wb(VM, a0 + 106, wait);
+    /* L'original écrit 106(A0) avec A0 = LAB_07FB (le script, chargé pour
+     * LAB_030D) : l'octet LAB_07FC+20 du script change, pas le Démon. */
+    ix_wb(VM, MOG_LAB_07FB + 106, wait);
 }
 
 /* LAB_0EE5 / LAB_0EE7 : saisie si le chevalier est à la bonne distance */
@@ -1868,6 +1870,7 @@ int mog_ai_controller(MogCombat *m, uint32_t fn, uint32_t obj, CtlResult *out)
     case MOG_LAB_0298: *out = dragon_part(m, obj); return 1;
     case MOG_LAB_0DCF: return mog_map_dragon_ctl(m, obj, out);
     case MOG_LAB_04AC: return mog_gamble_ctl(m, obj, out);
+    case MOG_LAB_04C4: return mog_sacrifice_ctl(m, obj, out);
     }
     return 0;
 }

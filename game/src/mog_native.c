@@ -330,6 +330,10 @@ int mog_native(MogCombat *m, uint32_t routine, uint32_t en)
         return 1;
     }
     case MOG_LAB_0EF7: demon_throw(m); return 1;
+    case MOG_LAB_04C2:                                  /* sacrifice : son au hasard */
+        if (!((int16_t)mog_d100(m) > 0x32))
+            mog_sound(m, 0x9D);                         /* LAB_0AA2 */
+        return 1;
     case MOG_LAB_04BA:                                  /* dés qui roulent : son */
         /* l'original tire un nombre (perdu : MOVEQ #0,D0) puis joue
          * LAB_04BB[0] sur le canal 3 (LAB_0A9D) */

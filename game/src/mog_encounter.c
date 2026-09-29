@@ -453,6 +453,11 @@ static void load_sounds(MogCombat *m, uint32_t name, uint32_t dst_var, uint32_t 
     mog_file_close(&f);
 }
 
+void mog_load_sounds(MogCombat *m, uint32_t name, uint32_t dst_var, uint32_t n)
+{
+    load_sounds(m, name, dst_var, n);
+}
+
 static uint32_t bank(unsigned i) { return MOG_LAB_05E0 + 4u * i; }
 
 static uint32_t cel_after(MogCombat *m, unsigned i, uint32_t name)

@@ -202,7 +202,8 @@ class MogRef:
             uc.hook_add(U.UC_HOOK_CODE, self.h_frame, None, begin=S[lab], end=S[lab])
         self.joy = [0, 0]                # bits ports 0 / 1 : 0 D, 1 G, 2 B, 3 H, 4 feu
         self.frame_no = 0
-        self.vbl_trace = None            # appelants de LAB_0D77 (liste) si suivi
+        self.vbl_trace = None
+        self.unmapped_reads = 0          # lectures hors mémoire (zéros)            # appelants de LAB_0D77 (liste) si suivi
         self.frame_limit = None
         self.on_frame = None
         uc.hook_add(U.UC_HOOK_CODE, self.h_frame, None,
@@ -307,6 +308,14 @@ class MogRef:
 
     def h_unmapped(self, uc, access, addr, size, value, user):
         self.log('accès non mappé %08X (pc %08X)' % (addr, uc.reg_read(M.UC_M68K_REG_PC)))
+        if access == U.UC_MEM_READ_UNMAPPED:
+            # Lecture hors mémoire (ex. bogue de l'original : LAB_0EE1 écrit
+            # dans un script) : sur Amiga, bus 24 bits, la ROM ; ici des
+            # zéros, comme ix_rb/ix_rw/ix_rl du C.
+            self.unmapped_reads += 1
+            base = addr & ~0xFFF
+            uc.mem_map(base, 0x1000 if (addr + size) <= base + 0x1000 else 0x2000)
+            return True
         return False
 
     def find_file(self, name):
