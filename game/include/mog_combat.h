@@ -32,6 +32,8 @@ typedef struct {
     /* LAB_0D77 : attente d'une VBL. NULL : v_VblCounter + 1 (comme le banc) ;
      * le jeu y montre l'écran, mène les couleurs et lit les entrées. */
     void (*wait_vbl)(void *user);
+    /* Combat_FrameStart : début d'une image (combat, carte) ; facultatif. */
+    void (*frame_start)(void *user);
 } MogCombat;
 
 /* Prépare la structure sur une mémoire déjà chargée. `host` : dessin, sons,
@@ -55,6 +57,9 @@ void mog_collisions(MogCombat *m);
 
 /* Combat_Run [LAB_0036] : mise en route du combat (après sa préparation). */
 void mog_combat_begin(MogCombat *m);
+
+/* Combat_FrameStart [LAB_031E] : LAB_0321 = v_VblCounter. */
+void mog_frame_start(MogCombat *m);
 
 /* LAB_0D77 / Hw_WaitVbls : attente de n VBL. */
 void mog_wait_vbls(MogCombat *m, unsigned n);

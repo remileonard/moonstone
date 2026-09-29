@@ -1150,7 +1150,7 @@ static int end_turn(MogCombat *m)
 
 int mog_map_frame(MogCombat *m)
 {
-    wl(m, MOG_LAB_0321, rl(m, MOG_v_VblCounter));       /* Combat_FrameStart */
+    mog_frame_start(m);                                 /* Combat_FrameStart */
     uint32_t a0 = CUR;
     uint16_t d1 = 0;
     int cpu = rl(m, a0 + 54) == 4;

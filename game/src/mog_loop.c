@@ -114,7 +114,7 @@ void mog_combat_begin(MogCombat *m)
 
 int mog_combat_frame(MogCombat *m)
 {
-    ix_wl(VM, MOG_LAB_0321, ix_rl(VM, MOG_v_VblCounter));   /* Combat_FrameStart */
+    mog_frame_start(m);
     mog_run_controllers(m);
     ix_run_entities(&m->eng);
     swap_scrap(m);
@@ -130,6 +130,13 @@ int mog_combat_frame(MogCombat *m)
     uint8_t n = (uint8_t)(ix_rb(VM, a2 + 16) - 1);
     ix_wb(VM, a2 + 16, n);
     return n != 0;
+}
+
+void mog_frame_start(MogCombat *m)
+{
+    if (m->frame_start)
+        m->frame_start(m->out.user);
+    ix_wl(VM, MOG_LAB_0321, ix_rl(VM, MOG_v_VblCounter));
 }
 
 void mog_wait_vbls(MogCombat *m, unsigned n)
