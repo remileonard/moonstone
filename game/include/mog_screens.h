@@ -14,4 +14,13 @@ void mog_screen_vbl(MogCombat *m);
 /* LAB_0572 : sprite du pointeur préparé au démarrage. */
 void mog_pointer_boot(MogCombat *m);
 
+/* LAB_0575 / LAB_057B : pointeur montré / caché ; LAB_044E, LAB_0448,
+ * LAB_0451 : zones cliquables (modèle LAB_0A58) ; LAB_0419 : copie d'écran. */
+void     mog_pointer_on(MogCombat *m);
+void     mog_pointer_off(MogCombat *m);
+void     mog_clear_zones(MogCombat *m);
+void     mog_add_zone(MogCombat *m);
+uint32_t mog_zone_at(MogCombat *m, uint16_t x, uint16_t y);
+void     mog_copy_screen(MogCombat *m, uint32_t a0, uint32_t a1);
+
 #endif /* MOG_SCREENS_H */

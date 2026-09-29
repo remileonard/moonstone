@@ -13,6 +13,11 @@
 #include "mog_vbl.h"
 #include "mog_screens.h"
 
+#ifdef MOG_VBL_TRACE
+#include <stdio.h>
+#include <stdlib.h>
+#endif
+
 #define VM (m->eng.vm)
 
 static void set_planes(MogCombat *m, uint32_t d0)       /* L00_0908E */
@@ -315,6 +320,10 @@ void mog_frame_start(MogCombat *m)
 
 void mog_wait_vbls(MogCombat *m, unsigned n)
 {
+#ifdef MOG_VBL_TRACE
+    if (n && getenv("MOG_VBLTRACE"))
+        printf("W %u\n", n);
+#endif
     while (n--) {
         if (m->wait_vbl)
             m->wait_vbl(m->out.user);

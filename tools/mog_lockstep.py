@@ -117,13 +117,15 @@ def compare(ref, om, cm, what, lines):
     return False
 
 
-def to_exit(ref):
-    """Joystick qui mène le pointeur sur la sortie (zone 7), puis feu."""
+def to_exit(ref, exit_id=7, field=16):
+    """Joystick qui mène le pointeur sur la sortie (zone dont le champ
+    `field` vaut exit_id), puis feu."""
     S = ref.S
     x, y = ref.rw(S['LAB_097F']), ref.rw(S['LAB_0980'])
     a0 = ref.rl(S['SECSTRT_14'])
     while ref.rw(a0 + 4):
-        if ref.rl(a0 + 16) == 7:
+        v = ref.rl(a0 + 16) if field == 16 else ref.rw(a0 + field)
+        if v == exit_id:
             tx = ref.rw(a0 + 12) + ref.rw(a0 + 4) // 2
             ty = ref.rw(a0 + 14) + ref.rw(a0 + 6) // 2
             d = 0
@@ -142,10 +144,14 @@ def main():
     ap.add_argument('--frames', type=int, default=500)
     ap.add_argument('--seed', type=int, default=1)
     ap.add_argument('--space', type=int, default=0)
+    ap.add_argument('--fire', type=float, default=0.0)
     ap.add_argument('--wander', type=int, default=40)
+    ap.add_argument('--replay', help='fichier .joy (MOG_SAVE) à rejouer')
     a = ap.parse_args()
     rng = random.Random(a.seed)
 
+    if a.replay:
+        os.environ['MOG_VBLTRACE'] = '1'
     ref = MogRef(a.data, blitter=True)
     ref.boot()
     S = ref.S
@@ -163,13 +169,24 @@ def main():
         sys.exit(1)
     ok = compare(ref, ref.snapshot(), c.memory(), 'image 0', c.lines)
     fails += not ok
+    replay = open(a.replay).read().split('\n') if a.replay else None
+    kinds = {}
     in_screen = 0
     screens = screen_frames = 0
     for f in range(1, a.frames + 1):
         if not ok:
             break
         key = None
-        if ref.uc.reg_read(M.UC_M68K_REG_PC) == S['LAB_04D0']:                # écran LAB_04CF
+        pc = ref.uc.reg_read(M.UC_M68K_REG_PC)
+        kinds[ref.where(pc)] = kinds.get(ref.where(pc), 0) + 1
+        if pc == S['LAB_0E40']:                         # menu des lieux : « 1 »
+            key = 1
+        if pc in (S['LAB_00EC'], S['LAB_00ED']):        # attente du feu : appui, relâché
+            j = [0x10, 0x10] if pc == S['LAB_00EC'] else [0, 0]
+        elif pc in (S['LAB_04D0'], S['LAB_008C'], S['LAB_0095'], S['LAB_0496']):
+            # écran LAB_04CF, menu de ville, or proposé : errance, clics,
+            # puis sortie (zone 7, enseigne 5, bouton « accepter »)
+            town = pc != S['LAB_04D0']
             in_screen += 1
             screen_frames += 1
             screens += in_screen == 1
@@ -177,15 +194,25 @@ def main():
                 d = rng.choice([1, 2, 4, 8, 5, 6, 9, 10])
                 joy = d | (0x10 if rng.random() < 0.15 else 0)
             else:
-                joy = to_exit(ref)
+                if pc == S['LAB_0496']:
+                    joy = to_exit(ref, 3, 20)
+                else:
+                    joy = to_exit(ref, 5 if town else 7)
             j = [joy, joy]
         else:
             in_screen = 0
             if not joy or joy & 0x10 or rng.random() < 0.05:
                 joy = rng.choice([1, 2, 4, 8, 5, 6, 9, 10])
-            j = [0, joy]
-            if a.space and f % a.space == 0:
+            j = [0, joy | (0x10 if rng.random() < a.fire else 0)]
+            in_combat = ref.where(ref.rl(ref.r('A7'))).startswith('Combat_Loop')
+            if key is None and a.space and f % a.space == 0 and not in_combat:
                 key = 0x39
+        if replay is not None:
+            if f > len(replay) or not replay[f - 1]:
+                break
+            v = [int(x) for x in replay[f - 1].split()[1:]]
+            j, key = v[:2], (v[2] if len(v) > 2 else None)
+            ref.vbl_trace = [] if f >= a.frames - 2 else None
         if key is not None:
             ref.ww(S['SECSTRT_21'], key)
         if os.environ.get('MOG_TRACE'):
@@ -205,11 +232,18 @@ def main():
         alive = c.wait()
         ok = compare(ref, ref.snapshot(), c.memory(), 'image %d (joy %d)' % (f, joy), c.lines)
         fails += not ok
+        if ref.vbl_trace is not None:
+            print('VBL orig %d : %s' % (len(ref.vbl_trace), ' '.join(ref.vbl_trace)))
+            print('VBL C : %s' % ' '.join(l for l in c.lines if l.startswith('W')))
         frames = f
+        for l in c.lines:
+            if l.startswith('M '):
+                print('C %s' % l)
         if not alive:
             print('C terminé : %s' % c.lines[-3:])
             break
     c.close()
+    print('rendez-vous : %s' % ', '.join('%s %d' % kv for kv in sorted(kinds.items())))
     print('%d images comparées (%d dans %d écrans LAB_04CF), %d échecs' % (
         frames, screen_frames, screens, fails))
     sys.exit(1 if fails else 0)

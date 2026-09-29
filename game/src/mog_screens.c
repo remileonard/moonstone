@@ -1356,3 +1356,14 @@ void mog_screen_run(MogCombat *m, uint32_t kind)
     }
     ww(m, MOG_LAB_0D05, 0);
 }
+
+/* ------------------------------------------------------------------ */
+/* Pour les autres écrans (villes : mog_town.c)                        */
+/* ------------------------------------------------------------------ */
+
+void mog_pointer_on(MogCombat *m) { pointer_on(m); }
+void mog_pointer_off(MogCombat *m) { pointer_off(m); }
+void mog_clear_zones(MogCombat *m) { clear_zones(m); }
+void mog_add_zone(MogCombat *m) { add_zone(m); }
+uint32_t mog_zone_at(MogCombat *m, uint16_t x, uint16_t y) { return zone_at(m, x, y); }
+void mog_copy_screen(MogCombat *m, uint32_t a0, uint32_t a1) { copy_screen(m, a0, a1); }

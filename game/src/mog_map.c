@@ -31,14 +31,6 @@ static int16_t sw(uint16_t v) { return (int16_t)v; }
 
 #define CUR (rl(m, MOG_LAB_0633))       /* chevalier dont c'est le tour */
 
-static void todo(MogCombat *m, const char *what)
-{
-    char t[96];
-    snprintf(t, sizeof t, "carte : %s non porté", what);
-    mog_message(m, t);
-    m->errors++;
-}
-
 /* LAB_0CDA avec la CEL des icônes de la carte (LAB_0664) */
 static void icon(MogCombat *m, uint16_t frame, uint16_t x, uint16_t y)
 {
@@ -895,6 +887,53 @@ static void before_combat(MogCombat *m)
     ww(m, MOG_LAB_0667, 0);
 }
 
+/* LAB_0058 : le défenseur (chevalier joueur muni de l'objet +18) peut
+ * s'enfuir : message, puis son inventaire (écran 9) ; vrai s'il a fui. */
+static int flee(MogCombat *m)
+{
+    uint32_t a1 = rl(m, MOG_v_Combatants + 4);
+    if (rl(m, a1 + 54) == 4)
+        return 0;
+    wl(m, MOG_LAB_05D2, a1);
+    if (!rb(m, rl(m, a1 + 96) + 18))
+        return 0;
+    uint32_t s = rl(m, a1 + 108), d = MOG_LAB_06C8;
+    uint8_t c;
+    do {
+        c = rb(m, s++);
+        wb(m, d++, c);
+    } while (c);
+    map_colours_off(m);                                 /* LAB_0DC8 */
+    mog_message_screen(m, MOG_LAB_06C3, 1);             /* LAB_0137 */
+    mog_wait_fire(m);                                   /* LAB_00EC */
+    uint32_t a2 = rl(m, MOG_LAB_0E93);                  /* LAB_03EB */
+    for (int i = 0; i < 33; i++)
+        ww(m, a2 + 2u * (unsigned)i, 0);
+    ww(m, MOG_LAB_053B, 0xFFFF);
+    uint32_t k = rl(m, MOG_v_Combatants);
+    wl(m, MOG_v_Combatants, rl(m, MOG_v_Combatants + 4));
+    mog_screen_run(m, 9);                               /* LAB_04CF */
+    wl(m, MOG_v_Combatants, k);
+    int d0 = 0;
+    if (rw(m, MOG_LAB_053B) == 0x12) {
+        d0 = 1;
+        if (rw(m, MOG_LAB_05D3)) {
+            d0 = 0;
+            wl(m, MOG_LAB_05D1, rl(m, MOG_LAB_05D2));
+        }
+    }
+    return d0;
+}
+
+/* LAB_0064 : fin de partie (message, feu) ; l'original repart en LAB_0001 */
+static int game_over(MogCombat *m)
+{
+    mog_message_screen(m, MOG_LAB_06E6, 1);             /* LAB_0137 */
+    mog_wait_fire(m);                                   /* LAB_00EC */
+    map_colours_off(m);                                 /* LAB_0DC8 */
+    return MOG_MAP_OVER;
+}
+
 /* Combat_StartPvP [LAB_004F] : duel entre les chevaliers a0 et a1 (joueurs
  * au joystick 2 puis 1, chevaliers noirs à l'ordinateur), butin ou écran
  * du vainqueur. Renvoie MOG_MAP_UNPORTED si un écran non porté suit. */
@@ -904,12 +943,9 @@ static int pvp(MogCombat *m, uint32_t a0, uint32_t a1)
     wl(m, MOG_v_Combatants, a0);
     wl(m, MOG_v_Combatants + 4, a1);
     int fight = !rb(m, a1 + 82) && rb(m, a1 + 73);
-    if (fight && rl(m, a1 + 54) != 4) {                 /* LAB_0058 */
-        wl(m, MOG_LAB_05D2, a1);
-        if (rb(m, rl(m, a1 + 96) + 18)) {
-            todo(m, "LAB_0058 (fuite du défenseur, LAB_04CF 9)");
-            return MOG_MAP_UNPORTED;
-        }
+    if (fight && flee(m)) {                             /* LAB_0058 */
+        back_to_map(m);                                 /* LAB_0054 */
+        return 0;
     }
     if (fight) {
         a0 = rl(m, MOG_v_Combatants);
@@ -963,6 +999,159 @@ static int pvp(MogCombat *m, uint32_t a0, uint32_t a1)
     back_to_map(m);                                     /* LAB_0054 */
     return 0;
 }
+
+/* LAB_01A3 : rencontre du repaire LAB_08C6 (t_CreatureInit selon le genre) */
+static void lair_encounter(MogCombat *m)
+{
+    uint32_t a0 = rl(m, MOG_LAB_08C6);
+    wl(m, MOG_LAB_076D, 2);
+    wl(m, MOG_LAB_076E, rl(m, a0 + 16));
+    wl(m, MOG_LAB_08C4, rw(m, a0 + 14));
+    uint32_t d0 = (uint32_t)(int32_t)sw(rw(m, a0 + 4));
+    mog_encounter_init(m, rl(m, MOG_t_CreatureInit + d0));
+}
+
+/* LAB_005F : repaire vidé (ni or ni objet) : plus de créature */
+static void lair_emptied(MogCombat *m)
+{
+    if (rw(m, MOG_LAB_065E))
+        return;
+    uint32_t a0 = rl(m, MOG_LAB_08C6);
+    int d0 = rw(m, a0 + 8) != 0;
+    uint32_t a1 = rl(m, a0);
+    for (uint32_t i = 0; i < 24; i++)
+        if (rb(m, a1 + i))
+            d0 = 1;
+    if (!d0)
+        wl(m, a0 + 10, 0xFFFFFFFFu);
+}
+
+/* LAB_005B : repaire a1 : combat (sauf bottes, LAB_065E), puis trésor
+ * (écran 2) ou, vaincu, inventaire (écran 9) */
+static void lair(MogCombat *m, uint32_t a1)
+{
+    wl(m, MOG_LAB_08C6, a1);
+    map_colours_off(m);                                 /* LAB_0DC8 */
+    if (!rw(m, MOG_LAB_065E)) {
+        before_combat(m);                               /* LAB_0065 */
+        lair_encounter(m);                              /* LAB_01A3 */
+        mog_combat_run(m);
+        wl(m, MOG_LAB_0633, rl(m, MOG_v_Combatants));
+        if (rb(m, MOG_LAB_05DC) & 1) {
+            mog_screen_run(m, 9);                       /* LAB_04CF */
+            back_to_map(m);                             /* SECSTRT_36 */
+            return;
+        }
+        uint32_t k = CUR;                               /* LAB_005C */
+        ww(m, k + 78, (uint16_t)(rw(m, k + 78) + 1));
+    }
+    mog_screen_run(m, 2);                               /* LAB_005D */
+    lair_emptied(m);                                    /* LAB_005F */
+    back_to_map(m);                                     /* SECSTRT_36 */
+    if (rw(m, MOG_LAB_065E)) {                          /* LAB_0E03 */
+        wl(m, CUR + 126, rl(m, MOG_LAB_065F));
+        ww(m, MOG_LAB_0660, 0);                         /* LAB_0E04 */
+        ww(m, MOG_LAB_065E, 0);
+        ww(m, MOG_LAB_065C, 0);
+    }
+}
+
+/* LAB_0E51 : copie de chaîne ; renvoie la fin (après le zéro) */
+static uint32_t str_copy(MogCombat *m, uint32_t d, uint32_t s)
+{
+    uint8_t c;
+    do {
+        c = rb(m, s++);
+        wb(m, d++, c);
+    } while (c);
+    return d;
+}
+
+/* LAB_0E49 : menu des lieux atteints (1 à 9) */
+static void places_menu(MogCombat *m)
+{
+    wl(m, MOG_v_Combatants + 10, rl(m, MOG_LAB_05E3));
+    ww(m, MOG_LAB_08F5, 0x32);
+    ww(m, MOG_LAB_08F6, 0x64);
+    icon(m, 0x20, 0x32, 0x64);
+    uint32_t a0 = CUR;
+    uint32_t a2 = str_copy(m, MOG_LAB_08E9, rl(m, a0 + 108));
+    str_copy(m, a2 - 1, MOG_LAB_08EA);
+    icon(m, (uint16_t)rl(m, a0 + 54), (uint16_t)(rw(m, MOG_LAB_08F5) + 5),
+         (uint16_t)(rw(m, MOG_LAB_08F6) + 5));
+    mog_text(m, MOG_LAB_08E9, (uint16_t)(rw(m, MOG_LAB_08F5) + 15),
+             (uint16_t)(rw(m, MOG_LAB_08F6) + 5), 0);
+    ww(m, MOG_LAB_08F6, (uint16_t)(rw(m, MOG_LAB_08F6) + 15));
+    wb(m, MOG_LAB_0653, '1');
+    for (uint32_t a5 = MOG_SECSTRT_2; rl(m, a5); a5 += 8) {
+        a2 = MOG_LAB_08E9;
+        wb(m, a2++, rb(m, MOG_LAB_0653));
+        wb(m, a2++, ' ');
+        uint32_t t = rl(m, a5 + 4);                     /* LAB_0E4E */
+        if (t == 2)
+            str_copy(m, a2, MOG_LAB_08F1);
+        else if (t == 1) {
+            a2 = str_copy(m, a2, MOG_LAB_08F2) - 1;
+            str_copy(m, a2, rl(m, rl(m, a5) + 108));
+        } else
+            str_copy(m, a2, rl(m, MOG_LAB_08F4 + ((t - 0x15) << 2)));
+        mog_text(m, MOG_LAB_08E9, (uint16_t)(rw(m, MOG_LAB_08F5) + 5), rw(m, MOG_LAB_08F6), 0);
+        wb(m, MOG_LAB_0653, (uint8_t)(rb(m, MOG_LAB_0653) + 1));
+        ww(m, MOG_LAB_08F6, (uint16_t)(rw(m, MOG_LAB_08F6) + 6));
+    }
+}
+
+/* LAB_0E3D : feu sur un ou plusieurs lieux (menu au clavier s'il y en a
+ * plusieurs) ; renvoie MOG_MAP_ENTER si la carte est à redessiner. */
+static int places_fire(MogCombat *m)
+{
+    uint32_t n = 0, a2 = MOG_SECSTRT_2;
+    while (rl(m, a2)) {
+        n++;
+        a2 += 8;
+    }
+    if (!n)
+        return 0;
+    if (n != 1) {
+        if (rw(m, MOG_LAB_065E)) {                      /* LAB_0E42 : repaire seul */
+            for (a2 = MOG_SECSTRT_2; rl(m, a2 + 4) != 2; a2 += 8)
+                if (!rl(m, a2))
+                    return 0;
+            a2 += 8;
+        } else {
+            clear_keys(m);                              /* LAB_0B82 */
+            places_menu(m);                             /* LAB_0E49 */
+            draw_current(m);                            /* LAB_0D9B */
+            mog_swap_screens(m);                        /* LAB_0416 */
+            for (;;) {                                  /* LAB_0E40 */
+                if (m->frame_start)     /* point de rendez-vous (pas dans mog) */
+                    m->frame_start(m->out.user);
+                uint16_t key = rw(m, MOG_SECSTRT_21);
+                if (!key)
+                    continue;
+                uint8_t c = rb(m, MOG_LAB_0D99 + key);  /* LAB_0D8D */
+                if (c < '1' || c > '9')
+                    continue;
+                a2 = MOG_SECSTRT_2 + (uint32_t)(c - '1') * 8;
+                if (rl(m, a2))
+                    break;
+            }
+            a2 += 8;
+        }
+    }
+    a2 -= 8;                                            /* LAB_0E45 */
+    uint32_t a1 = rl(m, a2), d0 = rl(m, a2 + 4);
+    if (d0 == 0x21 || d0 == 1) {
+        int ev = pvp(m, CUR, a1);                       /* Combat_StartPvP */
+        return ev ? ev : MOG_MAP_ENTER;
+    }
+    if (d0 == 2) {
+        lair(m, a1);                                    /* LAB_005B */
+        return MOG_MAP_ENTER;
+    }
+    return mog_town(m, d0);                             /* LAB_007B */
+}
+
 
 /* LAB_0083 : le dragon s'abat sur le chevalier du tour : combat (LAB_0192)
  * ou, pour un chevalier noir ou à terre, une vie de moins et le butin. */
@@ -1316,15 +1505,50 @@ static void next_day_screen(MogCombat *m)
     mog_fade_to(m, MOG_LAB_0D2B);
 }
 
-/* LAB_00EC : attente du bouton de feu (appui puis relâché) */
-static void wait_fire(MogCombat *m)
+/* LAB_00EE : lecture des joysticks ; renvoie le port 1 (D1) */
+static uint16_t read_joy(MogCombat *m)
 {
-    if (!m->wait_vbl)
-        return;                                         /* banc : sans objet */
-    while (!(m->joy[1] & MOG_JOY_FIRE))
-        mog_wait_vbls(m, 1);
-    while (m->joy[1] & MOG_JOY_FIRE)
-        mog_wait_vbls(m, 1);
+    ww(m, MOG_LAB_062F, m->joy[0]);
+    ww(m, MOG_LAB_0630, m->joy[1]);
+    return m->joy[1];
+}
+
+/* LAB_00EC : attente du bouton de feu (appui puis relâché), en boucle
+ * sans VBL comme l'original ; l'hôte lit ses entrées au rendez-vous. */
+void mog_wait_fire(MogCombat *m)
+{
+    do {
+        if (m->frame_start)             /* point de rendez-vous (pas dans mog) */
+            m->frame_start(m->out.user);
+    } while (!(read_joy(m) & MOG_JOY_FIRE));
+    do {                                                /* LAB_00ED */
+        if (m->frame_start)
+            m->frame_start(m->out.user);
+    } while (read_joy(m) & MOG_JOY_FIRE);
+}
+
+/* LAB_0136 / LAB_0137 : écran de message a0 (LAB_0138 : fond LAB_05B9+52),
+ * couleurs du texte assombries pour LAB_0137 (dim) */
+void mog_message_screen(MogCombat *m, uint32_t a0, int dim)
+{
+    wl(m, MOG_LAB_05E7, a0);
+    uint32_t a2 = rl(m, MOG_LAB_0E93);                  /* LAB_03EB */
+    for (int i = 0; i < 33; i++)
+        ww(m, a2 + 2u * (unsigned)i, 0);
+    mog_clear_screen(m, rl(m, MOG_SECSTRT_35));         /* LAB_0D72 */
+    mog_set_planes(m, rl(m, MOG_SECSTRT_35));
+    uint32_t src = rl(m, MOG_LAB_05B9 + 52), dst = rl(m, MOG_LAB_0D92);
+    for (uint32_t i = 0; i < 0xE6F; i++)
+        wb(m, dst + i, rb(m, src + i));
+    mog_piv_decode(m, rl(m, MOG_LAB_0D92));             /* LAB_0C21 */
+    wl(m, MOG_v_Combatants + 10, rl(m, MOG_LAB_05E3 + 16));
+    mog_text_records(m, rl(m, MOG_LAB_05E7));           /* LAB_0432 */
+    if (dim) {
+        static const uint16_t c[6] = { 0x800, 0x600, 0x400, 0, 0x200, 0x100 };
+        for (uint32_t i = 0; i < 6; i++)
+            ww(m, MOG_LAB_0D2B + 2 + 2 * i, c[i]);
+    }
+    mog_fade_to(m, MOG_LAB_0D2B);                       /* LAB_03F2 */
 }
 
 /* ------------------------------------------------------------------ */
@@ -1369,7 +1593,7 @@ static int end_turn(MogCombat *m)
             new_round(m);                               /* LAB_0029 */
             map_colours_off(m);                         /* LAB_0DC8 */
             next_day_screen(m);                         /* LAB_012B */
-            wait_fire(m);                               /* LAB_00EC */
+            mog_wait_fire(m);                           /* LAB_00EC */
             uint32_t a2 = rl(m, MOG_LAB_0E93);          /* LAB_03EB */
             for (int i = 0; i < 33; i++)
                 ww(m, a2 + 2u * (unsigned)i, 0);
@@ -1388,7 +1612,7 @@ static int end_turn(MogCombat *m)
             continue;
         ww(m, MOG_LAB_0663, (uint16_t)(rw(m, MOG_LAB_0663) + 1));
         if (rw(m, MOG_LAB_0663) == rw(m, MOG_LAB_05C5))
-            return MOG_MAP_OVER;                        /* LAB_0064 */
+            return game_over(m);                        /* LAB_0064 */
     }
 }
 
@@ -1447,7 +1671,7 @@ int mog_map_frame(MogCombat *m)
                 ww(m, MOG_LAB_0655, rw(m, MOG_LAB_0665));
         }
         if (c == 0x51)
-            return MOG_MAP_OVER;                        /* LAB_0064 */
+            return game_over(m);                        /* LAB_0064 */
     }
     if (rw(m, MOG_LAB_0656) & 0x10) {                   /* LAB_0DB4 : feu */
         if (rw(m, MOG_LAB_065C)) {
@@ -1455,10 +1679,9 @@ int mog_map_frame(MogCombat *m)
             ww(m, MOG_LAB_065E, 0);
             ww(m, MOG_LAB_065C, 0);
         }
-        if (rl(m, MOG_SECSTRT_2)) {                     /* LAB_0E3D */
-            todo(m, "LAB_0E3D (lieu, rencontre)");
-            return MOG_MAP_UNPORTED;
-        }
+        int ev = places_fire(m);                        /* LAB_0E3D */
+        if (ev)
+            return ev;
     }
     uint32_t d = MOG_LAB_0617;                          /* LAB_0DB6 : le dragon */
     if (!((int8_t)rb(m, d + 73) < 0) && rw(m, MOG_LAB_0667) && rl(m, d + 100) == CUR) {
@@ -1507,3 +1730,16 @@ void mog_map_0E06(MogCombat *m)
     ww(m, a0 + 128, (uint16_t)(rw(m, a0 + 128) + 0x24));
     ww(m, a0 + 126, (uint16_t)(rw(m, a0 + 126) + 0x20));
 }
+
+/* ------------------------------------------------------------------ */
+/* Pour les villes (mog_town.c)                                        */
+/* ------------------------------------------------------------------ */
+
+void mog_map_colours_off(MogCombat *m) { map_colours_off(m); }
+void mog_back_to_map(MogCombat *m) { back_to_map(m); }
+void mog_before_combat(MogCombat *m) { before_combat(m); }
+void mog_select_knight(MogCombat *m) { select_knight(m); }
+void mog_clear_keys(MogCombat *m) { clear_keys(m); }
+uint16_t mog_read_joy(MogCombat *m) { return read_joy(m); }
+uint32_t mog_pick_stat(MogCombat *m) { return pick_stat(m, NULL); }
+uint32_t mog_d100(MogCombat *m) { return d100(m); }

@@ -197,10 +197,12 @@ class MogRef:
         self.draws = []
         self.events = []                 # sons joués (« S n »)
         self.hook(S['LAB_00EE'], self.h_joy)
-        self.hook(S['LAB_00EC'], lambda: None)          # attente « appuyez sur feu »
-        self.hook(S['LAB_0137'], lambda: None)          # écran de message (texte)
+        # attente du feu (LAB_00EC / LAB_00ED) : rendez-vous à chaque tour
+        for lab in ('LAB_00EC', 'LAB_00ED'):
+            uc.hook_add(U.UC_HOOK_CODE, self.h_frame, None, begin=S[lab], end=S[lab])
         self.joy = [0, 0]                # bits ports 0 / 1 : 0 D, 1 G, 2 B, 3 H, 4 feu
         self.frame_no = 0
+        self.vbl_trace = None            # appelants de LAB_0D77 (liste) si suivi
         self.frame_limit = None
         self.on_frame = None
         uc.hook_add(U.UC_HOOK_CODE, self.h_frame, None,
@@ -225,9 +227,25 @@ class MogRef:
                 + b'\x4e\x75')                                # RTS
         uc.mem_write(stub, code)
         uc.mem_write(S['LAB_0D77'], b'\x4e\xf9' + struct.pack('>I', stub))
+        # Boucles d'attente sans VBL de l'original (le pointeur y bouge par
+        # l'interruption) : une VBL par tour (LAB_0D77 réel), puis rendez-vous.
+        self.tramp_busy = False
+        self.tramp_resume = None
+        tramp = self.stack_top - 0xF8
+        for lab in ('LAB_008C', 'LAB_0095', 'LAB_0496'):
+            uc.mem_write(tramp, b'\x4e\xb9' + struct.pack('>I', S['LAB_0D77'])
+                         + b'\x4e\xf9' + struct.pack('>I', S[lab]))
+            uc.hook_add(U.UC_HOOK_CODE, self.h_vbl_loop, tramp,
+                        begin=S[lab], end=S[lab])
+            tramp += 12
+        # changement de disquette (LAB_0100) : sans objet, tout est présent
+        self.hook(S['LAB_0100'], lambda: None)
         # boucle des écrans LAB_04CF : rendez-vous comme un début d'image
         uc.hook_add(U.UC_HOOK_CODE, self.h_frame, None,
                     begin=S['LAB_04D0'], end=S['LAB_04D0'])
+        # attente d'une touche du menu des lieux (LAB_0E40) : idem
+        uc.hook_add(U.UC_HOOK_CODE, self.h_frame, None,
+                    begin=S['LAB_0E40'], end=S['LAB_0E40'])
 
     # -- accès -------------------------------------------------------------
     def r(self, reg):
@@ -349,6 +367,21 @@ class MogRef:
             return
         self.frame_no += 1
 
+    def h_vbl_loop(self, uc, addr, size, tramp):
+        if self.tramp_resume == addr:        # reprise après un arrêt ici
+            self.tramp_resume = None
+            self.h_frame(uc, addr, size, None)
+            return
+        if not self.tramp_busy:              # d'abord une VBL (trampoline)
+            self.tramp_busy = True
+            uc.reg_write(M.UC_M68K_REG_PC, tramp)
+            return
+        self.tramp_busy = False
+        stopping = self.frame_limit is not None and self.frame_no >= self.frame_limit
+        self.h_frame(uc, addr, size, None)
+        if stopping:
+            self.tramp_resume = addr
+
     def h_main_loop(self, uc, addr, size, user):
         if self.frame_limit is not None:        # pendant run_frames : combat fini
             self.left_combat = True
@@ -358,6 +391,8 @@ class MogRef:
         self.cur = None
 
     def h_vbl(self):                     # LAB_0D77 : une VBL
+        if self.vbl_trace is not None:
+            self.vbl_trace.append('<'.join(self.backtrace(4)))
         a = self.S['v_VblCounter']
         self.wl(a, self.rl(a) + 1)
 

@@ -65,8 +65,25 @@ void mog_reset_entities(MogCombat *m);
 void mog_fade_to(MogCombat *m, uint32_t a);
 void mog_fade_out(MogCombat *m);                  /* LAB_03F1 */
 void mog_fade_black(MogCombat *m);                /* LAB_03F0 */
+void mog_load_picture(MogCombat *m, uint32_t name, uint32_t a1);  /* LAB_0C27 */
+void mog_show_background(MogCombat *m);           /* LAB_0418 */
 /* LAB_039E : fonds sauvés remis en place (mog_loop.c) */
 void mog_restore_areas(MogCombat *m);
+/* LAB_00EC : attente du feu ; LAB_0136 / LAB_0137 : écran de message
+ * (mog_map.c) */
+void mog_wait_fire(MogCombat *m);
+void mog_message_screen(MogCombat *m, uint32_t a0, int dim);
+/* mog_map.c : LAB_0DC8, SECSTRT_36, LAB_0065, LAB_0DBD, LAB_0B82, LAB_00EE */
+void mog_map_colours_off(MogCombat *m);
+void mog_back_to_map(MogCombat *m);
+void mog_before_combat(MogCombat *m);
+void mog_select_knight(MogCombat *m);
+void mog_clear_keys(MogCombat *m);
+uint16_t mog_read_joy(MogCombat *m);
+uint32_t mog_pick_stat(MogCombat *m);             /* LAB_0469 : D1 */
+uint32_t mog_d100(MogCombat *m);                  /* LAB_04A3 */
+/* LAB_007B : ville, temple... de genre d0 (mog_town.c) ; renvoie D0 */
+int mog_town(MogCombat *m, uint32_t d0);
 /* LAB_001C : a0 prend le butin de a1 (mog_map.c) */
 void mog_loot(MogCombat *m, uint32_t a0, uint32_t a1);
 

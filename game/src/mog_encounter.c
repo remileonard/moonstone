@@ -99,6 +99,8 @@ static void copy_screen(MogCombat *m, uint32_t a0, uint32_t a1)
     copy(m, a1, a0, 5 * PLANE);
 }
 
+static void show_background(MogCombat *m);
+
 /* LAB_0C21 : décodage du PIV en a0 (en place) vers les plans LAB_0CFF ;
  * palette -> LAB_0D2B. En-tête : mot plans (4 ou 5), long taille
  * compressée, 16 ou 32 couleurs. */
@@ -136,6 +138,36 @@ static void piv_to(MogCombat *m, uint32_t dest, uint32_t off, uint32_t len)
     copy(m, rl(m, MOG_LAB_05C2), rl(m, MOG_LAB_05B9 + off), len);
     mog_piv_decode(m, rl(m, MOG_LAB_05C2));
 }
+
+/* LAB_0C27 : image `name` (fichier PIV) chargée en a1 puis décodée vers
+ * les plans LAB_0CFF ; palette -> LAB_0D2B. */
+void mog_load_picture(MogCombat *m, uint32_t name, uint32_t a1)
+{
+    wl(m, MOG_SECSTRT_25, a1);
+    MogFile f;
+    mog_file_open(VM, name, &f);
+    mog_file_read(VM, &f, a1, 6);
+    uint32_t n = 32;
+    ww(m, MOG_LAB_0C59, rw(m, a1));
+    if (rw(m, a1) != 4)
+        n = 64;
+    mog_file_read(VM, &f, MOG_LAB_0D2B, n);
+    for (uint32_t i = 0; i < n / 2; i++) {
+        uint16_t c = rw(m, MOG_LAB_0D2B + 2 * i);
+        if (c & 0x8000)
+            c &= 0x7FFF;
+        else
+            c = (uint16_t)(c << 1);
+        ww(m, MOG_LAB_0D2B + 2 * i, c);
+    }
+    uint32_t len = rl(m, a1 + 2);
+    mog_file_read(VM, &f, a1 + 2, len);
+    mog_file_close(&f);
+    ww(m, MOG_LAB_0D4D, 1);                             /* LAB_0C2B */
+    mog_unpack(VM, a1 + 2, len, rl(m, MOG_LAB_0CFF));
+}
+
+void mog_show_background(MogCombat *m) { show_background(m); }
 
 /* LAB_0418 : décor LAB_05C0 recopié dans les deux écrans */
 static void show_background(MogCombat *m)

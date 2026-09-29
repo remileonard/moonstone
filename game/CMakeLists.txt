@@ -35,6 +35,7 @@ set(GAME_SOURCES
     src/mog_text.c
     src/mog_map.c
     src/mog_screens.c
+    src/mog_town.c
     src/mog_boot.c
     src/mog_loop.c
     data/ix_program.c
