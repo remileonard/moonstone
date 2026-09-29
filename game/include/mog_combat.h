@@ -18,14 +18,29 @@ enum {
 
 typedef struct {
     IxEngine       eng;       /* moteur de scripts ; eng.vm = mémoire de mog */
+    IxHost         eng_host;  /* hôte donné au moteur : $B0 -> mog_native    */
+    IxHost         out;       /* hôte du jeu : dessin, sons, messages        */
     uint16_t       joy[2];    /* ports 0 et 1 (LAB_062F / LAB_0630)          */
     unsigned long  errors;    /* routine d'origine non portée, etc.          */
 } MogCombat;
 
-/* Prépare la structure sur une mémoire déjà chargée. */
+/* Prépare la structure sur une mémoire déjà chargée. `host` : dessin, sons,
+ * messages (frame_info et call sont ignorés : CEL lues en mémoire, routines
+ * natives portées). La structure ne doit plus être déplacée ensuite. */
 void mog_combat_init(MogCombat *m, IxVM *vm, const IxHost *host);
+
+/* LAB_04A1 : générateur pseudo-aléatoire (état LAB_0973). */
+uint32_t mog_random(MogCombat *m);
+
+/* Routine native appelée par l'opcode $B0 pour l'entité `en`.
+ * Renvoie 0 si elle n'est pas portée. */
+int mog_native(MogCombat *m, uint32_t routine, uint32_t en);
 
 /* Combat_RunControllers [LAB_0322] : décisions (joystick, IA) -> scripts. */
 void mog_run_controllers(MogCombat *m);
+
+/* Combat_Collisions [LAB_03BE] (+ Combat_ClearFrameLists) : contacts
+ * frappe/corps au pixel près -> liens 14/18 des objets. */
+void mog_collisions(MogCombat *m);
 
 #endif /* MOG_COMBAT_H */

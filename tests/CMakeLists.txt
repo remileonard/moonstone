@@ -22,6 +22,8 @@ target_include_directories(ix_trace PRIVATE
 add_executable(mog_step mog_step.c
     ${CMAKE_SOURCE_DIR}/game/src/ix_vm.c
     ${CMAKE_SOURCE_DIR}/game/src/ix_engine.c
-    ${CMAKE_SOURCE_DIR}/game/src/mog_ctl.c)
+    ${CMAKE_SOURCE_DIR}/game/src/mog_ctl.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_col.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_native.c)
 target_include_directories(mog_step PRIVATE
     ${CMAKE_SOURCE_DIR}/game/include ${CMAKE_SOURCE_DIR}/game/data)

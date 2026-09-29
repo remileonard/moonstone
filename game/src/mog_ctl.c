@@ -9,7 +9,7 @@
  * direction de l'objet. Les variables globales d'origine sont tenues à
  * jour aux mêmes adresses (tools/mog_difftest.py compare toute la mémoire).
  */
-#include "mog_combat.h"
+#include "mog_private.h"
 #include "ix_mog_syms.h"
 
 #include <stdio.h>
@@ -25,19 +25,19 @@ typedef struct {
 
 static int16_t sw(uint16_t v) { return (int16_t)v; }
 
-static void msg(MogCombat *m, const char *t)
+void mog_message(MogCombat *m, const char *t)
 {
-    const IxHost *h = m->eng.host;
-    if (h && h->message)
-        h->message(h->user, t);
+    if (m->out.message)
+        m->out.message(m->out.user, t);
 }
 
-static void sound(MogCombat *m, int n)
+void mog_sound(MogCombat *m, int n)
 {
-    const IxHost *h = m->eng.host;
-    if (h && h->sound)
-        h->sound(h->user, n);
+    if (m->out.sound)
+        m->out.sound(m->out.user, n);
 }
+
+
 
 static void bclr(MogCombat *m, uint32_t a, int bit)
 {
@@ -183,7 +183,7 @@ static uint16_t blocked_dirs(MogCombat *m, uint32_t a0, uint16_t dx, uint16_t di
 }
 
 /* LAB_0215 : bords de l'arène */
-static void arena_bounds(MogCombat *m, uint32_t a0)
+void mog_arena_bounds(MogCombat *m, uint32_t a0)
 {
     int16_t d0 = (ix_rb(VM, a0 + 10) & 2) ? -25 : 25;
     d0 = (int16_t)(d0 + ix_rw(VM, a0 + 4));
@@ -275,7 +275,7 @@ static void check_parry(MogCombat *m, uint32_t a1)
         ix_ww(VM, MOG_LAB_01EB, 0);
         return;
     }
-    sound(m, 0x11);                                     /* LAB_01E7 */
+    mog_sound(m, 0x11);                                     /* LAB_01E7 */
 }
 
 /* LAB_0204 : D0 >> 8(96(objet)) */
@@ -308,7 +308,7 @@ static uint16_t knight_damage(MogCombat *m, uint32_t a0)
         if (dbl)
             d0 = (uint16_t)(d0 << 1);
     }
-    msg(m, "KNIGHT DAMAGE:");
+    mog_message(m, "KNIGHT DAMAGE:");
     return d0;
 }
 
@@ -500,7 +500,7 @@ static CtlResult human_knight(MogCombat *m, uint32_t a0)
         if (!ok) {
             char t[64];
             snprintf(t, sizeof t, "réaction (touché) non portée : %08X", fn);
-            msg(m, t);
+            mog_message(m, t);
             m->errors++;
         }
         return r;
@@ -513,7 +513,7 @@ static CtlResult human_knight(MogCombat *m, uint32_t a0)
         if (!ok) {
             char t[64];
             snprintf(t, sizeof t, "réaction (a touché) non portée : %08X", fn);
-            msg(m, t);
+            mog_message(m, t);
             m->errors++;
         }
         return r;
@@ -556,7 +556,7 @@ static CtlResult human_knight(MogCombat *m, uint32_t a0)
     a0 = ix_rl(VM, MOG_LAB_0633);
     uint16_t allowed = blocked_dirs(m, a0, ix_rw(VM, MOG_LAB_061E), ix_rb(VM, a0 + 10));
     ix_ww(VM, a0 + 62, (uint16_t)(ix_rw(VM, a0 + 62) & allowed));
-    arena_bounds(m, a0);
+    mog_arena_bounds(m, a0);
     terrain_obstacles(m, a0, ix_rw(VM, MOG_LAB_061E), ix_rw(VM, MOG_LAB_061F));
 
     uint16_t d1 = ix_rw(VM, a0 + 62);
@@ -580,12 +580,52 @@ static CtlResult human_knight(MogCombat *m, uint32_t a0)
 
 /* ------------------------------------------------------------------ */
 
+static void fwd_draw(void *u, uint32_t cel, int frame, int x, int y, int flipped, int bg)
+{
+    MogCombat *m = u;
+    if (m->out.draw)
+        m->out.draw(m->out.user, cel, frame, x, y, flipped, bg);
+}
+
+static void fwd_sound(void *u, int n)
+{
+    MogCombat *m = u;
+    if (m->out.sound)
+        m->out.sound(m->out.user, n);
+}
+
+static void fwd_message(void *u, const char *t)
+{
+    MogCombat *m = u;
+    if (m->out.message)
+        m->out.message(m->out.user, t);
+}
+
+static void native_call(void *u, uint32_t routine, uint32_t en)
+{
+    MogCombat *m = u;
+    if (!mog_native(m, routine, en)) {
+        char t[64];
+        snprintf(t, sizeof t, "routine $B0 non portée : %08X", routine);
+        fwd_message(m, t);
+        m->errors++;
+    }
+}
+
 void mog_combat_init(MogCombat *m, IxVM *vm, const IxHost *host)
 {
     IxLayout lay;
     memset(m, 0, sizeof *m);
+    if (host)
+        m->out = *host;
+    m->eng_host.user = m;
+    m->eng_host.frame_info = NULL;                      /* CEL en mémoire */
+    m->eng_host.draw = fwd_draw;
+    m->eng_host.sound = fwd_sound;
+    m->eng_host.call = native_call;
+    m->eng_host.message = fwd_message;
     ix_layout_mog(&lay);
-    ix_engine_init(&m->eng, vm, host, &lay);
+    ix_engine_init(&m->eng, vm, &m->eng_host, &lay);
 }
 
 /* LAB_02CB (contrôleur 52) : objet projeté (LAB_07EC), détruit au contact
@@ -646,7 +686,7 @@ void mog_run_controllers(MogCombat *m)
         if (!ok) {
             char t[64];
             snprintf(t, sizeof t, "contrôleur non porté : %08X", fn);
-            msg(m, t);
+            mog_message(m, t);
             m->errors++;
             continue;
         }
@@ -655,7 +695,7 @@ void mog_run_controllers(MogCombat *m)
         if (r.script == 0) {                            /* LAB_0325 */
             ix_ww(VM, en, 0);
             ix_wl(VM, ix_rl(VM, en + 24), 0);
-            msg(m, "TASK & TABLE OFF");
+            mog_message(m, "TASK & TABLE OFF");
             continue;
         }
         ix_wl(VM, en + 2, r.script);

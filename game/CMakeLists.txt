@@ -24,6 +24,8 @@ set(GAME_SOURCES
     src/ix_vm.c
     src/ix_engine.c
     src/mog_ctl.c
+    src/mog_col.c
+    src/mog_native.c
     data/ix_program.c
     data/ix_mog.c
 )

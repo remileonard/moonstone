@@ -26,7 +26,9 @@ sys.path.insert(0, HERE)
 from mog_ref import MogRef, Stop, STACK_SIZE  # noqa: E402
 
 STEP = os.path.join(ROOT, 'build', 'tests', 'mog_step')
-ROUTINES = ['Combat_RunControllers']
+# suites de routines testées (depuis la même image de début d'image)
+ROUTINES = ['Combat_RunControllers',
+            'Combat_RunControllers+Ix_RunEntities+Combat_Collisions']
 
 
 class Players:
@@ -119,7 +121,8 @@ def main():
             solo.joy = list(joy)
             solo.events = []
             try:
-                solo.call(S[routine])
+                for r in routine.split('+'):
+                    solo.call(S[r])
             except Stop as ex:
                 print('image %d %s : original arrêté : %s' % (f, routine, ex))
                 fails += 1

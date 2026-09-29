@@ -67,6 +67,9 @@ void ix_layout_mog(IxLayout *l)
     l->loop_index   = MOG_LAB_063D;
     l->loop_entity  = MOG_LAB_0640;
     l->phys_moved   = MOG_LAB_037F;
+    l->flip_buffer  = MOG_LAB_0D40;
+    l->bitrev       = MOG_LAB_0CD9;
+    l->flip_size    = MOG_LAB_0D29;
 }
 
 void ix_engine_init(IxEngine *e, IxVM *vm, const IxHost *host, const IxLayout *lay)
@@ -150,7 +153,9 @@ uint32_t ix_start_entity(IxEngine *e, uint32_t script, uint32_t object,
     return 0;
 }
 
-/* Ent_Spawn [LAB_02D0] avec LAB_0171 (premier des 20 objets libres). */
+/* Ent_Spawn [LAB_02D0] avec LAB_0171 (premier des 20 objets libres).
+ * Renvoie l'objet (A1). Si aucun n'est libre, LAB_0171 rend l'adresse qui
+ * suit le 20e objet, sans la marquer, et Ent_Spawn y écrit quand même. */
 uint32_t ix_spawn(IxEngine *e, uint32_t script, uint32_t banks, int x,
                   int height, int depth, int dir, int controller)
 {
@@ -159,14 +164,8 @@ uint32_t ix_spawn(IxEngine *e, uint32_t script, uint32_t banks, int x,
     for (i = 0; i < 20; i++, obj += IX_OBJECT_SIZE)
         if (ix_rl(VM, obj) == 0)
             break;
-    if (i == 20) {
-        /* LAB_0171 rend alors A1 après le dernier objet, sans le marquer ;
-         * Ent_Spawn écrit quand même : on signale l'erreur sans écrire. */
-        e->errors++;
-        msg(e, "Ent_Spawn : plus d'objet libre");
-        return 0;
-    }
-    ix_wl(VM, obj, 1);
+    if (i < 20)
+        ix_wl(VM, obj, 1);
     ix_ww(VM, obj + 4, (uint16_t)x);
     ix_ww(VM, obj + 6, (uint16_t)height);
     ix_ww(VM, obj + 8, (uint16_t)depth);
@@ -176,7 +175,57 @@ uint32_t ix_spawn(IxEngine *e, uint32_t script, uint32_t banks, int x,
     ix_wl(VM, obj + 18, 0);
     ix_wl(VM, obj + 0, 1);
     ix_wb(VM, obj + 77, (uint8_t)controller);
-    return ix_start_entity(e, script, obj, banks, x, height, depth, dir, controller);
+    ix_start_entity(e, script, obj, banks, x, height, depth, dir, controller);
+    return obj;
+}
+
+/* Cel_FlipFrame [LAB_0CCE] : retourne la frame en place (octets de chaque
+ * ligne inversés, bits inversés par la table LAB_0CD9) ; l'octet
+ * d'orientation passe de 1 (sens d'origine) à (remplissage << 4) et
+ * inversement. */
+static void cel_flip_frame(IxEngine *e, uint32_t cel, unsigned frame)
+{
+    const IxLayout *l = &e->lay;
+    if ((int)frame >= sw(ix_rw(VM, cel)))
+        return;
+    uint32_t fe = cel + 10 + frame * 10;
+    uint32_t a2 = ix_rl(VM, cel + 2) + ix_rl(VM, fe);
+    uint16_t w = ix_rw(VM, fe + 4);
+    uint16_t wr = (uint16_t)((w + 15) & 0xFFF0);
+    uint16_t pad = (uint16_t)(wr - w);
+    uint16_t bpr = (uint16_t)(wr >> 3);
+    uint16_t h = ix_rw(VM, fe + 6);
+    if (ix_rb(VM, fe + 8) & 1)
+        ix_wb(VM, fe + 8, (uint8_t)(pad << 4));
+    else
+        ix_wb(VM, fe + 8, 1);
+    uint8_t planes = ix_rb(VM, fe + 9);
+    ix_wl(VM, l->flip_size, (uint32_t)(uint16_t)(bpr << 1) * h);
+    uint32_t tmp = ix_rl(VM, l->flip_buffer);
+    for (int p = 0; p < 5; p++) {
+        if (!(planes & (1u << p)))
+            continue;
+        for (unsigned y = 0; y < h; y++, a2 += bpr) {
+            for (unsigned i = 0; i < bpr; i++)
+                ix_wb(VM, tmp + bpr - 1 - i, ix_rb(VM, l->bitrev + ix_rb(VM, a2 + i)));
+            for (unsigned i = 0; i < bpr; i++)
+                ix_wb(VM, a2 + i, ix_rb(VM, tmp + i));
+        }
+    }
+}
+
+/* Ix_FrameInfo [LAB_034E] : dimensions lues dans la CEL en mémoire ; la
+ * frame est retournée si son orientation diffère de celle de l'entité. */
+static void frame_info(IxEngine *e, uint32_t cel, unsigned frame, uint32_t en)
+{
+    uint32_t fe = cel + frame * 10;
+    ix_ww(VM, en + E_W, ix_rw(VM, fe + 14));
+    ix_ww(VM, en + E_HT, ix_rw(VM, fe + 16));
+    uint8_t o = ix_rb(VM, fe + 18);
+    if (o != 1)
+        o = 3;
+    if (o != ix_rb(VM, en + E_DIR))
+        cel_flip_frame(e, cel, frame);
 }
 
 /* Ix_SortByDepth [LAB_0351] : tri à bulles sur la profondeur (mot non
@@ -567,12 +616,13 @@ void ix_step(IxEngine *e, uint32_t en)
         uint32_t cel = ix_rl(VM, ix_rl(VM, en + E_BANKS) + (b & 0x1F));
         uint8_t frame = ix_rb(VM, pc + 1);
         ix_wb(VM, en + E_FRAME, frame);
-        {                                               /* Ix_FrameInfo */
+        if (e->host && e->host->frame_info) {           /* dimensions fournies par l'hôte */
             int w = 0, h = 0;
-            if (e->host && e->host->frame_info)
-                e->host->frame_info(e->host->user, cel, frame, &w, &h);
+            e->host->frame_info(e->host->user, cel, frame, &w, &h);
             ix_ww(VM, en + E_W, (uint16_t)w);
             ix_ww(VM, en + E_HT, (uint16_t)h);
+        } else {
+            frame_info(e, cel, frame, en);
         }
         int flipped = (ix_rb(VM, en + E_DIR) & 0x02) != 0;
         int16_t d2 = sb(ix_rb(VM, pc + 2));

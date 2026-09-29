@@ -5,7 +5,8 @@
  *   mog_step <mémoire> <routine> <joy0> <joy1> <sortie>
  *
  * <mémoire> : octets de l'adresse 0 à la fin de l'espace du jeu (image
- * prise dans tools/mog_ref.py). <routine> : Combat_RunControllers.
+ * prise dans tools/mog_ref.py). <routine> : Combat_RunControllers,
+ * Ix_RunEntities, Combat_Collisions, ou plusieurs séparées par « + ».
  * Écrit la mémoire après la routine dans <sortie> ; sur stdout :
  *   S n        son         M texte     message du jeu
  *   E erreurs défauts
@@ -41,11 +42,20 @@ int main(int argc, char **argv)
     m.joy[0] = (uint16_t)strtoul(argv[3], NULL, 0);
     m.joy[1] = (uint16_t)strtoul(argv[4], NULL, 0);
 
-    if (!strcmp(argv[2], "Combat_RunControllers"))
-        mog_run_controllers(&m);
-    else {
-        fprintf(stderr, "routine inconnue : %s\n", argv[2]);
-        return 2;
+    /* routines séparées par des « + », exécutées dans l'ordre */
+    char list[256];
+    snprintf(list, sizeof list, "%s", argv[2]);
+    for (char *r = strtok(list, "+"); r; r = strtok(NULL, "+")) {
+        if (!strcmp(r, "Combat_RunControllers"))
+            mog_run_controllers(&m);
+        else if (!strcmp(r, "Ix_RunEntities"))
+            ix_run_entities(&m.eng);
+        else if (!strcmp(r, "Combat_Collisions"))
+            mog_collisions(&m);
+        else {
+            fprintf(stderr, "routine inconnue : %s\n", r);
+            return 2;
+        }
     }
 
     FILE *o = fopen(argv[5], "wb");

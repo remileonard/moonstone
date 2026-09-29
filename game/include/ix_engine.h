@@ -25,7 +25,9 @@
 typedef struct {
     void *user;
     /* Dimensions de la frame `frame` de la CEL `cel` (adresse virtuelle
-     * rangée dans les tables de banques). Renvoie 0 si inconnue. */
+     * rangée dans les tables de banques). Renvoie 0 si inconnue.
+     * NULL : la CEL est en mémoire au format d'origine ; dimensions lues
+     * et frame retournée en place, comme Ix_FrameInfo. */
     int  (*frame_info)(void *user, uint32_t cel, int frame, int *w, int *h);
     /* Dessin d'une frame : (x, y) coin haut-gauche ; flipped = image
      * retournée (entité tournée à gauche) ; background = dessin permanent
@@ -66,6 +68,9 @@ typedef struct {
     uint32_t loop_index;    /* LAB_063D : compteur de Ix_RunEntities */
     uint32_t loop_entity;   /* LAB_0640 : entité courante            */
     uint32_t phys_moved;    /* LAB_037F : Ix_Physics a déplacé       */
+    uint32_t flip_buffer;   /* LAB_0D40 : pointeur du tampon de retournement */
+    uint32_t bitrev;        /* LAB_0CD9 : table d'inversion des bits d'un octet */
+    uint32_t flip_size;     /* LAB_0D29                              */
 } IxLayout;
 
 typedef struct {
@@ -96,7 +101,8 @@ uint32_t ix_start_entity(IxEngine *e, uint32_t script, uint32_t object,
                          uint32_t banks, int x, int height, int depth,
                          int dir, int controller);
 
-/* Ent_Spawn [LAB_02D0] : nouvel objet (dans les 20 de LAB_05C3) + entité. */
+/* Ent_Spawn [LAB_02D0] : nouvel objet (dans les 20 de LAB_05C3) + entité ;
+ * renvoie l'objet. */
 uint32_t ix_spawn(IxEngine *e, uint32_t script, uint32_t banks, int x,
                   int height, int depth, int dir, int controller);
 

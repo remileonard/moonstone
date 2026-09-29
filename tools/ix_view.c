@@ -146,8 +146,8 @@ static int setup(View *v)
     uint32_t objs = ix_vm_alloc(&v->vm, 20 * IX_OBJECT_SIZE);
     ix_wl(&v->vm, MOG_LAB_05C3, objs);
 
-    v->knight = ix_spawn(&v->eng, MOG_LAB_07DB, MOG_LAB_05E1, 110, 0, 150, 0, 0);
-    v->knight_obj = ix_rl(&v->vm, v->knight + 24);
+    v->knight_obj = ix_spawn(&v->eng, MOG_LAB_07DB, MOG_LAB_05E1, 110, 0, 150, 0, 0);
+    v->knight = ix_find_entity(&v->eng, v->knight_obj);
     uint32_t o = v->knight_obj;                         /* LAB_0167 */
     ix_wl(&v->vm, o + 22, MOG_LAB_07DB);
     ix_wl(&v->vm, o + 26, MOG_LAB_07DC);
