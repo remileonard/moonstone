@@ -35,11 +35,12 @@ static void copy(MogCombat *m, uint32_t dst, uint32_t src, uint32_t n)
 
 /* LAB_03F2 : fondu vers la palette a (LAB_0E55 ; mené par l'interruption
  * d'image, l'hôte reçoit directement la palette d'arrivée). */
-static void palette_out(MogCombat *m, uint32_t a)
+void mog_fade_to(MogCombat *m, uint32_t a)
 {
     wl(m, MOG_SECSTRT_39, a);
     ww(m, MOG_LAB_0E91, 2);
     ww(m, MOG_LAB_0E92, 2);
+    mog_wait_vbls(m, 0x24);
     if (!m->palette)
         return;
     uint16_t c[32];
@@ -48,12 +49,28 @@ static void palette_out(MogCombat *m, uint32_t a)
     m->palette(m->out.user, c);
 }
 
+/* LAB_03F1 : fondu au noir (LAB_08D8, volume baissé : LAB_0FC4), puis
+ * LAB_0AA9 (voies libérées, son $A7 sur chacune) */
+void mog_fade_out(MogCombat *m)
+{
+    wl(m, MOG_SECSTRT_39, MOG_LAB_08D8);
+    ww(m, MOG_LAB_0E91, 2);
+    ww(m, MOG_LAB_0E92, 2);
+    ww(m, MOG_LAB_0FC4, 1);
+    mog_wait_vbls(m, 0x24);
+    ww(m, MOG_LAB_0FC4, 0);
+    ww(m, MOG_LAB_0AA6, 0);
+    for (int i = 0; i < 4; i++)
+        mog_sound(m, 0xA7);
+}
+
+
 /* ------------------------------------------------------------------ */
 /* Écrans                                                              */
 /* ------------------------------------------------------------------ */
 
 /* L00_0908E : plans de destination du décodage (LAB_0CFF-LAB_0D03) */
-static void set_planes(MogCombat *m, uint32_t d0)
+void mog_set_planes(MogCombat *m, uint32_t d0)
 {
     static const uint32_t v[5] = { MOG_LAB_0CFF, MOG_LAB_0D00, MOG_LAB_0D01,
                                    MOG_LAB_0D02, MOG_LAB_0D03 };
@@ -62,7 +79,7 @@ static void set_planes(MogCombat *m, uint32_t d0)
 }
 
 /* LAB_0D72 : écran (5 plans) à zéro */
-static void clear_screen(MogCombat *m, uint32_t a0)
+void mog_clear_screen(MogCombat *m, uint32_t a0)
 {
     for (uint32_t i = 0; i < 5 * PLANE; i++)
         wb(m, a0 + i, 0);
@@ -79,7 +96,7 @@ static void copy_screen(MogCombat *m, uint32_t a0, uint32_t a1)
 /* LAB_0C21 : décodage du PIV en a0 (en place) vers les plans LAB_0CFF ;
  * palette -> LAB_0D2B. En-tête : mot plans (4 ou 5), long taille
  * compressée, 16 ou 32 couleurs. */
-static void piv_decode(MogCombat *m, uint32_t a0)
+void mog_piv_decode(MogCombat *m, uint32_t a0)
 {
     wl(m, MOG_SECSTRT_25, a0);
     uint32_t n = 32;
@@ -109,9 +126,9 @@ static void piv_decode(MogCombat *m, uint32_t a0)
  * vers l'écran `dest` (variable contenant son adresse). */
 static void piv_to(MogCombat *m, uint32_t dest, uint32_t off, uint32_t len)
 {
-    set_planes(m, rl(m, dest));
+    mog_set_planes(m, rl(m, dest));
     copy(m, rl(m, MOG_LAB_05C2), rl(m, MOG_LAB_05B9 + off), len);
-    piv_decode(m, rl(m, MOG_LAB_05C2));
+    mog_piv_decode(m, rl(m, MOG_LAB_05C2));
 }
 
 /* LAB_0418 : décor LAB_05C0 recopié dans les deux écrans */
@@ -132,10 +149,10 @@ static void loading_screen(MogCombat *m)
     uint32_t a2 = rl(m, MOG_LAB_0E93);                  /* LAB_03EB : noir */
     for (int i = 0; i < 33; i++)
         ww(m, a2 + 2u * (unsigned)i, 0);
-    clear_screen(m, rl(m, MOG_SECSTRT_35));
-    set_planes(m, rl(m, MOG_SECSTRT_35));
+    mog_clear_screen(m, rl(m, MOG_SECSTRT_35));
+    mog_set_planes(m, rl(m, MOG_SECSTRT_35));
     copy(m, rl(m, MOG_LAB_0D92), rl(m, MOG_LAB_05B9 + 52), 0xE6F);
-    piv_decode(m, rl(m, MOG_LAB_0D92));
+    mog_piv_decode(m, rl(m, MOG_LAB_0D92));
 
     wl(m, MOG_v_Combatants + 10, rl(m, MOG_LAB_05E3 + 16));
     uint16_t n = rw(m, MOG_LAB_071D);
@@ -144,7 +161,7 @@ static void loading_screen(MogCombat *m)
     if (!(sw(n) < 14))
         n = 0;
     ww(m, MOG_LAB_071D, n);
-    palette_out(m, MOG_LAB_0D2B);                       /* LAB_03F2 */
+    mog_fade_to(m, MOG_LAB_0D2B);                       /* LAB_03F2 */
 }
 
 /* ------------------------------------------------------------------ */
@@ -354,7 +371,7 @@ static void background_32(MogCombat *m) { piv_to(m, MOG_LAB_05C0, 32, 0x51C4); }
 /* LAB_013C : décor et terrain selon le type de lieu LAB_08C4 */
 static void setup_scenery(MogCombat *m)
 {
-    clear_screen(m, rl(m, MOG_LAB_05C0));
+    mog_clear_screen(m, rl(m, MOG_LAB_05C0));
     terrain_default(m);
     switch (rl(m, MOG_LAB_08C4)) {
     case 4:                                             /* LAB_0147 */
@@ -577,7 +594,7 @@ static void dragon_kit(MogCombat *m, uint32_t a1)
 }
 
 /* LAB_0305 : entités, contextes et listes de frames remis à zéro */
-static void reset_entities(MogCombat *m)
+void mog_reset_entities(MogCombat *m)
 {
     for (uint32_t i = 0; i < 500; i++)
         wb(m, MOG_t_Entities + i, 0);
@@ -640,7 +657,7 @@ static void prepare(MogCombat *m)
     loading_screen(m);                                  /* LAB_0134 */
     setup_scenery(m);                                   /* LAB_013C */
     clear_objects(m);                                   /* LAB_02CE */
-    reset_entities(m);                                  /* LAB_0305 */
+    mog_reset_entities(m);                                  /* LAB_0305 */
     for (uint32_t i = 0; i < 0x78; i++)                 /* LAB_02F2 */
         wb(m, MOG_LAB_0301 + i, 0);
     ww(m, MOG_LAB_05EF, 0);
@@ -799,6 +816,7 @@ static void set_palette(MogCombat *m, uint32_t type)
     }
     }
     /* LAB_0401 */
+    mog_fade_out(m);                                    /* LAB_03F1 */
     show_background(m);                                 /* LAB_0418 */
     knight_colours(m, MOG_LAB_08D9 + 0x0C, rl(m, MOG_v_Combatants));
     if (rl(m, MOG_LAB_0411) != 8) {                     /* LAB_0409 */
@@ -816,7 +834,7 @@ static void set_palette(MogCombat *m, uint32_t type)
     ww(m, MOG_LAB_08D9, 0);
     if (rl(m, MOG_LAB_0411) != 20)
         ww(m, MOG_LAB_08D9 + 30, 0xC00);
-    palette_out(m, MOG_LAB_08D9);                       /* LAB_03F2 */
+    mog_fade_to(m, MOG_LAB_08D9);                       /* LAB_03F2 */
 }
 
 /* ------------------------------------------------------------------ */
@@ -974,7 +992,7 @@ int mog_encounter_init(MogCombat *m, uint32_t fn)
         load_creature(m, MOG_LAB_0125);
         reset_knights(m);
         clear_objects(m);
-        reset_entities(m);
+        mog_reset_entities(m);
         terrain_default(m);
         player_enters(m);
         wl(m, rl(m, rl(m, MOG_LAB_0633) + 30) + 32, MOG_LAB_07FB);

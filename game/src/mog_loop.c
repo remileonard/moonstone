@@ -131,3 +131,22 @@ int mog_combat_frame(MogCombat *m)
     ix_wb(VM, a2 + 16, n);
     return n != 0;
 }
+
+void mog_wait_vbls(MogCombat *m, unsigned n)
+{
+    while (n--) {
+        if (m->wait_vbl)
+            m->wait_vbl(m->out.user);
+        else
+            ix_wl(VM, MOG_v_VblCounter, ix_rl(VM, MOG_v_VblCounter) + 1);
+    }
+}
+
+void mog_frame_wait(MogCombat *m)
+{
+    int32_t d0 = (int32_t)(ix_rl(VM, MOG_v_VblCounter) - ix_rl(VM, MOG_LAB_0321));
+    int32_t d1 = (int16_t)ix_rw(VM, MOG_v_FrameVbls) - d0;
+    if (d1 < 0)
+        d1 = 0;
+    mog_wait_vbls(m, (unsigned)d1);
+}

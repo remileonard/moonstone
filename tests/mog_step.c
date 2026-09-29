@@ -17,6 +17,7 @@
 #include "mog_combat.h"
 #include "mog_encounter.h"
 #include "mog_blit.h"
+#include "mog_map.h"
 #include "moon_assets.h"
 #include "ix_mog_syms.h"
 
@@ -86,6 +87,14 @@ int main(int argc, char **argv)
                 static MogBlitter blt;
                 mog_draw_cel(&vm, &blt, (uint32_t)c, (uint16_t)fr, (uint16_t)x, (uint16_t)y);
             }
+        }
+        else if (!strcmp(r, "Map_Enter"))
+            mog_map_enter(&m);
+        else if (!strcmp(r, "Map_Frame")) {
+            int ev = mog_map_frame(&m);
+            if (ev == MOG_MAP_ENTER)
+                mog_map_enter(&m);
+            printf("R %d\n", ev);
         }
         else if (!strcmp(r, "Combat_Run"))
             mog_combat_begin(&m);

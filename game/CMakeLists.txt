@@ -33,6 +33,7 @@ set(GAME_SOURCES
     src/mog_blit.c
     src/mog_vbl.c
     src/mog_text.c
+    src/mog_map.c
     src/mog_boot.c
     src/mog_loop.c
     data/ix_program.c

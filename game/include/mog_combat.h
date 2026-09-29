@@ -29,6 +29,9 @@ typedef struct {
     /* Sorties propres au combat (facultatives) : */
     void (*voice)(void *user, int channel, int n);     /* LAB_0F8C : son sur un canal */
     void (*palette)(void *user, const uint16_t *rgb);  /* LAB_0D8A : 32 couleurs $0RGB */
+    /* LAB_0D77 : attente d'une VBL. NULL : v_VblCounter + 1 (comme le banc) ;
+     * le jeu y montre l'écran, mène les couleurs et lit les entrées. */
+    void (*wait_vbl)(void *user);
 } MogCombat;
 
 /* Prépare la structure sur une mémoire déjà chargée. `host` : dessin, sons,
@@ -52,6 +55,11 @@ void mog_collisions(MogCombat *m);
 
 /* Combat_Run [LAB_0036] : mise en route du combat (après sa préparation). */
 void mog_combat_begin(MogCombat *m);
+
+/* LAB_0D77 / Hw_WaitVbls : attente de n VBL. */
+void mog_wait_vbls(MogCombat *m, unsigned n);
+/* Combat_FrameWait [LAB_031F] : complète l'image à v_FrameVbls VBL. */
+void mog_frame_wait(MogCombat *m);
 
 /* Une image de Combat_Loop [LAB_0037] (partie logique : contrôleurs,
  * moteur, collisions, fin). Renvoie 0 quand le combat est terminé. */

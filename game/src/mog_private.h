@@ -56,6 +56,20 @@ int mog_spawn_opponent(MogCombat *m, uint32_t rec);
 /* Combat_ClearHitLinks [LAB_0161] */
 void mog_clear_hit_links(MogCombat *m);
 
+/* Écrans (mog_encounter.c) : L00_0908E, LAB_0D72, LAB_0C21, LAB_0305,
+ * LAB_03F2 (fondu vers la palette a, 36 VBL) */
+void mog_set_planes(MogCombat *m, uint32_t d0);
+void mog_clear_screen(MogCombat *m, uint32_t a0);
+void mog_piv_decode(MogCombat *m, uint32_t a0);
+void mog_reset_entities(MogCombat *m);
+void mog_fade_to(MogCombat *m, uint32_t a);
+void mog_fade_out(MogCombat *m);                  /* LAB_03F1 */
+/* LAB_001C : a0 prend le butin de a1 (mog_map.c) */
+void mog_loot(MogCombat *m, uint32_t a0, uint32_t a1);
+
+/* LAB_0DCF : contrôleur du dragon sur la carte (mog_map.c) */
+int mog_map_dragon_ctl(MogCombat *m, uint32_t a0, CtlResult *out);
+
 /* LAB_028E : déplacement du Dragon (mog_ai.c ; aussi routine $B0) */
 void mog_dragon_move(MogCombat *m);
 
