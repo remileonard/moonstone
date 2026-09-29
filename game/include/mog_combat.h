@@ -26,6 +26,8 @@ typedef struct {
                                  source de hasard (registre VHPOSR)         */
     unsigned long  errors;    /* routine d'origine non portée, etc.          */
     MogBlitter     blt;       /* blitter (dessins dans les plans de bits)    */
+    int            planes;    /* 1 : le moteur dessine dans les écrans de mog
+                                 (LAB_0CDA), sinon via out.draw          */
     /* Sorties propres au combat (facultatives) : */
     void (*voice)(void *user, int channel, int n);     /* LAB_0F8C : son sur un canal */
     void (*palette)(void *user, const uint16_t *rgb);  /* LAB_0D8A : 32 couleurs $0RGB */
@@ -65,6 +67,13 @@ void mog_frame_start(MogCombat *m);
 void mog_wait_vbls(MogCombat *m, unsigned n);
 /* Combat_FrameWait [LAB_031F] : complète l'image à v_FrameVbls VBL. */
 void mog_frame_wait(MogCombat *m);
+
+/* LAB_0D71 + LAB_0416 : écran dessiné montré, écrans échangés. */
+void mog_swap_screens(MogCombat *m);
+
+/* Combat_Run [LAB_0036] complet : toutes les images jusqu'à la fin,
+ * dessins dans les écrans de mog, puis Combat_CheckKO et remise en état. */
+void mog_combat_run(MogCombat *m);
 
 /* Une image de Combat_Loop [LAB_0037] (partie logique : contrôleurs,
  * moteur, collisions, fin). Renvoie 0 quand le combat est terminé. */

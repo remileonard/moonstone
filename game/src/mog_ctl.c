@@ -578,6 +578,18 @@ static CtlResult human_knight(MogCombat *m, uint32_t a0)
 static void fwd_draw(void *u, uint32_t cel, int frame, int x, int y, int flipped, int bg)
 {
     MogCombat *m = u;
+    if (m->planes) {                                    /* LAB_0339 / LAB_033E */
+        if (bg) {
+            for (uint32_t i = 0, d0 = ix_rl(VM, MOG_LAB_05C0); i < 5; i++, d0 += 0x1F40)
+                ix_wl(VM, MOG_LAB_0CFF + 4 * i, d0);
+            mog_draw_cel(VM, &m->blt, cel, (uint16_t)frame, (uint16_t)x, (uint16_t)y);
+            for (uint32_t i = 0, d0 = ix_rl(VM, MOG_LAB_0D92); i < 5; i++, d0 += 0x1F40)
+                ix_wl(VM, MOG_LAB_0CFF + 4 * i, d0);
+        } else {
+            mog_draw_cel(VM, &m->blt, cel, (uint16_t)frame, (uint16_t)x, (uint16_t)y);
+        }
+        return;
+    }
     if (m->out.draw)
         m->out.draw(m->out.user, cel, frame, x, y, flipped, bg);
 }

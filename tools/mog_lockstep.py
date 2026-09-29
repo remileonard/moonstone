@@ -43,12 +43,12 @@ def new_game_map(ref):
 
 
 class CSide:
-    def __init__(self, snap, program):
+    def __init__(self, snap, program, data):
         d = tempfile.mkdtemp()
         self.mem_in = os.path.join(d, 'in.bin')
         self.dump = os.path.join(d, 'frame.bin')
         open(self.mem_in, 'wb').write(snap)
-        self.p = subprocess.Popen([RUN, self.mem_in, program, self.dump],
+        self.p = subprocess.Popen([RUN, self.mem_in, program, self.dump, data],
                                   stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
         self.lines = []
 
@@ -93,6 +93,9 @@ def compare(ref, om, cm, what, lines):
     diffs = [i for i in range(limit) if om[i] != cm[i] and i not in skip]
     if not diffs:
         return True
+    if os.environ.get('MOG_SAVE'):
+        open(os.environ['MOG_SAVE'] + '.orig', 'wb').write(om)
+        open(os.environ['MOG_SAVE'] + '.c', 'wb').write(cm)
     print('ÉCHEC %s : %d octets | %s' % (what, len(diffs), ' | '.join(
         l for l in lines if l.startswith(('M ', 'END')))[-300:]))
     last = -100
@@ -119,7 +122,10 @@ def main():
     ref.boot()
     S = ref.S
     new_game_map(ref)
-    c = CSide(ref.snapshot(), 'map')
+    c = CSide(ref.snapshot(), 'map', a.data)
+    if os.environ.get('MOG_SAVE'):
+        open(os.environ['MOG_SAVE'] + '.in', 'wb').write(ref.snapshot())
+        open(os.environ['MOG_SAVE'] + '.joy', 'w').close()
     ref.run_frames(0, start=S['LAB_0DAB'])
     fails = 0
     joy = 0
@@ -136,6 +142,9 @@ def main():
             joy = rng.choice([1, 2, 4, 8, 5, 6, 9, 10])
         ref.joy = [0, joy]
         c.step([0, joy])
+        if os.environ.get('MOG_SAVE'):
+            with open(os.environ['MOG_SAVE'] + '.joy', 'a') as jf:
+                jf.write('J 0 %d\n' % joy)
         try:
             ref.run_frames(1)
         except Stop as ex:

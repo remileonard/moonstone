@@ -17,4 +17,8 @@ void mog_vbl_colours(IxVM *vm, uint16_t colour[32]);
 /* Écran montré (plans de la copper list) en ARGB8888, 320 × 200. */
 void mog_screen(const IxVM *vm, const uint16_t colour[32], uint32_t *argb);
 
+/* LAB_0E5A / LAB_0E56 : pulsation et rotation de couleurs (inscription) */
+uint32_t mog_glow(IxVM *vm, uint16_t d0, uint16_t d1, uint16_t d2, uint16_t d3);
+uint32_t mog_cycle(IxVM *vm, uint8_t d0, uint8_t d1, uint8_t d2, uint8_t d3);
+
 #endif /* MOG_VBL_H */

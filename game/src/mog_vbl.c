@@ -148,3 +148,39 @@ void mog_screen(const IxVM *vm, const uint16_t colour[32], uint32_t *argb)
             }
         }
 }
+
+/* LAB_0E5A : pulsation de la couleur d0 vers d1 (vitesse d2, d3 fois ;
+ * 0 : sans fin) ; renvoie l'emplacement (D0 inchangé si tout est pris). */
+uint32_t mog_glow(IxVM *vm, uint16_t d0, uint16_t d1, uint16_t d2, uint16_t d3)
+{
+    uint32_t a0 = MOG_LAB_0E95;
+    for (int i = 0; i < 6; i++, a0 += 12) {
+        if (ix_rl(VM, a0))
+            continue;
+        ix_ww(VM, a0, d0);
+        ix_ww(VM, a0 + 2, d1);
+        ix_ww(VM, a0 + 4, d2);
+        ix_ww(VM, a0 + 6, d2);
+        ix_ww(VM, a0 + 8, ix_rw(VM, ix_rl(VM, MOG_LAB_0E93) + (uint32_t)(uint16_t)(d0 * 2)));
+        ix_ww(VM, a0 + 10, d3);
+        return a0;
+    }
+    return d0;
+}
+
+/* LAB_0E56 : rotation des couleurs d0..d1 (sens d2, vitesse d3) */
+uint32_t mog_cycle(IxVM *vm, uint8_t d0, uint8_t d1, uint8_t d2, uint8_t d3)
+{
+    uint32_t a0 = MOG_LAB_0E94;
+    for (int i = 0; i < 6; i++, a0 += 6) {
+        if (ix_rl(VM, a0))
+            continue;
+        ix_wb(VM, a0, d0);
+        ix_wb(VM, a0 + 1, d1);
+        ix_wb(VM, a0 + 2, d2);
+        ix_wb(VM, a0 + 3, d3);
+        ix_wb(VM, a0 + 4, d3);
+        return a0;
+    }
+    return d0;
+}

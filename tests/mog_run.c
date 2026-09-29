@@ -2,7 +2,7 @@
  * mog_run.c — programme de mog en C mené pas à pas depuis une image mémoire,
  * pour tools/mog_lockstep.py (comparaison avec l'original image par image).
  *
- *   mog_run <mémoire> <programme> <fichier_image>
+ *   mog_run <mémoire> <programme> <fichier_image> <données>
  *
  * <programme> : « map » (carte du monde, LAB_0DAB). À chaque début d'image
  * (Combat_FrameStart), la mémoire est écrite dans <fichier_image>, puis
@@ -11,6 +11,7 @@
  */
 #include "mog_combat.h"
 #include "mog_map.h"
+#include "moon_assets.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,10 +45,12 @@ static void frame_start(void *u)
 
 int main(int argc, char **argv)
 {
-    if (argc < 4) {
-        fprintf(stderr, "usage : mog_run mémoire programme fichier_image\n");
+    if (argc < 5) {
+        fprintf(stderr, "usage : mog_run mémoire programme fichier_image données\n");
         return 2;
     }
+    if (moon_init(argv[4]) != 0)
+        return 1;
     FILE *f = fopen(argv[1], "rb");
     if (!f) { perror(argv[1]); return 1; }
     fseek(f, 0, SEEK_END);

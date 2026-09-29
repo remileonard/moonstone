@@ -100,14 +100,10 @@ static void partition(IxVM *vm, uint32_t chip, uint32_t fast)
     ix_wl(VM, MOG_LAB_05C3, d0);
 }
 
-/* LAB_0152 / LAB_0156 : tables de l'objet (attaques 34, scripts 30,
- * dégâts 42, marche 46, 50) de chaque type de combattant.
- * Transcription directe des écritures d'origine. */
-void mog_boot_tables(IxVM *vm)
+/* LAB_0155 : tables d'attaques, de scripts, de dégâts et de marche du
+ * chevalier (remises en état après chaque passage sur la carte). */
+void mog_boot_tables_0155(IxVM *vm)
 {
-    /* LAB_0152 */
-    fill(vm, MOG_LAB_060C + 0, 0, 672);
-    fill(vm, MOG_LAB_05F5 + 0, 0, 828);
     wl(vm, MOG_LAB_05F5 + 4, MOG_LAB_07EF);
     wl(vm, MOG_LAB_05F5 + 8, MOG_LAB_07ED);
     wl(vm, MOG_LAB_05F5 + 32, MOG_LAB_07EE);
@@ -151,6 +147,17 @@ void mog_boot_tables(IxVM *vm)
     wl(vm, MOG_LAB_05F8 + 8, 0x10);
     wl(vm, MOG_LAB_05F8 + 4, 0x1C);
     wl(vm, MOG_LAB_05F8 + 20, 0x1C);
+}
+
+/* LAB_0152 / LAB_0156 : tables de l'objet (attaques 34, scripts 30,
+ * dégâts 42, marche 46, 50) de chaque type de combattant.
+ * Transcription directe des écritures d'origine. */
+void mog_boot_tables(IxVM *vm)
+{
+    /* LAB_0152 */
+    fill(vm, MOG_LAB_060C + 0, 0, 672);
+    fill(vm, MOG_LAB_05F5 + 0, 0, 828);
+    mog_boot_tables_0155(vm);
     /* LAB_0156 */
     wl(vm, MOG_LAB_05F9 + 8, MOG_LAB_0815);
     wl(vm, MOG_LAB_05F9 + 32, MOG_LAB_0814);

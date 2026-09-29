@@ -79,25 +79,6 @@ static void clear_keys(MogCombat *m)
     ww(m, MOG_SECSTRT_21, 0);
 }
 
-/* LAB_0D71 + LAB_0416 : écran dessiné montré, piles de zones échangées */
-static void swap_screens(MogCombat *m)
-{
-    mog_wait_vbls(m, 1);                                /* LAB_0D77 */
-    uint32_t s = rl(m, MOG_LAB_0D92);
-    for (uint32_t p = 0; p < 5; p++) {
-        uint32_t d0 = s + p * 0x1F40;
-        ww(m, MOG_COPPER_BPL + 8 * p, (uint16_t)(d0 >> 16));
-        ww(m, MOG_COPPER_BPL + 8 * p + 4, (uint16_t)d0);
-    }
-    wl(m, MOG_LAB_0D92, rl(m, MOG_SECSTRT_35));
-    wl(m, MOG_SECSTRT_35, s);
-    uint32_t a = rl(m, MOG_LAB_063E);
-    wl(m, MOG_LAB_063E, rl(m, MOG_LAB_063F));
-    wl(m, MOG_LAB_063F, a);
-    wl(m, MOG_LAB_0641, rl(m, MOG_LAB_063E));
-    set_planes(m, rl(m, MOG_LAB_0D92));
-    ww(m, MOG_LAB_0645, 0);
-}
 
 /* ------------------------------------------------------------------ */
 /* Cases et collisions                                                 */
@@ -379,40 +360,7 @@ static void map_colours_off(MogCombat *m)
     mog_wait_vbls(m, 0x24);
 }
 
-/* LAB_0E5A : pulsation de la couleur d0 vers d1 (vitesse d2, d3 fois) */
-static uint32_t glow(MogCombat *m, uint16_t d0, uint16_t d1, uint16_t d2, uint16_t d3)
-{
-    uint32_t a0 = MOG_LAB_0E95;
-    for (int i = 0; i < 6; i++, a0 += 12) {
-        if (rl(m, a0))
-            continue;
-        ww(m, a0, d0);
-        ww(m, a0 + 2, d1);
-        ww(m, a0 + 4, d2);
-        ww(m, a0 + 6, d2);
-        ww(m, a0 + 8, rw(m, rl(m, MOG_LAB_0E93) + (uint32_t)(uint16_t)(d0 * 2)));
-        ww(m, a0 + 10, d3);
-        return a0;
-    }
-    return d0;                                          /* aucune place : D0 rendu */
-}
 
-/* LAB_0E56 : rotation des couleurs d0..d1 (sens d2, vitesse d3) */
-static uint32_t cycle(MogCombat *m, uint8_t d0, uint8_t d1, uint8_t d2, uint8_t d3)
-{
-    uint32_t a0 = MOG_LAB_0E94;
-    for (int i = 0; i < 6; i++, a0 += 6) {
-        if (rl(m, a0))
-            continue;
-        wb(m, a0, d0);
-        wb(m, a0 + 1, d1);
-        wb(m, a0 + 2, d2);
-        wb(m, a0 + 3, d3);
-        wb(m, a0 + 4, d3);
-        return a0;
-    }
-    return d0;
-}
 
 /* LAB_0DC5 : palette de la carte, eau qui scintille, dragon */
 static void map_colours_on(MogCombat *m)
@@ -423,8 +371,8 @@ static void map_colours_on(MogCombat *m)
         ww(m, MOG_LAB_0E92, 2);
         mog_wait_vbls(m, 0x24);
         ww(m, MOG_LAB_0658, 1);
-        wl(m, MOG_LAB_0661, glow(m, 0x1F, 0xFF, 1, 0));
-        wl(m, MOG_LAB_0DDE, cycle(m, 0x15, 0x17, 1, 0x18));
+        wl(m, MOG_LAB_0661, mog_glow(VM, 0x1F, 0xFF, 1, 0));
+        wl(m, MOG_LAB_0DDE, mog_cycle(VM, 0x15, 0x17, 1, 0x18));
     }
     if (!rw(m, MOG_LAB_0667))
         mog_map_dragon(m);                              /* LAB_0DCB */
@@ -916,6 +864,101 @@ static void buy(MogCombat *m)
     }
 }
 
+/* SECSTRT_36 : retour sur la carte (entités, couleurs, chevalier du tour,
+ * PV maximum, clavier) */
+static void back_to_map(MogCombat *m)
+{
+    mog_reset_entities(m);                              /* LAB_0305 */
+    map_colours_off(m);                                 /* LAB_0DC8 */
+    select_knight(m);                                   /* LAB_0DBD */
+    uint32_t k = MOG_LAB_0613;                          /* LAB_0011 */
+    for (int i = 0; i < 4; i++, k += IX_OBJECT_SIZE)
+        mog_update_knight(m, k);
+    clear_keys(m);                                      /* LAB_0B82 */
+}
+
+/* LAB_0065 : remise à zéro avant un combat */
+static void before_combat(MogCombat *m)
+{
+    mog_reset_entities(m);                              /* LAB_0305 */
+    uint32_t a0 = rl(m, MOG_LAB_05C3);                  /* LAB_02CE */
+    for (uint32_t i = 0; i < 0xA50; i++)
+        wb(m, a0 + i, 0);
+    mog_boot_tables_0155(VM);                           /* LAB_0155 */
+    wl(m, MOG_SECSTRT_39, MOG_LAB_08D8);                /* LAB_03F0 */
+    ww(m, MOG_LAB_0E91, 2);
+    ww(m, MOG_LAB_0E92, 2);
+    mog_wait_vbls(m, 0x24);
+    clear_keys(m);                                      /* LAB_0B82 */
+    wl(m, MOG_LAB_05F4, 0);
+    ww(m, MOG_LAB_0667, 0);
+}
+
+/* Combat_StartPvP [LAB_004F] : duel entre les chevaliers a0 et a1 (joueurs
+ * au joystick 2 puis 1, chevaliers noirs à l'ordinateur), butin ou écran
+ * du vainqueur. Renvoie MOG_MAP_UNPORTED si un écran non porté suit. */
+static int pvp(MogCombat *m, uint32_t a0, uint32_t a1)
+{
+    map_colours_off(m);                                 /* LAB_0DC8 */
+    wl(m, MOG_v_Combatants, a0);
+    wl(m, MOG_v_Combatants + 4, a1);
+    int fight = !rb(m, a1 + 82) && rb(m, a1 + 73);
+    if (fight && rl(m, a1 + 54) != 4) {                 /* LAB_0058 */
+        wl(m, MOG_LAB_05D2, a1);
+        if (rb(m, rl(m, a1 + 96) + 18)) {
+            todo(m, "LAB_0058 (fuite du défenseur, LAB_04CF 9)");
+            return MOG_MAP_UNPORTED;
+        }
+    }
+    if (fight) {
+        a0 = rl(m, MOG_v_Combatants);
+        a1 = rl(m, MOG_v_Combatants + 4);
+        if (rl(m, a0 + 54) == 4 && rl(m, a1 + 54) == 4) {
+            back_to_map(m);
+            return 0;
+        }
+        uint8_t port = 2;                               /* LAB_0050 */
+        if (rl(m, a0 + 54) != 4) {
+            wb(m, a0 + 77, 0x0C);
+            wb(m, a0 + 11, port);
+            port = 1;
+        }
+        if (rl(m, a1 + 54) != 4) {
+            wb(m, a1 + 77, 0x0C);
+            wb(m, a1 + 11, port);
+        }
+        before_combat(m);                               /* LAB_0065 */
+        mog_encounter_init(m, MOG_LAB_0164);
+        mog_combat_run(m);
+        ww(m, MOG_LAB_05AD, 0);
+        a0 = rl(m, MOG_v_Combatants);
+        a1 = rl(m, MOG_v_Combatants + 4);
+        if (rb(m, MOG_LAB_05DC) == 3) {                 /* LAB_0055 : les deux à terre */
+            if (rl(m, a0 + 54) != 4) {
+                todo(m, "LAB_04CF 9 (après un double K.-O.)");
+                return MOG_MAP_UNPORTED;
+            }
+            back_to_map(m);
+            return 0;
+        }
+        if (rb(m, MOG_LAB_05DC) & 1) {                  /* le premier à terre */
+            ww(m, MOG_LAB_05AD, 1);
+            wl(m, MOG_v_Combatants + 4, a0);
+            wl(m, MOG_v_Combatants, a1);
+            a0 = rl(m, MOG_v_Combatants);
+            a1 = rl(m, MOG_v_Combatants + 4);
+        }
+    }
+    if (rl(m, a0 + 54) == 4) {                          /* LAB_0057 */
+        ww(m, a0 + 78, (uint16_t)(rw(m, a0 + 78) + 1));
+        mog_loot(m, a0, a1);
+        back_to_map(m);
+        return 0;
+    }
+    todo(m, "LAB_04CF 1 (écran du vainqueur)");
+    return MOG_MAP_UNPORTED;
+}
+
 /* LAB_0E17 : arrivé en ville, sur la cible ou sur la créature visée */
 static int arrived(MogCombat *m)
 {
@@ -931,9 +974,10 @@ static int arrived(MogCombat *m)
     if (d1) {
         if (!in_places(m, d1, 0))
             return 0;
-        todo(m, "Combat_StartPvP (chevalier noir)");
+        int ev = pvp(m, CUR, rl(m, CUR + 100));
         ww(m, MOG_LAB_0655, rw(m, MOG_LAB_0665));
-        return MOG_MAP_UNPORTED;
+        if (ev)
+            return ev;
     }
     if (in_places(m, rl(m, MOG_LAB_0673), 0))           /* LAB_0E1A */
         ww(m, MOG_LAB_0655, rw(m, MOG_LAB_0665));
@@ -1090,6 +1134,7 @@ static void wait_fire(MogCombat *m)
 
 void mog_map_enter(MogCombat *m)
 {
+    m->planes = 1;                                      /* dessins dans les écrans */
     clear_keys(m);                                      /* LAB_0DAB */
     mog_set_planes(m, rl(m, MOG_LAB_05C0));
     uint32_t src = rl(m, MOG_LAB_05B9 + 92), dst = rl(m, MOG_LAB_05C2);
@@ -1104,7 +1149,7 @@ void mog_map_enter(MogCombat *m)
     select_knight(m);                                   /* LAB_0DBD */
     move_knight(m);                                     /* LAB_0DA6 */
     draw_current(m);                                    /* LAB_0D9B */
-    swap_screens(m);                                    /* LAB_0416 */
+    mog_swap_screens(m);                                    /* LAB_0416 */
     map_colours_on(m);                                  /* LAB_0DC5 */
     ww(m, MOG_v_FrameVbls, 2);
 }
@@ -1231,7 +1276,7 @@ int mog_map_frame(MogCombat *m)
     }
     move_knight(m);                                     /* LAB_0DBC */
     draw_current(m);
-    swap_screens(m);
+    mog_swap_screens(m);
     copy_screen(m, rl(m, MOG_LAB_05C0), rl(m, MOG_LAB_0D92));
     mog_frame_wait(m);
     return MOG_MAP_CONTINUE;

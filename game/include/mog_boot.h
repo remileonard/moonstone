@@ -18,6 +18,7 @@ int mog_boot_memory(IxVM *vm);
 /* LAB_0152 / LAB_0156 : tables d'attaques, de scripts, de dégâts, de
  * marche des combattants. */
 void mog_boot_tables(IxVM *vm);
+void mog_boot_tables_0155(IxVM *vm);    /* LAB_0155 */
 
 /* LAB_0303 (sans Col_InitHitFile) : banques CEL, opcodes, tampons. */
 void mog_boot_engine(IxVM *vm);
