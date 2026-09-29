@@ -143,6 +143,90 @@ static int rnd_dec(MogCombat *m, uint32_t mask)
     return d0 ? (int)d0 - 1 : 0;
 }
 
+/* LAB_0427 : tremblement d'écran (tâche VBL LAB_042A, table LAB_0430) */
+void mog_shake(MogCombat *m)
+{
+    uint32_t a0 = MOG_LAB_0B96;                         /* 1re tâche VBL libre */
+    while (ix_rl(VM, a0) && a0 < MOG_LAB_0B96 + 0x400)
+        a0 += 4;
+    ix_wl(VM, MOG_L00_0915E, a0);
+    ix_ww(VM, MOG_LAB_042D, 3);
+    ix_ww(VM, MOG_L00_0915A, 3);
+    ix_wl(VM, MOG_LAB_042C, MOG_LAB_0430);
+    ix_wl(VM, a0, MOG_LAB_042A);
+}
+
+/* SECSTRT_16 / LAB_0A9B-LAB_0A9D : son n sur le canal ch (LAB_0F8C) */
+void mog_voice(MogCombat *m, int ch, int n)
+{
+    ix_wb(VM, MOG_LAB_0AA6, (uint8_t)(ix_rb(VM, MOG_LAB_0AA6) | (1u << ch)));
+    if (m->voice)
+        m->voice(m->out.user, ch, n);
+}
+
+/* LAB_0A9E-LAB_0AA0 : libère le canal ch, son $A7 */
+static void voice_off(MogCombat *m, int ch)
+{
+    ix_wb(VM, MOG_LAB_0AA6, (uint8_t)(ix_rb(VM, MOG_LAB_0AA6) & (0x0F & ~(1u << ch))));
+    mog_sound(m, 0xA7);
+}
+
+/* LAB_0D8A (vers les registres couleur) puis LAB_03EE (copie dans LAB_0E93) */
+static void set_palette(MogCombat *m, uint32_t a0)
+{
+    uint16_t c[32];
+    for (int i = 0; i < 32; i++)
+        c[i] = ix_rw(VM, a0 + 2u * (unsigned)i);
+    if (m->palette)
+        m->palette(m->out.user, c);
+    uint32_t a1 = ix_rl(VM, MOG_LAB_0E93);
+    for (int i = 0; i < 32; i++)
+        ix_ww(VM, a1 + 2u * (unsigned)i, c[i]);
+}
+
+/* LAB_0EF7 : le Démon projette le chevalier (LAB_05F2) derrière lui */
+static void demon_throw(MogCombat *m)
+{
+    uint32_t k = ix_rl(VM, MOG_LAB_05F2);
+    mog_toggle_freeze(m, k);
+    uint32_t en = ix_find_entity(&m->eng, ix_rl(VM, MOG_LAB_05F2));
+    uint32_t a1 = ix_rl(VM, MOG_LAB_01A1);
+    uint8_t dir = (uint8_t)(ix_rb(VM, a1 + 10) ^ 2);
+    ix_wb(VM, en + 22, dir);
+    ix_ww(VM, en + 10, ix_rw(VM, a1 + 8));
+    uint16_t x = ix_rw(VM, a1 + 4);
+    x = (uint16_t)(dir == 1 ? x - 0x89 : x + 0x89);
+    if (!((int16_t)x < 0x140))
+        x = 0x13F;
+    if ((int16_t)x < 0)
+        x = 1;
+    ix_ww(VM, en + 6, x);
+    a1 = ix_rl(VM, MOG_LAB_05F2);
+    uint32_t script = ix_rl(VM, a1 + 22);
+    if (!((int16_t)ix_rw(VM, a1 + 80) > 0)) {           /* mort : fondu au noir */
+        for (int i = 0; i < 6; i++)
+            ix_ww(VM, MOG_LAB_08D9 + 4 + 2u * (unsigned)i, 0);
+        set_palette(m, MOG_LAB_08D9);
+        script = MOG_LAB_07F7;
+    }
+    mog_restart_entity(m, ix_rl(VM, MOG_LAB_05F2), script);
+}
+
+/* LAB_0EEB : compagnon du Démon (objet LAB_01A2, script LAB_08AF) */
+static void demon_companion(MogCombat *m, uint32_t banks)
+{
+    uint32_t en = ix_find_entity(&m->eng, ix_rl(VM, MOG_LAB_01A1));
+    uint32_t a1 = ix_rl(VM, MOG_LAB_01A2);
+    uint16_t x = ix_rw(VM, en + 6), h = ix_rw(VM, en + 8);
+    uint8_t dir = ix_rb(VM, en + 22);
+    ix_ww(VM, a1 + 4, x);
+    ix_ww(VM, a1 + 6, h);
+    ix_ww(VM, a1 + 8, x);                               /* (X aussi en profondeur) */
+    ix_wb(VM, a1 + 10, dir);
+    ix_start_entity(&m->eng, MOG_LAB_08AF, a1, banks, (int16_t)x, (int16_t)h,
+                    (int16_t)x, dir, 8);
+}
+
 int mog_native(MogCombat *m, uint32_t routine, uint32_t en)
 {
     uint32_t obj = ix_rl(VM, en + 24);
@@ -175,7 +259,76 @@ int mog_native(MogCombat *m, uint32_t routine, uint32_t en)
         mog_sound(m, (n + 4) & 0xFF);
         return 1;
     }
+    case MOG_LAB_0427: mog_shake(m); return 1;
+    case MOG_LAB_01C8: {                                /* compte à rebours 13(objet) */
+        int8_t n = (int8_t)(ix_rb(VM, obj + 13) - 1);
+        ix_wb(VM, obj + 13, (uint8_t)n);
+        if (n < 0) {
+            mog_random(m);                              /* (valeur non utilisée) */
+            ix_wb(VM, obj + 13, 0x1E);
+        }
+        return 1;
+    }
+    case MOG_LAB_028E: mog_dragon_move(m); return 1;
+    case MOG_LAB_02AC: mog_voice(m, 0, 0x1D); return 1;
+    case MOG_LAB_02AD: mog_voice(m, 1, 0x1B); return 1;
+    case MOG_LAB_02AE: mog_sound(m, 0x30); mog_sound(m, 0x12); return 1;
+    case MOG_LAB_0ED0:                                 /* deux sons de LAB_0ECF */
+        for (int k = 0; k < 2; k++)
+            mog_sound(m, ix_rb(VM, MOG_LAB_0ECF + (mog_random(m) & 7)));
+        return 1;
     case MOG_LAB_02E8: sound_sequence(m, MOG_LAB_02EF); return 1;
+    case MOG_LAB_0A9E: voice_off(m, 0); return 1;
+    case MOG_LAB_0A9F: voice_off(m, 1); return 1;
+    case MOG_LAB_0AA0: voice_off(m, 2); return 1;
+    case MOG_LAB_0EB8: mog_voice(m, 0, 0x50); return 1;
+    case MOG_LAB_0EB9: {                                /* Mudmen : deux sons */
+        static const uint8_t pair[4][2] = { { 0x57, 0x94 }, { 0x58, 0x95 },
+                                            { 0x59, 0x96 }, { 0x97, 0x98 } };
+        int k = (int)(mog_random(m) & 3);
+        mog_sound(m, pair[k][0]);
+        mog_sound(m, pair[k][1]);
+        return 1;
+    }
+    case MOG_LAB_0EBD:
+        mog_sound(m, ix_rb(VM, MOG_LAB_0EC0 + (mog_random(m) & 3)));
+        return 1;
+    case MOG_LAB_0EBE: {
+        uint16_t n = (uint16_t)((ix_rw(VM, MOG_LAB_0EC1) + 1) & 3);
+        ix_ww(VM, MOG_LAB_0EC1, n);
+        if (!n)
+            mog_sound(m, 0x5A);
+        return 1;
+    }
+    case MOG_LAB_0EEB: demon_companion(m, ix_rl(VM, en + 28)); return 1;
+    case MOG_LAB_0EEC: {
+        uint32_t e2 = ix_find_entity(&m->eng, ix_rl(VM, MOG_LAB_01A2));
+        uint32_t e1 = ix_find_entity(&m->eng, ix_rl(VM, MOG_LAB_01A1));
+        ix_wb(VM, e2 + 22, ix_rb(VM, e1 + 22));
+        return 1;
+    }
+    case MOG_LAB_0EED: mog_kill_entity_of(m, ix_rl(VM, MOG_LAB_01A2)); return 1;
+    case MOG_LAB_0EEE:
+        mog_voice(m, 0, 0x4A);
+        mog_voice(m, 1, 0x4B);
+        mog_voice(m, 2, 0x4C);
+        mog_voice(m, 3, 0x4D);
+        return 1;
+    case MOG_LAB_0EEF: {
+        int k = (int)(mog_random(m) & 3);
+        int base = k == 1 ? 0x42 : k == 2 ? 0x44 : 0x40;
+        mog_sound(m, base);
+        mog_sound(m, base + 1);
+        return 1;
+    }
+    case MOG_LAB_0EF6: {
+        mog_message(m, "DEMON HIT");
+        uint32_t k = ix_rl(VM, MOG_LAB_05F2);
+        ix_ww(VM, k + 80, (uint16_t)(ix_rw(VM, k + 80) - 10));
+        mog_toggle_freeze(m, k);
+        return 1;
+    }
+    case MOG_LAB_0EF7: demon_throw(m); return 1;
     case MOG_LAB_02E9: sound_sequence(m, MOG_LAB_02EE); return 1;
     }
     return 0;

@@ -29,3 +29,12 @@ add_executable(mog_step mog_step.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_setup.c)
 target_include_directories(mog_step PRIVATE
     ${CMAKE_SOURCE_DIR}/game/include ${CMAKE_SOURCE_DIR}/game/data)
+
+# Mémoire de démarrage (utilisée par tools/mog_bootcheck.py)
+add_executable(mog_boot_dump mog_boot_dump.c
+    ${CMAKE_SOURCE_DIR}/game/src/ix_vm.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_boot.c
+    ${CMAKE_SOURCE_DIR}/game/data/ix_mog.c)
+target_include_directories(mog_boot_dump PRIVATE
+    ${CMAKE_SOURCE_DIR}/game/include ${CMAKE_SOURCE_DIR}/game/data)
+target_link_libraries(mog_boot_dump PRIVATE moon_assets)

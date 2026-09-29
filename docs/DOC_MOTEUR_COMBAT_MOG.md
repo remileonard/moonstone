@@ -283,3 +283,50 @@ marche (`LAB_0610`), espace change de sens, N parcourt les 259 scripts.
 `--png fichier.png [images]` produit une planche sans écran. La marche
 anime sur place : le déplacement est fait par le contrôleur natif
 (`LAB_0DCB`), pas par le script.
+
+## 11. Contrôleurs, collisions et banc de référence
+
+### Code C
+
+| Fichier | Contenu (routines d'origine) |
+|---|---|
+| `game/src/mog_ctl.c` | `Combat_RunControllers`, `Ctl_HumanKnight` (marche, attaques, obstacles `LAB_03A9`, bords `LAB_0215`, décor `LAB_0A71`), réactions aux coups (`LAB_0621`/`LAB_0622`), `LAB_02CB` (objet lancé), `LAB_02D2` |
+| `game/src/mog_ai.c` | IA : 0 `LAB_0226` chevalier qui traverse ; 4 `SECSTRT_40` Mudmen ; 8 `LAB_0ED2` Démon ; 16/56 `LAB_0EFF` chevalier géré par l'ordinateur ; 20 `LAB_027A` Dragon ; 24/28/32 `LAB_0236` Troggs ; 36 `LAB_0251` hommes-rats ; 44 `LAB_0298` ; 48 `LAB_029F` ; 64 `LAB_0EC2` ; déplacement commun `LAB_0F1A`-`LAB_0F32`, trajectoires `LAB_02D3`/`LAB_02F6`/`LAB_02FD` |
+| `game/src/mog_col.c` | `Combat_Collisions`, `Col_PixelHit`, `Combat_ClearHitLinks` |
+| `game/src/mog_native.c` | routines appelées par `$B0` (sons, recul, lancer, fin de combat, tremblement d'écran...), aléatoire `LAB_04A1` |
+| `game/src/mog_setup.c` | adversaire suivant (`LAB_05F0` -> `LAB_0174`), équipement des créatures (`LAB_05F1`), entrée `LAB_01A8` |
+
+Le contrôleur 68 (`LAB_04AC`) n'est pas un contrôleur de combat (mini-jeu
+à part). Les routines passent parfois des valeurs par registres d'une
+routine à l'autre (ex. `D1` de `LAB_0F24`) : `mog_ai.c` les suit dans une
+petite structure `Regs`. Les bizarreries d'origine sont reproduites et
+signalées en commentaire (champs effacés sur la cible dans `LAB_0237`,
+arguments inversés de `LAB_030D` dans `LAB_0EB2`, lecture des vecteurs
+68000 dans `LAB_02F8`...).
+
+### Banc de référence (`tools/mog_ref.py`)
+
+`mog` d'origine exécuté par Unicorn avec les vraies données : fichiers
+(`LAB_0BB5`/`0BD7`/`0BEA`/`0BFF`), VBL, joystick (`LAB_00EE`), sons
+(`LAB_0AA2`, `LAB_0F8C`), palette (`LAB_0D8A`), dessin (`LAB_0CDA`),
+restauration du décor et écrans de message remplacés par des crochets.
+
+```
+python3 tools/mog_ref.py <données> --duel | --cpu | --encounter LAB_0168 [--frames N]
+```
+
+Rencontres du menu de débogage `LAB_007D` : `LAB_0168` (Troggs à la hache),
+`LAB_016A`, `LAB_0175`, `LAB_018C` (hommes-rats), `LAB_0188`, `LAB_0192`
+(Dragon), `LAB_0196`, `LAB_019A` (Mudmen), `LAB_019E`, `LAB_01A0` (Démon).
+
+### Test différentiel (`tools/mog_difftest.py`)
+
+À chaque image d'un vrai combat (joueurs simulés qui s'approchent et
+attaquent), la mémoire est copiée ; `Combat_RunControllers`, puis
+contrôleurs + `Ix_RunEntities` + `Combat_Collisions`, sont exécutés par
+l'original et par le C (`tests/mog_step.c`), et toute la mémoire (hors pile
+de l'émulateur) ainsi que les sons et palettes sont comparés.
+
+```
+python3 tools/mog_difftest.py <données> [--cpu | --encounter LAB_xxxx] [--frames N]   (défaut : duel)
+```

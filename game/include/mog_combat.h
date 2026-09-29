@@ -24,6 +24,9 @@ typedef struct {
     uint16_t       vhposr;    /* position du faisceau lue par l'IA comme
                                  source de hasard (registre VHPOSR)         */
     unsigned long  errors;    /* routine d'origine non portée, etc.          */
+    /* Sorties propres au combat (facultatives) : */
+    void (*voice)(void *user, int channel, int n);     /* LAB_0F8C : son sur un canal */
+    void (*palette)(void *user, const uint16_t *rgb);  /* LAB_0D8A : 32 couleurs $0RGB */
 } MogCombat;
 
 /* Prépare la structure sur une mémoire déjà chargée. `host` : dessin, sons,

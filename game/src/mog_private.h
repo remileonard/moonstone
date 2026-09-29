@@ -47,10 +47,17 @@ int mog_next_opponent(MogCombat *m, uint32_t fn);
 /* LAB_01A8 : profondeur d'entrée, entité sur le script de repos. */
 void mog_enter_object(MogCombat *m, uint32_t obj);
 
+/* LAB_028E : déplacement du Dragon (mog_ai.c ; aussi routine $B0) */
+void mog_dragon_move(MogCombat *m);
+
 /* Contrôleurs d'IA (mog_ai.c) : 1 si `fn` est porté (*out rempli). */
 int mog_ai_controller(MogCombat *m, uint32_t fn, uint32_t obj, CtlResult *out);
 
 void mog_sound(MogCombat *m, int n);
+/* LAB_0427 : tremblement d'écran */
+void mog_shake(MogCombat *m);
+/* Son n sur le canal ch (SECSTRT_16 / LAB_0A9B-0A9D -> LAB_0F8C) */
+void mog_voice(MogCombat *m, int ch, int n);
 void mog_message(MogCombat *m, const char *t);
 
 #endif /* MOG_PRIVATE_H */

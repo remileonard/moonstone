@@ -9,6 +9,7 @@
  * Ix_RunEntities, Combat_Collisions, ou plusieurs séparées par « + ».
  * Écrit la mémoire après la routine dans <sortie> ; sur stdout :
  *   S n        son         M texte     message du jeu
+ *   V c n      son n sur le canal c     P c0..c31   palette
  *   E erreurs défauts
  */
 #include "mog_combat.h"
@@ -20,6 +21,15 @@
 
 static void sound(void *u, int n) { (void)u; printf("S %d\n", n); }
 static void message(void *u, const char *t) { (void)u; printf("M %s\n", t); }
+static void voice(void *u, int ch, int n) { (void)u; printf("V %d %d\n", ch, n); }
+static void palette(void *u, const uint16_t *c)
+{
+    (void)u;
+    printf("P");
+    for (int i = 0; i < 32; i++)
+        printf(" %03X", c[i]);
+    printf("\n");
+}
 
 int main(int argc, char **argv)
 {
@@ -39,6 +49,8 @@ int main(int argc, char **argv)
     IxHost host = { NULL, NULL, NULL, sound, NULL, message };
     MogCombat m;
     mog_combat_init(&m, &vm, &host);
+    m.voice = voice;
+    m.palette = palette;
     m.joy[0] = (uint16_t)strtoul(argv[3], NULL, 0);
     m.joy[1] = (uint16_t)strtoul(argv[4], NULL, 0);
 

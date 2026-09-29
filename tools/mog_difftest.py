@@ -92,7 +92,7 @@ def run_c(routine, snap, joy):
     mem = open(dst, 'rb').read()
     os.unlink(src)
     os.unlink(dst)
-    ev = [l for l in out.splitlines() if l.startswith('S ')]
+    ev = [l for l in out.splitlines() if l[:2] in ('S ', 'V ', 'P ')]
     tail = [l for l in out.splitlines() if l.startswith('E ')]
     msgs = [l[2:] for l in out.splitlines() if l.startswith('M ')]
     return mem, ev, tail[0] if tail else '', msgs
@@ -103,6 +103,7 @@ def main():
     ap.add_argument('data')
     ap.add_argument('--frames', type=int, default=300)
     ap.add_argument('--seed', type=int, default=1)
+    ap.add_argument('--cpu', action='store_true', help='duel contre un chevalier IA')
     ap.add_argument('--encounter', help="routine d'init de rencontre (ex. LAB_0168) ; "
                     'sinon duel à deux joueurs')
     a = ap.parse_args()
@@ -110,7 +111,10 @@ def main():
     rng = random.Random(a.seed)
     ref = MogRef(a.data)
     ref.boot()
-    start = (lambda: ref.start_encounter(a.encounter)) if a.encounter else ref.start_duel
+    if a.encounter:
+        start = lambda: ref.start_encounter(a.encounter)
+    else:
+        start = lambda: ref.start_duel(cpu=a.cpu)
     start()
     solo = MogRef(a.data)
     S = ref.S

@@ -18,7 +18,8 @@ Crochets (routine remplacée par un RTS + fonction Python) :
             lisent le dossier de données ;
   VBL       LAB_0D77 (attente d'une VBL) incrémente v_VblCounter ;
   messages  LAB_0BB3 (traces du jeu) ;
-  sons      LAB_0AA2 (noté dans events) ; dessin LAB_0CDA (noté dans draws).
+  sons      LAB_0AA2, LAB_0F8C (canal), palette LAB_0D8A (notés dans events) ;
+  dessin    LAB_0CDA (noté dans draws).
 
   python3 tools/mog_ref.py <dossier_données> [--duel | --encounter LAB_0168]
                            [--frames N] [-v]
@@ -98,17 +99,21 @@ class MogRef:
         self.hook(S['LAB_0BB5'], self.h_open)
         self.hook(S['LAB_0BD7'], self.h_read)
         self.hook(S['LAB_0BFF'], self.h_close)
+        self.hook(S['LAB_0BEA'], self.h_skip)           # avance de D0 octets
         self.hook(S['LAB_0BB4'], lambda: None)          # lecture du répertoire disque
         self.hook(S['LAB_0AC4'], self.h_disk)           # accès disque bas niveau
         self.hook(S['LAB_0D77'], self.h_vbl)
         self.hook(S['LAB_0BB3'], self.h_message)
         self.hook(S['LAB_0AA2'], self.h_sound)
+        self.hook(S['LAB_0F8C'], self.h_voice)          # son sur un canal (D1)
+        self.hook(S['LAB_0D8A'], self.h_palette)        # palette -> registres couleur
         self.hook(S['LAB_0CDA'], self.h_draw)           # blit d'une frame CEL
         self.hook(S['LAB_0D07'], lambda: None)          # copie de décor (restauration)
         self.draws = []
         self.events = []                 # sons joués (« S n »)
         self.hook(S['LAB_00EE'], self.h_joy)
         self.hook(S['LAB_00EC'], lambda: None)          # attente « appuyez sur feu »
+        self.hook(S['LAB_0137'], lambda: None)          # écran de message (texte)
         self.joy = [0, 0]                # bits ports 0 / 1 : 0 D, 1 G, 2 B, 3 H, 4 feu
         self.frame_no = 0
         self.frame_limit = None
@@ -191,9 +196,17 @@ class MogRef:
                 return os.path.join(self.data_dir, f)
         return None
 
+    # fichiers ouverts seulement pour vérifier la disquette insérée (LAB_010C-010E)
+    DISK_MARKERS = {'be1.c'}
+
     def h_open(self):                    # File_Open [LAB_0BB5] : nom en A0
         name = self.cstr(self.r('A0'))
         path = self.find_file(name)
+        if path is None and name.lower() in self.DISK_MARKERS:
+            self.ww(self.S['L23_0001A'], 0)             # témoin de disquette : présent
+            self.cur = [b'', 0]
+            self.wl(self.S['L23_0000E'], 0)
+            return
         if path is None:
             self.log('fichier absent : %s' % name)
             self.ww(self.S['L23_0001A'], 0xFFFF)
@@ -214,6 +227,10 @@ class MogRef:
         self.uc.mem_write(dst, chunk)
         self.cur[1] = pos + len(chunk)
         self.w('D0', len(chunk))
+
+    def h_skip(self):                    # LAB_0BEA : saute D0 octets du fichier
+        if self.cur is not None:
+            self.cur[1] += self.r('D0')
 
     def h_disk(self):
         raise Stop('accès disque bas niveau (LAB_0AC4) depuis %s' % ' < '.join(self.backtrace()))
@@ -252,6 +269,13 @@ class MogRef:
         s16 = lambda v: v - 0x10000 if v & 0x8000 else v
         self.draws.append((self.r('A0'), self.r('D0') & 0xFFFF,
                            s16(self.r('D1') & 0xFFFF), s16(self.r('D2') & 0xFFFF)))
+
+    def h_voice(self):                   # LAB_0F8C : son D0 sur le canal D1
+        self.events.append('V %d %d' % (self.r('D1') & 3, self.r('D0') & 0xFFFF))
+
+    def h_palette(self):                 # LAB_0D8A : 32 couleurs depuis A0
+        a = self.r('A0')
+        self.events.append('P ' + ' '.join('%03X' % self.rw(a + 2 * i) for i in range(32)))
 
     def h_message(self):
         s = self.cstr(self.r('A0'), 80)
@@ -347,12 +371,23 @@ class MogRef:
         self.w('A7', sp)
         self.run_frames(0, start=S['Combat_Run'])
 
-    def start_duel(self):
-        """Duel à deux joueurs humains (LAB_0002) jusqu'à Combat_Loop."""
+    def start_duel(self, cpu=False):
+        """Duel (LAB_0002) jusqu'à Combat_Loop : deux joueurs humains, ou
+        (cpu) le second chevalier géré par l'ordinateur (contrôleur 16,
+        LAB_0EFF, comme un chevalier non joueur de Combat_StartPvP)."""
+        S = self.S
         self.left_combat = False
         self.frame_limit = None
-        self.call(self.S['LAB_0002'], until=self.S['Combat_Loop'])
-        self.run_frames(0, start=self.S['Combat_Loop'])
+        self.call(S['LAB_0002'], until=S['Combat_Loop'])
+        if cpu:
+            k = self.rl(S['v_Combatants'] + 4)
+            self.wb(k + 77, 0x10)
+            self.wl(k + 54, 4)
+            for i in range(10):
+                en = S['t_Entities'] + 50 * i
+                if self.rb(en) and self.rl(en + 24) == k:
+                    self.wb(en + 32, 0x10)
+        self.run_frames(0, start=S['Combat_Loop'])
 
 
 def describe(ref):
@@ -371,6 +406,7 @@ def main():
     ap = argparse.ArgumentParser(description='mog d\'origine sous émulation')
     ap.add_argument('data')
     ap.add_argument('--duel', action='store_true', help='duel à deux joueurs')
+    ap.add_argument('--cpu', action='store_true', help='duel contre un chevalier IA')
     ap.add_argument('--encounter', help='rencontre (%s)' % ', '.join(MogRef.ENCOUNTERS))
     ap.add_argument('--frames', type=int, default=40)
     ap.add_argument('-v', action='store_true', help='journal (fichiers, messages)')
@@ -379,11 +415,11 @@ def main():
     try:
         ref.boot()
         print('initialisation terminée')
-        if a.duel or a.encounter:
+        if a.duel or a.cpu or a.encounter:
             if a.encounter:
                 ref.start_encounter(a.encounter)
             else:
-                ref.start_duel()
+                ref.start_duel(cpu=a.cpu)
             print('début :', describe(ref))
             ref.run_frames(a.frames)
             print('image %d :' % ref.frame_no, describe(ref), '(combat fini)' if ref.left_combat else '')
