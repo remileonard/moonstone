@@ -859,6 +859,123 @@ static int temple(MogCombat *m)
 }
 
 /* ------------------------------------------------------------------ */
+/* La sorcière (genre $1E : LAB_0456)                                  */
+/* ------------------------------------------------------------------ */
+
+/* LAB_049E : lignes de texte (octet : nombre, puis chaînes) tous les 10 */
+static void text_lines(MogCombat *m, uint32_t a0, uint16_t x, uint16_t y, uint16_t flags)
+{
+    ww(m, MOG_LAB_067D, x);
+    ww(m, MOG_LAB_067E, y);
+    ww(m, MOG_LAB_067F, flags);
+    uint16_t d7 = (uint16_t)(rb(m, a0++) - 1);
+    do {
+        mog_text(m, a0, rw(m, MOG_LAB_067D), rw(m, MOG_LAB_067E), rw(m, MOG_LAB_067F));
+        while (rb(m, a0++))
+            ;
+        ww(m, MOG_LAB_067E, (uint16_t)(rw(m, MOG_LAB_067E) + 10));
+    } while (d7-- != 0);
+}
+
+/* LAB_0131 : écran d'attente, décors LAB_078A / LAB_0789, CEL LAB_0788 */
+static void witch_load(MogCombat *m)
+{
+    /* LAB_0100 (disquette 3) : sans objet */
+    mog_loading_screen(m);                              /* LAB_0134 */
+    mog_set_planes(m, rl(m, MOG_LAB_05C2));
+    mog_load_picture(m, MOG_LAB_078A, rl(m, MOG_LAB_0D92));
+    for (uint32_t i = 0; i < 32; i++)
+        ww(m, MOG_LAB_05E5 + 2 * i, rw(m, MOG_LAB_0D2B + 2 * i));
+    mog_set_planes(m, rl(m, MOG_LAB_05C1));
+    mog_load_picture(m, MOG_LAB_0789, rl(m, MOG_LAB_0D92));
+    for (uint32_t i = 0; i < 32; i++)
+        ww(m, MOG_LAB_05E6 + 2 * i, rw(m, MOG_LAB_0D2B + 2 * i));
+    if (rb(m, MOG_LAB_05DF) != 0x3C) {
+        wb(m, MOG_LAB_05DF, 0x3C);
+        wl(m, MOG_LAB_0632, rl(m, MOG_LAB_05B8 + 8));
+        for (uint32_t i = 0; i < 5; i++)
+            wl(m, MOG_LAB_05E0 + 4 * i, rl(m, MOG_LAB_0632));
+        mog_load_cel(VM, MOG_LAB_0788, rl(m, MOG_LAB_0632));
+    }
+    mog_load_sounds(m, MOG_LAB_0ABE, MOG_LAB_05CA, 0xD6D8);    /* LAB_0132 : LAB_0AB4 */
+}
+
+/* Scène animée jusqu'au feu (LAB_0457, LAB_0458, LAB_045D) */
+static void scene_until_fire(MogCombat *m, unsigned vbls)
+{
+    do {
+        if (m->frame_start)             /* point de rendez-vous (pas dans mog) */
+            m->frame_start(m->out.user);
+        ix_run_entities(&m->eng);
+        mog_swap_screens(m);                            /* LAB_0416 */
+        mog_restore_areas(m);                           /* LAB_039E */
+        mog_wait_vbls(m, vbls);
+    } while (!(mog_read_joy(m) & MOG_JOY_FIRE));        /* LAB_00EE */
+}
+
+/* LAB_0456 : la sorcière : présentation, événement (LAB_045E), réponse */
+static void witch(MogCombat *m)
+{
+    witch_load(m);                                      /* LAB_0131 */
+    mog_fade_black(m);
+    wl(m, MOG_v_Combatants + 10, rl(m, MOG_LAB_05E3));
+    clear_objects(m);                                   /* LAB_02CE */
+    mog_reset_entities(m);                              /* LAB_0305 */
+    copy_40000(m, rl(m, MOG_LAB_05C2), rl(m, MOG_LAB_05C0));   /* LAB_041F */
+    knight_colours(m, MOG_LAB_05E5, 0x0C);              /* LAB_04C5 */
+    ix_spawn(&m->eng, MOG_LAB_097A, MOG_LAB_05E0, 0xA0, 0, 0x64, 1, 40);
+    mog_set_planes(m, rl(m, MOG_LAB_05C0));
+    text_lines(m, MOG_LAB_091E, 0x96, 5, 0);            /* LAB_049E */
+    mog_show_background(m);                             /* LAB_0418 */
+    mog_swap_screens(m);
+    ix_run_entities(&m->eng);
+    mog_swap_screens(m);
+    voices(m, 0x80);                                    /* LAB_0F8C */
+    wl(m, MOG_SECSTRT_39, MOG_LAB_05E5);                /* LAB_0E55 */
+    ww(m, MOG_LAB_0E91, 2);
+    ww(m, MOG_LAB_0E92, 2);
+    scene_until_fire(m, 5);                             /* LAB_0457 */
+
+    mog_fade_black(m);
+    black_palette(m);                                   /* LAB_03EB */
+    mog_reset_entities(m);
+    clear_objects(m);
+    mog_random_event(m);                                /* LAB_045E */
+    copy_40000(m, rl(m, MOG_LAB_05C1), rl(m, MOG_LAB_05C0));
+    mog_set_planes(m, rl(m, MOG_LAB_05C0));
+    text_lines(m, rl(m, MOG_LAB_0909), 0x32, 0x82, 1);
+    mog_show_background(m);
+    ix_spawn(&m->eng, MOG_LAB_0978, MOG_LAB_05E0, 0xA0, 0, 0x64, 1, 40);
+    ix_spawn(&m->eng, MOG_LAB_0979, MOG_LAB_05E0, 0xA0, 0, 0x64, 1, 40);
+    mog_swap_screens(m);
+    wl(m, MOG_SECSTRT_39, MOG_LAB_05E6);
+    ww(m, MOG_LAB_0E91, 2);
+    ww(m, MOG_LAB_0E92, 2);
+    scene_until_fire(m, 6);                             /* LAB_0458 */
+
+    clear_objects(m);
+    mog_reset_entities(m);
+    copy_40000(m, rl(m, MOG_LAB_05C2), rl(m, MOG_LAB_05C0));
+    black_palette(m);
+    mog_set_planes(m, rl(m, MOG_LAB_05C0));
+    ix_spawn(&m->eng, MOG_LAB_097A, MOG_LAB_05E0, 0xA0, 0, 0x64, 1, 40);
+    uint32_t t = MOG_LAB_0933;
+    switch (rw(m, MOG_LAB_090B)) {
+    case 2: t = MOG_LAB_0930; break;
+    case 3: t = MOG_LAB_0932; break;
+    case 1: t = MOG_LAB_092E; break;
+    case 4: t = MOG_LAB_0934; break;
+    }
+    text_lines(m, t, 0x96, 5, 0);
+    mog_show_background(m);
+    mog_swap_screens(m);
+    load_palette(m, MOG_LAB_05E5);                      /* LAB_0D8A, LAB_03EE */
+    scene_until_fire(m, 4);                             /* LAB_045D */
+    wb(m, CUR + 83, 0x46);
+    mog_fade_out(m);                                    /* LAB_03F1 */
+}
+
+/* ------------------------------------------------------------------ */
 /* LAB_007B                                                            */
 /* ------------------------------------------------------------------ */
 
@@ -885,10 +1002,11 @@ int mog_town(MogCombat *m, uint32_t d0)
         return temple(m);                               /* LAB_00A1 */
     case 0x1C:
         return demon_lair(m);                           /* LAB_009D */
-    case 0x1E:
-        todo(m, "LAB_007C (LAB_0456)");
-        return MOG_MAP_UNPORTED;
+    case 0x1E:                                          /* LAB_007C */
+        witch(m);                                       /* LAB_0456 */
+        return inventory_leave(m);                      /* écran 9, LAB_00B2 */
     case 0x21:
+        /* inatteignable : LAB_0E45 mène $21 au duel avant LAB_007B */
         todo(m, "LAB_007B $21 (duel)");
         return MOG_MAP_UNPORTED;
     }

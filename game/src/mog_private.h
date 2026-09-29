@@ -67,6 +67,7 @@ void mog_fade_out(MogCombat *m);                  /* LAB_03F1 */
 void mog_fade_black(MogCombat *m);                /* LAB_03F0 */
 void mog_load_picture(MogCombat *m, uint32_t name, uint32_t a1);  /* LAB_0C27 */
 void mog_show_background(MogCombat *m);           /* LAB_0418 */
+void mog_loading_screen(MogCombat *m);            /* LAB_0134 */
 /* LAB_0AB5 : banque de sons `name` (en-tête sauté) en rl(dst_var) */
 void mog_load_sounds(MogCombat *m, uint32_t name, uint32_t dst_var, uint32_t n);
 /* LAB_039E : fonds sauvés remis en place (mog_loop.c) */
@@ -84,6 +85,7 @@ void mog_clear_keys(MogCombat *m);
 uint16_t mog_read_joy(MogCombat *m);
 uint32_t mog_pick_stat(MogCombat *m);             /* LAB_0469 : D1 */
 uint32_t mog_d100(MogCombat *m);
+void mog_random_event(MogCombat *m);              /* LAB_045E */
 /* LAB_04AC : contrôleur du jeu de dés (mog_town.c) */
 int mog_gamble_ctl(MogCombat *m, uint32_t a0, CtlResult *out);
 /* LAB_04C4 : fin de la scène du sacrifice (mog_town.c) */

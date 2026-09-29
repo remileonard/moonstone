@@ -244,9 +244,9 @@ class MogRef:
         # boucle des écrans LAB_04CF : rendez-vous comme un début d'image
         uc.hook_add(U.UC_HOOK_CODE, self.h_frame, None,
                     begin=S['LAB_04D0'], end=S['LAB_04D0'])
-        # boucle du jeu de dés (LAB_04A9) : idem
-        uc.hook_add(U.UC_HOOK_CODE, self.h_frame, None,
-                    begin=S['LAB_04A9'], end=S['LAB_04A9'])
+        # boucle du jeu de dés (LAB_04A9), scènes de la sorcière : idem
+        for lab in ('LAB_04A9', 'LAB_0457', 'LAB_0458', 'LAB_045D'):
+            uc.hook_add(U.UC_HOOK_CODE, self.h_frame, None, begin=S[lab], end=S[lab])
         # attente d'une touche du menu des lieux (LAB_0E40) : idem
         uc.hook_add(U.UC_HOOK_CODE, self.h_frame, None,
                     begin=S['LAB_0E40'], end=S['LAB_0E40'])

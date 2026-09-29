@@ -453,6 +453,8 @@ static void load_sounds(MogCombat *m, uint32_t name, uint32_t dst_var, uint32_t 
     mog_file_close(&f);
 }
 
+void mog_loading_screen(MogCombat *m) { loading_screen(m); }
+
 void mog_load_sounds(MogCombat *m, uint32_t name, uint32_t dst_var, uint32_t n)
 {
     load_sounds(m, name, dst_var, n);

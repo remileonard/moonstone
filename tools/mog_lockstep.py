@@ -204,6 +204,9 @@ def main():
             key = 2
         if pc in (S['LAB_00EC'], S['LAB_00ED']):        # attente du feu : appui, relâché
             j = [0x10, 0x10] if pc == S['LAB_00EC'] else [0, 0]
+        elif pc in (S['LAB_0457'], S['LAB_0458'], S['LAB_045D']):
+            in_screen += 1                              # scène : feu après un temps
+            j = [0x10, 0x10] if in_screen % 12 == 0 else [0, 0]
         elif pc in (S['LAB_04D0'], S['LAB_008C'], S['LAB_0095'], S['LAB_0496'],
                     S['LAB_04A9']):
             # écran LAB_04CF, menu de ville, or proposé : errance, clics,

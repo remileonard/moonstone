@@ -1742,4 +1742,5 @@ void mog_select_knight(MogCombat *m) { select_knight(m); }
 void mog_clear_keys(MogCombat *m) { clear_keys(m); }
 uint16_t mog_read_joy(MogCombat *m) { return read_joy(m); }
 uint32_t mog_pick_stat(MogCombat *m) { return pick_stat(m, NULL); }
+void mog_random_event(MogCombat *m) { random_event(m); }
 uint32_t mog_d100(MogCombat *m) { return d100(m); }
