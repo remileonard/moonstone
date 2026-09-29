@@ -2,17 +2,21 @@
  * mog_step.c — exécute une routine portée du combat de mog sur une image
  * mémoire, pour tools/mog_difftest.py.
  *
- *   mog_step <mémoire> <routine> <joy0> <joy1> <sortie>
+ *   mog_step <mémoire> <routine> <joy0> <joy1> <sortie> [données]
  *
  * <mémoire> : octets de l'adresse 0 à la fin de l'espace du jeu (image
  * prise dans tools/mog_ref.py). <routine> : Combat_RunControllers,
- * Ix_RunEntities, Combat_Collisions, ou plusieurs séparées par « + ».
+ * Ix_RunEntities, Combat_Collisions, Combat_Run (mog_combat_begin), une
+ * routine de t_CreatureInit (LAB_0164...), ou plusieurs séparées par « + ».
+ * [données] : dossier des fichiers du jeu (pour les rencontres).
  * Écrit la mémoire après la routine dans <sortie> ; sur stdout :
  *   S n        son         M texte     message du jeu
  *   V c n      son n sur le canal c     P c0..c31   palette
  *   E erreurs défauts
  */
 #include "mog_combat.h"
+#include "mog_encounter.h"
+#include "moon_assets.h"
 #include "ix_mog_syms.h"
 
 #include <stdio.h>
@@ -46,6 +50,17 @@ int main(int argc, char **argv)
     if (!vm.mem || fread(vm.mem, 1, (size_t)n, f) != (size_t)n) { fclose(f); return 1; }
     fclose(f);
 
+    if (argc > 6 && moon_init(argv[6]) != 0) {
+        fprintf(stderr, "données introuvables : %s\n", argv[6]);
+        return 1;
+    }
+    static const struct { const char *name; uint32_t fn; } enc[] = {
+        { "LAB_0164", MOG_LAB_0164 }, { "LAB_0168", MOG_LAB_0168 }, { "LAB_016A", MOG_LAB_016A },
+        { "LAB_0175", MOG_LAB_0175 }, { "LAB_0188", MOG_LAB_0188 }, { "LAB_018C", MOG_LAB_018C },
+        { "LAB_0192", MOG_LAB_0192 }, { "LAB_0196", MOG_LAB_0196 }, { "LAB_019A", MOG_LAB_019A },
+        { "LAB_019E", MOG_LAB_019E }, { "LAB_01A0", MOG_LAB_01A0 },
+    };
+
     IxHost host = { NULL, NULL, NULL, sound, NULL, message };
     MogCombat m;
     mog_combat_init(&m, &vm, &host);
@@ -64,7 +79,17 @@ int main(int argc, char **argv)
             ix_run_entities(&m.eng);
         else if (!strcmp(r, "Combat_Collisions"))
             mog_collisions(&m);
+        else if (!strcmp(r, "Combat_Run"))
+            mog_combat_begin(&m);
         else {
+            unsigned i;
+            for (i = 0; i < sizeof enc / sizeof enc[0]; i++)
+                if (!strcmp(r, enc[i].name)) {
+                    mog_encounter_init(&m, enc[i].fn);
+                    break;
+                }
+            if (i < sizeof enc / sizeof enc[0])
+                continue;
             fprintf(stderr, "routine inconnue : %s\n", r);
             return 2;
         }

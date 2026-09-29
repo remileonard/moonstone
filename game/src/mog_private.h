@@ -49,6 +49,13 @@ int mog_next_opponent(MogCombat *m, uint32_t fn);
 void mog_enter_object(MogCombat *m, uint32_t obj);
 void mog_enter_object_with(MogCombat *m, uint32_t obj, uint32_t script);
 
+/* LAB_0171 : objet libre (marqué occupé) */
+uint32_t mog_alloc_object(MogCombat *m);
+/* LAB_0174 : adversaire décrit par l'enregistrement rec */
+int mog_spawn_opponent(MogCombat *m, uint32_t rec);
+/* Combat_ClearHitLinks [LAB_0161] */
+void mog_clear_hit_links(MogCombat *m);
+
 /* LAB_028E : déplacement du Dragon (mog_ai.c ; aussi routine $B0) */
 void mog_dragon_move(MogCombat *m);
 

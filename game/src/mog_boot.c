@@ -346,14 +346,9 @@ void mog_boot_engine(IxVM *vm)
 /* Fichiers (LAB_0BB5 / LAB_0BD7 / LAB_0BFF)                           */
 /* ------------------------------------------------------------------ */
 
-typedef struct {
-    uint8_t *data;
-    size_t   len, pos;
-} MogFile;
-
 /* Ouvre le fichier dont le nom (chaîne en mémoire) est à `name`.
  * L23_0001A = 0 / -1, L23_0000E = taille (lue dans le répertoire). */
-static int file_open(IxVM *vm, uint32_t name, MogFile *f)
+int mog_file_open(IxVM *vm, uint32_t name, MogFile *f)
 {
     char n[64];
     unsigned i;
@@ -373,7 +368,7 @@ static int file_open(IxVM *vm, uint32_t name, MogFile *f)
 }
 
 /* Lit n octets à l'adresse dst ; renvoie le nombre lu. */
-static uint32_t file_read(IxVM *vm, MogFile *f, uint32_t dst, uint32_t n)
+uint32_t mog_file_read(IxVM *vm, MogFile *f, uint32_t dst, uint32_t n)
 {
     uint32_t k = 0;
     for (; k < n && f->pos < f->len; k++)
@@ -381,7 +376,7 @@ static uint32_t file_read(IxVM *vm, MogFile *f, uint32_t dst, uint32_t n)
     return k;
 }
 
-static void file_close(MogFile *f)
+void mog_file_close(MogFile *f)
 {
     free(f->data);
     f->data = NULL;
@@ -392,7 +387,7 @@ static void file_close(MogFile *f)
  * (bit à 1 : copie arrière de 34 - (mot >> 11) octets depuis sortie -
  * (mot & $7FF) ; bit à 0 : octet littéral) ; fin testée avant chaque jeton
  * (vérifié contre l'original par tools/mog_bootcheck.py). */
-static uint32_t unpack(IxVM *vm, uint32_t src, uint32_t n, uint32_t dst)
+uint32_t mog_unpack(IxVM *vm, uint32_t src, uint32_t n, uint32_t dst)
 {
     uint32_t end = src + n, out = dst;
     for (;;) {
@@ -426,21 +421,21 @@ void mog_load_cel(IxVM *vm, uint32_t name, uint32_t dest)
     MogFile f;
     ix_wl(vm, MOG_LAB_0CC9, name);
     ix_wl(vm, MOG_LAB_0CCA, dest);
-    file_open(vm, name, &f);
-    file_read(vm, &f, dest, 10);
+    mog_file_open(vm, name, &f);
+    mog_file_read(vm, &f, dest, 10);
     copy(vm, MOG_LAB_0D1C, dest, 10);
     uint32_t table = (uint32_t)ix_rw(vm, MOG_LAB_0D1C) * 10u;
     uint32_t data = dest + 10 + table;
-    file_read(vm, &f, dest + 10, table);
+    mog_file_read(vm, &f, dest + 10, table);
     ix_wl(vm, dest + 2, data);
     uint32_t packed = ix_rl(vm, MOG_LAB_0D1D);
-    file_read(vm, &f, data, packed);
-    file_close(&f);
+    mog_file_read(vm, &f, data, packed);
+    mog_file_close(&f);
     ix_ww(vm, MOG_LAB_0D4D, 1);
     copy(vm, MOG_LAB_0D4F, data, packed);
     uint32_t pix = dest + 10 + (uint32_t)(int32_t)(int16_t)table;
     ix_wl(vm, dest + 2, pix);
-    uint32_t n = unpack(vm, MOG_LAB_0D4F, packed, pix);
+    uint32_t n = mog_unpack(vm, MOG_LAB_0D4F, packed, pix);
     uint32_t d1 = (uint32_t)ix_rw(vm, MOG_LAB_0D1C) * 10u;
     d1 = (d1 & 0xFFFF0000u) | (uint16_t)(d1 + 10);
     ix_wl(vm, MOG_LAB_0CCA, n + d1);
@@ -452,9 +447,9 @@ uint32_t mog_cel_size(IxVM *vm, uint32_t name)
     if (name == ix_rl(vm, MOG_LAB_0CC9))                /* LAB_0CB7 */
         return (ix_rl(vm, MOG_LAB_0CCA) + 1) & 0xFFFFFFFEu;
     MogFile f;
-    file_open(vm, name, &f);
-    file_read(vm, &f, MOG_LAB_0D1C, 10);
-    file_close(&f);
+    mog_file_open(vm, name, &f);
+    mog_file_read(vm, &f, MOG_LAB_0D1C, 10);
+    mog_file_close(&f);
     return (ix_rl(vm, MOG_LAB_0D1F) >> 3) + 0x168 + (uint32_t)ix_rw(vm, MOG_LAB_0D1C) * 10u + 10;
 }
 
@@ -465,9 +460,9 @@ void mog_hit_init(IxVM *vm)
     ix_wl(vm, MOG_LAB_0A4F, ix_rl(vm, MOG_LAB_05B9 + 88));
     ix_wl(vm, MOG_LAB_0A4E, MOG_t_HitDataByCel);
     MogFile f;
-    file_open(vm, MOG_s_CollideHit, &f);
-    file_read(vm, &f, ix_rl(vm, MOG_LAB_05B9 + 84), 0x2328);
-    file_close(&f);
+    mog_file_open(vm, MOG_s_CollideHit, &f);
+    mog_file_read(vm, &f, ix_rl(vm, MOG_LAB_05B9 + 84), 0x2328);
+    mog_file_close(&f);
     ix_wl(vm, MOG_SECSTRT_10, ix_rl(vm, MOG_L23_0000E));
 }
 
@@ -630,4 +625,22 @@ int mog_boot_memory(IxVM *vm)
     ix_wl(VM, MOG_LAB_05BF, MOG_FAST_SIZE);
     partition(vm, MOG_CHIP_BLOCK, fast);
     return 0;
+}
+
+/* LAB_013A : les huit décors (PIV compressés) du fichier « Test » à
+ * rl(LAB_05B9 + 8) ; compteurs de terrain à zéro, aucune créature
+ * chargée (LAB_05DF). */
+void mog_boot_backgrounds(IxVM *vm)
+{
+    ix_ww(vm, MOG_LAB_05EA, 0);
+    ix_ww(vm, MOG_LAB_05EB, 0);
+    ix_ww(vm, MOG_LAB_05E9, 0);
+    ix_ww(vm, MOG_LAB_05E8, 0);
+    ix_wb(vm, MOG_LAB_05DD, 0xFF);
+    ix_wb(vm, MOG_LAB_05DE, 0xFF);
+    ix_wb(vm, MOG_LAB_05DF, 0xFF);
+    MogFile f;
+    mog_file_open(vm, MOG_LAB_013B, &f);
+    mog_file_read(vm, &f, ix_rl(vm, MOG_LAB_05B9 + 8), 0x30859);
+    mog_file_close(&f);
 }

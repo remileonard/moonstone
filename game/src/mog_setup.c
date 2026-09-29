@@ -174,7 +174,7 @@ static int creature_setup(MogCombat *m, uint32_t fn, uint32_t a1)
 
 /* LAB_0171 : premier des 20 objets libres, marqué occupé. S'il n'y en a
  * pas, l'adresse qui suit le 20e (non marquée), comme l'original. */
-static uint32_t alloc_object(MogCombat *m)
+uint32_t mog_alloc_object(MogCombat *m)
 {
     uint32_t a1 = ix_rl(VM, MOG_LAB_05C3);
     for (int i = 0; i < 20; i++, a1 += IX_OBJECT_SIZE)
@@ -230,10 +230,10 @@ void mog_enter_object(MogCombat *m, uint32_t a1)
 
 /* LAB_0174 : nouvel adversaire décrit par l'enregistrement `rec`
  * (X, hauteur, profondeur, direction). */
-static int spawn_opponent(MogCombat *m, uint32_t rec)
+int mog_spawn_opponent(MogCombat *m, uint32_t rec)
 {
     ww(m, MOG_LAB_05EE, (uint16_t)(ix_rw(VM, MOG_LAB_05EE) + 1));
-    uint32_t a1 = alloc_object(m);
+    uint32_t a1 = mog_alloc_object(m);
     ww(m, a1 + 4, ix_rw(VM, rec));
     ww(m, a1 + 6, ix_rw(VM, rec + 2));
     ww(m, a1 + 8, ix_rw(VM, rec + 4));
@@ -255,7 +255,7 @@ static int spawn_alternating(MogCombat *m, uint32_t table)
 {
     uint16_t t = (uint16_t)(ix_rw(VM, MOG_LAB_05EF) ^ 1);
     ww(m, MOG_LAB_05EF, t);
-    return spawn_opponent(m, t ? table + 8 : table);
+    return mog_spawn_opponent(m, t ? table + 8 : table);
 }
 
 /* Routine « adversaire suivant » de LAB_05F0. 0 si non portée. */
@@ -267,7 +267,7 @@ int mog_next_opponent(MogCombat *m, uint32_t fn)
     case MOG_LAB_0189: return spawn_alternating(m, MOG_LAB_07BB);
     case MOG_LAB_018D:
     case MOG_LAB_019B: return spawn_alternating(m, MOG_LAB_07BC);
-    case MOG_LAB_0197: return spawn_opponent(m, MOG_LAB_0199);
+    case MOG_LAB_0197: return mog_spawn_opponent(m, MOG_LAB_0199);
     }
     char t[64];
     snprintf(t, sizeof t, "LAB_05F0 non portée : %08X", fn);

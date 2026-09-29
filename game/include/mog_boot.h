@@ -25,6 +25,21 @@ void mog_boot_engine(IxVM *vm);
 /* LAB_020F : tables de réaction du chevalier humain (LAB_0621/LAB_0622). */
 void mog_boot_reactions(IxVM *vm);
 
+/* Fichiers (LAB_0BB5 / LAB_0BD7 / LAB_0BFF) : nom = chaîne en mémoire de
+ * mog ; L23_0001A et L23_0000E (taille) mis à jour comme l'original. */
+typedef struct {
+    uint8_t *data;
+    size_t   len, pos;
+} MogFile;
+int      mog_file_open(IxVM *vm, uint32_t name, MogFile *f);
+uint32_t mog_file_read(IxVM *vm, MogFile *f, uint32_t dst, uint32_t n);
+void     mog_file_close(MogFile *f);
+/* LAB_0CC2 : décompression LZSS de n octets de src vers dst. */
+uint32_t mog_unpack(IxVM *vm, uint32_t src, uint32_t n, uint32_t dst);
+
+/* LAB_013A : décors de combat (fichier « Test ») à rl(LAB_05B9 + 8). */
+void     mog_boot_backgrounds(IxVM *vm);
+
 /* Chargeurs (noms : chaînes en mémoire de mog ; fichiers lus par
  * moon_file_read, moon_init() doit avoir été appelé). */
 void     mog_load_cel(IxVM *vm, uint32_t name, uint32_t dest);        /* LAB_0CBB */

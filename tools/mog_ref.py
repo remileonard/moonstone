@@ -352,6 +352,11 @@ class MogRef:
     def start_encounter(self, init):
         """Chevalier 1 (LAB_0613, joystick port 0) contre la rencontre
         `init` (routine de t_CreatureInit), jusqu'à Combat_Loop."""
+        self.prepare_knights()
+        self.run_encounter(init)
+
+    def prepare_knights(self):
+        """Nouvelle partie ; chevalier 1 humain (port 0) dans LAB_0633."""
         S = self.S
         self.left_combat = False
         self.frame_limit = None
@@ -365,6 +370,10 @@ class MogRef:
         self.call(S['LAB_01BE'])
         self.call(S['LAB_0011'])
         self.wl(S['LAB_0633'], k)
+
+    def run_encounter(self, init):
+        """Préparation `init` puis Combat_Run jusqu'à Combat_Loop."""
+        S = self.S
         self.call(S[init])
         sp = self.stack_top - 0x100
         self.wl(sp, self.combat_exit)                   # JSR Combat_Run

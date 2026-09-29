@@ -29,7 +29,7 @@ static int span(uint32_t d0, uint32_t d1, uint32_t d2, uint32_t d3)
 }
 
 /* Combat_ClearHitLinks [LAB_0161] */
-static void clear_hit_links(MogCombat *m)
+void mog_clear_hit_links(MogCombat *m)
 {
     ix_wl(VM, MOG_LAB_0617 + 14, 0);
     ix_wl(VM, MOG_LAB_0617 + 18, 0);
@@ -124,7 +124,7 @@ static int pixel_hit(MogCombat *m, uint32_t bcel, uint16_t bframe, uint16_t bx, 
  * (l'original enchaîne sans RTS). */
 void mog_collisions(MogCombat *m)
 {
-    clear_hit_links(m);
+    mog_clear_hit_links(m);
     for (int i = 0; i < IX_ENTITY_COUNT; i++) {
         uint32_t a6 = MOG_t_Entities + (uint32_t)i * IX_ENTITY_SIZE;
         if (!ix_rb(VM, a6))

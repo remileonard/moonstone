@@ -12,18 +12,29 @@
 
 #define VM (m->eng.vm)
 
+#define MOG_COPPER_BPL 0x7F6B0u     /* EXT_0024 : pointeurs de plans (copper) */
+
 /* LAB_0416 (partie mémoire) : écrans échangés (LAB_0D71 : LAB_0D92 <->
  * SECSTRT_35), les deux piles de zones à restaurer aussi ; la nouvelle
- * pile est vide. */
+ * pile est vide ; dessins vers LAB_0D92. */
 static void swap_scrap(MogCombat *m)
 {
     uint32_t s = ix_rl(VM, MOG_LAB_0D92);
+    for (uint32_t p = 0; p < 5; p++) {                  /* copper : écran montré */
+        uint32_t d0 = s + p * 0x1F40;
+        ix_ww(VM, MOG_COPPER_BPL + 8 * p, (uint16_t)(d0 >> 16));
+        ix_ww(VM, MOG_COPPER_BPL + 8 * p + 4, (uint16_t)d0);
+    }
     ix_wl(VM, MOG_LAB_0D92, ix_rl(VM, MOG_SECSTRT_35));
     ix_wl(VM, MOG_SECSTRT_35, s);
     uint32_t a = ix_rl(VM, MOG_LAB_063E);
     ix_wl(VM, MOG_LAB_063E, ix_rl(VM, MOG_LAB_063F));
     ix_wl(VM, MOG_LAB_063F, a);
     ix_wl(VM, MOG_LAB_0641, ix_rl(VM, MOG_LAB_063E));
+    static const uint32_t planes[5] = { MOG_LAB_0CFF, MOG_LAB_0D00, MOG_LAB_0D01,
+                                        MOG_LAB_0D02, MOG_LAB_0D03 };
+    for (uint32_t i = 0, d0 = ix_rl(VM, MOG_LAB_0D92); i < 5; i++, d0 += 0x1F40)
+        ix_wl(VM, planes[i], d0);                       /* L00_0908E */
     ix_ww(VM, MOG_LAB_0645, 0);
 }
 
@@ -73,8 +84,32 @@ void mog_combat_begin(MogCombat *m)
         if (obj != ix_rl(VM, MOG_LAB_05F4))
             mog_toggle_freeze(m, obj);
     mog_toggle_freeze(m, MOG_LAB_0617);
-    if (ix_rb(VM, MOG_LAB_05DF) == 4)                   /* LAB_0412 */
+    if (ix_rb(VM, MOG_LAB_05DF) == 4) {                 /* LAB_0412 */
         mog_message(m, "Turning on colour glow");
+        if (m->palette) {                               /* LAB_0D8A */
+            uint16_t c[32];
+            for (int i = 0; i < 32; i++)
+                c[i] = ix_rw(VM, MOG_LAB_08D9 + 2u * (unsigned)i);
+            m->palette(m->out.user, c);
+        }
+        uint32_t cur = ix_rl(VM, MOG_LAB_0E93);         /* LAB_03EE */
+        for (uint32_t i = 0; i < 64; i++)
+            ix_wb(VM, cur + i, ix_rb(VM, MOG_LAB_08D9 + i));
+        /* LAB_0E5A : couleur 14 pulsant vers $100, vitesse 2 */
+        uint32_t a0 = MOG_LAB_0E95;
+        int i;
+        for (i = 0; i < 6 && ix_rl(VM, a0); i++)
+            a0 += 12;
+        if (i < 6) {
+            ix_ww(VM, a0, 14);
+            ix_ww(VM, a0 + 2, 0x100);
+            ix_ww(VM, a0 + 4, 2);
+            ix_ww(VM, a0 + 6, 2);
+            ix_ww(VM, a0 + 8, ix_rw(VM, cur + 28));
+            ix_ww(VM, a0 + 10, 0);
+            ix_wl(VM, MOG_LAB_0414, a0);
+        }
+    }
 }
 
 int mog_combat_frame(MogCombat *m)
