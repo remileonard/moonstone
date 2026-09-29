@@ -31,6 +31,8 @@ add_executable(mog_step mog_step.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_loop.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_boot.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_blit.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_vbl.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_text.c
     ${CMAKE_SOURCE_DIR}/game/data/ix_mog.c)
 target_include_directories(mog_step PRIVATE
     ${CMAKE_SOURCE_DIR}/game/include ${CMAKE_SOURCE_DIR}/game/data)
@@ -58,6 +60,9 @@ add_executable(mog_fight_shot mog_fight_shot.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_loop.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_boot.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_fight.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_blit.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_vbl.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_text.c
     ${CMAKE_SOURCE_DIR}/game/data/ix_mog.c)
 target_include_directories(mog_fight_shot PRIVATE
     ${CMAKE_SOURCE_DIR}/game/include ${CMAKE_SOURCE_DIR}/game/data)

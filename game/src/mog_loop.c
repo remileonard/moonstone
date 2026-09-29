@@ -9,10 +9,10 @@
  */
 #include "mog_private.h"
 #include "ix_mog_syms.h"
+#include "mog_vbl.h"
 
 #define VM (m->eng.vm)
 
-#define MOG_COPPER_BPL 0x7F6B0u     /* EXT_0024 : pointeurs de plans (copper) */
 
 /* LAB_0416 (partie mémoire) : écrans échangés (LAB_0D71 : LAB_0D92 <->
  * SECSTRT_35), les deux piles de zones à restaurer aussi ; la nouvelle

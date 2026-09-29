@@ -5,12 +5,12 @@
  *
  * Tout se passe dans la mémoire de mog, écrans compris (plans de bits de
  * LAB_05C0, LAB_05C1, LAB_0D92, SECSTRT_35) : l'hôte n'a qu'à les lire.
- * Les messages affichés pendant le chargement (LAB_0432), les fondus de
- * palette (LAB_0E55) et les attentes sont omis.
+ * Les fondus de palette sont menés par mog_vbl.c ; les attentes sont omises.
  */
 #include "mog_private.h"
 #include "mog_boot.h"
 #include "mog_encounter.h"
+#include "mog_text.h"
 #include "ix_mog_syms.h"
 
 #include <stdio.h>
@@ -121,22 +121,6 @@ static void show_background(MogCombat *m)
     copy_screen(m, rl(m, MOG_LAB_05C0), rl(m, MOG_LAB_0D92));
 }
 
-/* LAB_0432 (sans l'affichage) : texte à enregistrements chaînés (long
- * chaîne, X, Y, octet, drapeaux, long suivant). */
-static void show_text(MogCombat *m, uint32_t a0)
-{
-    ww(m, MOG_LAB_0D05, 1);
-    if (a0) {
-        wl(m, MOG_LAB_08E3, a0);
-        while ((a0 = rl(m, MOG_LAB_08E3)) != 0) {
-            if (rl(m, MOG_v_Combatants + 10) == rl(m, MOG_LAB_05E3 + 16))    /* LAB_043B */
-                wb(m, a0 + 9, rb(m, a0 + 9) | 8);
-            wl(m, MOG_LAB_08E3, rl(m, a0 + 10));
-        }
-    }
-    ww(m, MOG_LAB_0D05, 0);
-}
-
 /* LAB_0134 : sons des canaux, écran de message (LAB_0138), phrase suivante
  * de LAB_071E, palette. */
 static void loading_screen(MogCombat *m)
@@ -155,7 +139,7 @@ static void loading_screen(MogCombat *m)
 
     wl(m, MOG_v_Combatants + 10, rl(m, MOG_LAB_05E3 + 16));
     uint16_t n = rw(m, MOG_LAB_071D);
-    show_text(m, rl(m, MOG_LAB_071E + (uint32_t)(uint16_t)(n << 2)));
+    mog_text_records(m, rl(m, MOG_LAB_071E + (uint32_t)(uint16_t)(n << 2)));   /* LAB_0432 */
     n = (uint16_t)(n + 1);
     if (!(sw(n) < 14))
         n = 0;

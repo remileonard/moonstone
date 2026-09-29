@@ -20,11 +20,9 @@ from mog_ref import MogRef, STACK_SIZE  # noqa: E402
 
 STEP = os.path.join(ROOT, 'build', 'tests', 'mog_step')
 
-# Variables de l'affichage des textes (LAB_0432, non porté) ; compteur
-# d'images (le banc compte les attentes de LAB_03F2) ; disque demandé
-# (LAB_0100 : sans objet, tous les fichiers sont présents)
-IGNORE = ['LAB_08DC', 'LAB_08DD', 'LAB_08DE', 'LAB_08DF', 'LAB_08E0', 'LAB_08E1',
-          'LAB_08E2', 'LAB_0441', 'v_VblCounter', 'LAB_05AC', 'LAB_06FE', 'LAB_0B35']
+# Compteur d'images (le banc compte les attentes de LAB_03F2) ; disque
+# demandé (LAB_0100 : sans objet, tous les fichiers sont présents)
+IGNORE = ['v_VblCounter', 'LAB_05AC', 'LAB_06FE', 'LAB_0B35']
 
 SCREENS = ['LAB_05C0', 'SECSTRT_35', 'LAB_0D92']
 
