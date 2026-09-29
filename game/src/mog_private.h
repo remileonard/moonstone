@@ -86,6 +86,8 @@ uint16_t mog_read_joy(MogCombat *m);
 uint32_t mog_pick_stat(MogCombat *m);             /* LAB_0469 : D1 */
 uint32_t mog_d100(MogCombat *m);
 void mog_random_event(MogCombat *m);              /* LAB_045E */
+void mog_find_item(MogCombat *m, int d3);         /* LAB_0471 */
+void mog_find_gold(MogCombat *m, int d3);         /* LAB_046C */
 /* LAB_04AC : contrôleur du jeu de dés (mog_town.c) */
 int mog_gamble_ctl(MogCombat *m, uint32_t a0, CtlResult *out);
 /* LAB_04C4 : fin de la scène du sacrifice (mog_town.c) */

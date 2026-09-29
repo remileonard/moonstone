@@ -1124,8 +1124,7 @@ static int places_fire(MogCombat *m)
             draw_current(m);                            /* LAB_0D9B */
             mog_swap_screens(m);                        /* LAB_0416 */
             for (;;) {                                  /* LAB_0E40 */
-                if (m->frame_start)     /* point de rendez-vous (pas dans mog) */
-                    m->frame_start(m->out.user);
+                mog_idle(m);            /* rendez-vous, temps qui passe */
                 uint16_t key = rw(m, MOG_SECSTRT_21);
                 if (!key)
                     continue;
@@ -1517,14 +1516,12 @@ static uint16_t read_joy(MogCombat *m)
  * sans VBL comme l'original ; l'hôte lit ses entrées au rendez-vous. */
 void mog_wait_fire(MogCombat *m)
 {
-    do {
-        if (m->frame_start)             /* point de rendez-vous (pas dans mog) */
-            m->frame_start(m->out.user);
-    } while (!(read_joy(m) & MOG_JOY_FIRE));
-    do {                                                /* LAB_00ED */
-        if (m->frame_start)
-            m->frame_start(m->out.user);
-    } while (read_joy(m) & MOG_JOY_FIRE);
+    do
+        mog_idle(m);                    /* rendez-vous, temps qui passe */
+    while (!(read_joy(m) & MOG_JOY_FIRE));
+    do                                                  /* LAB_00ED */
+        mog_idle(m);
+    while (read_joy(m) & MOG_JOY_FIRE);
 }
 
 /* LAB_0136 / LAB_0137 : écran de message a0 (LAB_0138 : fond LAB_05B9+52),
@@ -1743,4 +1740,6 @@ void mog_clear_keys(MogCombat *m) { clear_keys(m); }
 uint16_t mog_read_joy(MogCombat *m) { return read_joy(m); }
 uint32_t mog_pick_stat(MogCombat *m) { return pick_stat(m, NULL); }
 void mog_random_event(MogCombat *m) { random_event(m); }
+void mog_find_item(MogCombat *m, int d3) { find_item(m, d3); }
+void mog_find_gold(MogCombat *m, int d3) { find_gold(m, d3); }
 uint32_t mog_d100(MogCombat *m) { return d100(m); }

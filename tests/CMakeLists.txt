@@ -92,6 +92,7 @@ add_executable(mog_run mog_run.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_map.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_screens.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_town.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_game.c
     ${CMAKE_SOURCE_DIR}/game/data/ix_mog.c)
 target_include_directories(mog_run PRIVATE
     ${CMAKE_SOURCE_DIR}/game/include ${CMAKE_SOURCE_DIR}/game/data)

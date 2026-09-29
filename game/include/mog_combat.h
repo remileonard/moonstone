@@ -36,6 +36,9 @@ typedef struct {
     void (*wait_vbl)(void *user);
     /* Combat_FrameStart : début d'une image (combat, carte) ; facultatif. */
     void (*frame_start)(void *user);
+    /* Attentes actives de l'original (feu, touche) : le temps passe
+     * (interruptions) ; l'hôte y fait une VBL (NULL : rien). */
+    void (*idle)(void *user);
 } MogCombat;
 
 /* Prépare la structure sur une mémoire déjà chargée. `host` : dessin, sons,
@@ -62,6 +65,8 @@ void mog_combat_begin(MogCombat *m);
 
 /* Combat_FrameStart [LAB_031E] : LAB_0321 = v_VblCounter. */
 void mog_frame_start(MogCombat *m);
+/* Tour d'une attente active : rendez-vous (frame_start) puis idle. */
+void mog_idle(MogCombat *m);
 
 /* LAB_0D77 / Hw_WaitVbls : attente de n VBL. */
 void mog_wait_vbls(MogCombat *m, unsigned n);

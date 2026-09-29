@@ -1128,9 +1128,9 @@ void mog_update_knight(MogCombat *m, uint32_t a0)
     mog_knight_defence(m, a0);
 }
 
-void mog_new_game(MogCombat *m)
+/* LAB_01AE : partie commune (chevaliers noirs, dragon, tables) */
+static void new_game_01ae(MogCombat *m)
 {
-    /* LAB_01AE (partie combat ; boutiques et carte laissées au jeu) */
     ww(m, MOG_LAB_0663, 0);
     ww(m, MOG_LAB_05D3, 0);
     ww(m, MOG_LAB_0655, 0);
@@ -1179,8 +1179,11 @@ void mog_new_game(MogCombat *m)
     wl(m, MOG_LAB_0617 + 96, MOG_LAB_0619);
     wl(m, MOG_LAB_0617 + 54, 5);
     wl(m, MOG_LAB_0633, MOG_LAB_0617);
+}
 
-    /* LAB_01BE : chevaliers des joueurs, inventaires, équipement */
+/* LAB_01BE : chevaliers des joueurs, inventaires, équipement */
+static void new_game_01be(MogCombat *m)
+{
     uint16_t players = rw(m, MOG_LAB_05C5);
     for (uint16_t d0 = 0; d0 != players && d0 < 4; d0++) {
         uint32_t a1 = MOG_LAB_0613 + d0 * IX_OBJECT_SIZE;
@@ -1203,6 +1206,95 @@ void mog_new_game(MogCombat *m)
         uint32_t a1 = MOG_LAB_0613 + i * IX_OBJECT_SIZE;
         ww(m, a1 + 66, (uint16_t)(rw(m, a1 + 126) >> 3));
         ww(m, a1 + 68, (uint16_t)(rw(m, a1 + 128) >> 3));
-        mog_update_knight(m, a1);                       /* LAB_0011 */
     }
+}
+
+/* Combats seuls : LAB_01AE sans les trésors, LAB_01BE, LAB_0011 */
+void mog_new_game(MogCombat *m)
+{
+    new_game_01ae(m);
+    new_game_01be(m);
+    for (unsigned i = 0; i < 4; i++)
+        mog_update_knight(m, MOG_LAB_0613 + i * IX_OBJECT_SIZE);
+}
+
+/* LAB_01B7 : trésor du repaire LAB_08C6 (LAB_08C5 : seuils, genres) */
+static void lair_treasure(MogCombat *m)
+{
+    int16_t d0 = (int16_t)mog_d100(m);
+    uint32_t a0 = MOG_LAB_08C5;
+    for (int d7 = 3; d7 >= 0; d7--) {
+        int16_t t = (int16_t)rw(m, a0);
+        a0 += 2;
+        if (d0 <= t)
+            break;
+        a0 += 2;
+    }
+    switch (rw(m, a0)) {                                /* LAB_01BA */
+    case 1:                                             /* LAB_01BB */
+        mog_find_gold(m, 1);
+        break;
+    case 2:                                             /* LAB_01BC */
+        mog_find_item(m, 1);
+        mog_find_item(m, 1);
+        mog_find_item(m, 1);
+        break;
+    case 3:                                             /* LAB_01BD */
+        mog_find_gold(m, 1);
+        mog_find_item(m, 1);
+        mog_find_item(m, 1);
+        break;
+    }
+}
+
+/* LAB_01AE complet (nouvelle partie) : trésor du dragon, boutique
+ * LAB_0690, repaires (LAB_05B9+68 : 24 × 20 octets, inventaires en
+ * LAB_05B9+72) et leurs gardiens (LAB_07BD-LAB_07C0) */
+void mog_new_game_full(MogCombat *m)
+{
+    new_game_01ae(m);
+    for (int i = 0; i < 4; i++)                         /* D3 = 0 : le dragon */
+        mog_find_item(m, 0);
+    mog_find_gold(m, 0);
+    for (uint32_t i = 0; i < 24; i++)
+        wb(m, MOG_LAB_0690 + i, 0);
+    for (int i = 0; i < 6; i++)                         /* LAB_01B0 */
+        mog_find_item(m, 2);
+    wb(m, MOG_LAB_0690 + 8, (uint8_t)(rb(m, MOG_LAB_0690 + 8) + 2));
+    uint32_t inv = rl(m, MOG_LAB_05B9 + 72), lairs = rl(m, MOG_LAB_05B9 + 68);
+    for (uint32_t i = 0; i < 0x240; i++)
+        wb(m, inv + i, 0);
+    for (uint32_t i = 0; i < 0x1E0; i++)
+        wb(m, lairs + i, 0);
+    wl(m, MOG_LAB_08C6, lairs);
+    for (uint32_t i = 0; i < 24; i++) {                 /* LAB_01B3 */
+        wl(m, lairs + 20 * i, inv + 24 * i);
+        ww(m, lairs + 20 * i + 8, 0);
+    }
+    uint32_t d0;                                        /* LAB_01B4 : les quatre clés */
+    do
+        d0 = mog_random(m) & 7;
+    while ((int8_t)d0 > 5);
+    d0 *= 20;
+    static const uint8_t key[4] = { 8, 4, 2, 1 };
+    for (uint32_t g = 0; g < 4; g++)
+        wb(m, rl(m, lairs + 120 * g + d0) + 20, key[g]);
+    for (int i = 0; i < 24; i++) {                      /* LAB_01B5 */
+        lair_treasure(m);
+        wl(m, MOG_LAB_08C6, rl(m, MOG_LAB_08C6) + 20);
+    }
+    wl(m, MOG_LAB_08C6, lairs);                         /* LAB_01B6 */
+    for (uint32_t i = 0; i < 24; i++) {
+        uint32_t a0 = lairs + 20 * i;
+        wl(m, a0 + 4, rl(m, MOG_LAB_07BD + 4 * i));
+        ww(m, a0 + 10, rw(m, MOG_LAB_07BE + 4 * i));
+        ww(m, a0 + 12, rw(m, MOG_LAB_07BE + 4 * i + 2));
+        ww(m, a0 + 14, rw(m, MOG_LAB_07BF + 2 * i));
+        wl(m, a0 + 16, rl(m, MOG_LAB_07C0 + 4 * i));
+    }
+}
+
+void mog_new_game_players(MogCombat *m)
+{
+    new_game_01be(m);                                   /* LAB_01BE */
 }

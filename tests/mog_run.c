@@ -4,7 +4,9 @@
  *
  *   mog_run <mémoire> <programme> <fichier_image> <données>
  *
- * <programme> : « map » (carte du monde, LAB_0DAB). À chaque début d'image
+ * <programme> : « map » (carte du monde, LAB_0DAB) ; « newgame » :
+ * démarrage et nouvelle partie en C (mog_game_boot), mémoire écrite dans
+ * <fichier_image> (<mémoire> ignorée). À chaque début d'image
  * (Combat_FrameStart), la mémoire est écrite dans <fichier_image>, puis
  * « F » sur stdout ; une ligne est lue sur stdin : « J joy0 joy1 » (image
  * suivante ; « J joy0 joy1 touche » : touche
@@ -12,6 +14,7 @@
  */
 #include "mog_combat.h"
 #include "mog_map.h"
+#include "mog_game.h"
 #include "moon_assets.h"
 #include "ix_mog_syms.h"
 
@@ -56,6 +59,17 @@ int main(int argc, char **argv)
     }
     if (moon_init(argv[4]) != 0)
         return 1;
+    if (!strcmp(argv[2], "newgame")) {
+        static MogGame g;
+        if (mog_game_boot(&g) < 0)
+            return 1;
+        FILE *o = fopen(argv[3], "wb");
+        if (!o) { perror(argv[3]); return 1; }
+        fwrite(g.vm.mem, 1, g.vm.size, o);
+        fclose(o);
+        printf("taille %u\n", g.vm.size);
+        return 0;
+    }
     FILE *f = fopen(argv[1], "rb");
     if (!f) { perror(argv[1]); return 1; }
     fseek(f, 0, SEEK_END);

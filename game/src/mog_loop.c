@@ -311,6 +311,14 @@ void mog_combat_run(MogCombat *m)
     m->planes = planes;
 }
 
+void mog_idle(MogCombat *m)
+{
+    if (m->frame_start)
+        m->frame_start(m->out.user);
+    if (m->idle)
+        m->idle(m->out.user);
+}
+
 void mog_frame_start(MogCombat *m)
 {
     if (m->frame_start)

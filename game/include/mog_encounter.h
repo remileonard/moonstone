@@ -10,6 +10,10 @@
  * tables des contrôleurs (t_Controllers) et des rencontres
  * (t_CreatureInit). */
 void mog_new_game(MogCombat *m);
+/* LAB_01AE complet (trésors, boutique, repaires) ; puis, une fois les
+ * chevaliers des joueurs choisis (54, 11), LAB_01BE. */
+void mog_new_game_full(MogCombat *m);
+void mog_new_game_players(MogCombat *m);
 
 /* LAB_0013 + LAB_0019 : PV maximum et défense du chevalier `obj` d'après
  * sa force, son armure et son inventaire. */
