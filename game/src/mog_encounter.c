@@ -1049,9 +1049,9 @@ static void knight_defaults(MogCombat *m, uint32_t a1)
         wb(m, a0 + i, 0);
 }
 
-void mog_update_knight(MogCombat *m, uint32_t a0)
+/* LAB_0013 : PV maximum (constitution, potion 6, armure) */
+void mog_knight_hp(MogCombat *m, uint32_t a0)
 {
-    /* LAB_0013 : PV maximum */
     uint16_t d1 = (uint16_t)(rb(m, a0 + 71) * 10);
     uint32_t a1 = rl(m, a0 + 96);
     if (rb(m, a1 + 4))
@@ -1065,11 +1065,22 @@ void mog_update_knight(MogCombat *m, uint32_t a0)
     ww(m, a0 + 84, d1);
     if (!(sw(d1) > sw(rw(m, a0 + 80))))
         ww(m, a0 + 80, d1);
-    /* LAB_0019 : défense */
+}
+
+/* LAB_0019 : défense (endurance, armure) */
+void mog_knight_defence(MogCombat *m, uint32_t a0)
+{
+    uint32_t armour = rl(m, a0 + 92);
     uint8_t b = (uint8_t)(rb(m, a0 + 72) << 1);
     if (armour == 0x1C) b = (uint8_t)(b + 2);
     if (armour == 0x1E) b = (uint8_t)(b + 2);
     wb(m, a0 + 86, (uint8_t)(b + 4));
+}
+
+void mog_update_knight(MogCombat *m, uint32_t a0)
+{
+    mog_knight_hp(m, a0);
+    mog_knight_defence(m, a0);
 }
 
 void mog_new_game(MogCombat *m)

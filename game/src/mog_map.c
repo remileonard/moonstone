@@ -1043,6 +1043,172 @@ static uint16_t steer(MogCombat *m)
 /* Manches                                                             */
 /* ------------------------------------------------------------------ */
 
+/* LAB_04A3 : tirage de 0 à 99 */
+static uint32_t d100(MogCombat *m)
+{
+    uint32_t d0 = mog_random(m) & 0x7F;
+    if (d0 >= 0x64)
+        d0 -= 0x1B;
+    return d0;
+}
+
+/* LAB_0442 : nombre (< 1000) écrit en a2 (« 3 espaces » d'abord) ;
+ * renvoie la fin */
+uint32_t mog_number(MogCombat *m, uint32_t d0, uint32_t a2)
+{
+    for (int i = 0; i < 3; i++)
+        wb(m, a2 + (uint32_t)i, 0x20);
+    wb(m, a2 + 3, 0);
+    uint32_t d1 = d0, d2 = d0;
+    int16_t q = (int16_t)((int32_t)d0 / 100);
+    if (q) {
+        wb(m, a2++, rb(m, MOG_LAB_08E8 + (uint32_t)(int32_t)q));
+        d2 = (d2 & 0xFFFF0000u) | (uint16_t)(d2 - (uint16_t)(q & 0xFF) * 100u);
+    }
+    q = (int16_t)((int32_t)d2 / 10);                    /* LAB_0443 */
+    if (q) {
+        wb(m, a2++, rb(m, MOG_LAB_08E8 + (uint32_t)(int32_t)q));
+        d2 = (d2 & 0xFFFF0000u) | (uint16_t)(d2 - (uint16_t)(q & 0xFF) * 10u);
+    } else if (!((int32_t)d1 < 0x64)) {                 /* LAB_0444 */
+        wb(m, a2++, rb(m, MOG_LAB_08E8));
+    }
+    wb(m, a2++, rb(m, MOG_LAB_08E8 + (uint32_t)(int32_t)(int16_t)d2));   /* LAB_0445 */
+    return a2;
+}
+
+/* LAB_046C : or trouvé (10 à 31) : pour le chevalier (d3 = 0, message
+ * LAB_0931 « n gold ») ou pour la créature LAB_08C6 */
+static void find_gold(MogCombat *m, int d3)
+{
+    uint32_t d0 = mog_random(m) & 0x1F;
+    if (d0 > 0x15)
+        d0 -= 0x0A;
+    d0 += 0x0A;
+    if (d3) {
+        uint32_t a0 = rl(m, MOG_LAB_08C6);
+        ww(m, a0 + 8, (uint16_t)(rw(m, a0 + 8) + d0));
+        return;
+    }
+    uint32_t a0 = CUR;
+    ww(m, a0 + 74, (uint16_t)(rw(m, a0 + 74) + d0));
+    mog_number(m, d0, MOG_LAB_0931);
+    uint32_t a2 = MOG_LAB_0931;
+    for (int i = 0; i < 5 && rb(m, a2); i++)
+        a2++;
+    static const char gold[] = " gold";
+    for (int i = 0; i < 6; i++)
+        wb(m, a2 + (uint32_t)i, (uint8_t)gold[i]);
+    ww(m, MOG_LAB_090B, 2);
+}
+
+/* LAB_0471 : objet trouvé (table LAB_090E), jamais deux fois de suite ;
+ * d3 : 0 le chevalier (nom dans LAB_092F), 1 la créature, 2 LAB_0690 */
+static void find_item(MogCombat *m, int d3)
+{
+    uint32_t d0, a0, a1;
+    for (;;) {
+        d0 = d100(m);
+        a0 = MOG_LAB_090E;
+        for (int d7 = 11; d7 >= 0; d7--) {
+            uint32_t t = rl(m, a0);
+            a0 += 4;
+            if ((int32_t)d0 <= (int32_t)t)
+                break;
+            a0 += 4;
+        }
+        d0 = rl(m, a0);                                 /* LAB_0473 */
+        if (d0 == rl(m, MOG_LAB_090D))
+            continue;
+        wl(m, MOG_LAB_090D, d0);
+        a1 = CUR;
+        a0 = rl(m, a1 + 96);
+        if (d3 == 1) {
+            a1 = rl(m, MOG_LAB_08C6);
+            a0 = rl(m, a1);
+        } else if (d3 == 2) {
+            a0 = MOG_LAB_0690;
+        }
+        if (d0 == 4) {                                  /* LAB_0475 : l'épée magique */
+            if (rb(m, a0 + 4))
+                continue;
+            if (!d3)
+                wl(m, a1 + 88, 0x19);
+        }
+        break;
+    }
+    wb(m, a0 + d0, (uint8_t)(rb(m, a0 + d0) + 1));
+    if (!d3) {
+        if (d0 == 6) {
+            uint32_t k = CUR;
+            ww(m, k + 80, (uint16_t)(rw(m, k + 80) + 0x14));
+            mog_knight_hp(m, k);
+        }
+        uint32_t a4 = MOG_LAB_090F;                     /* LAB_0477 : nom */
+        uint16_t id = (uint16_t)rl(m, MOG_LAB_090D);
+        while (rw(m, a4) != id)
+            a4 += 6;
+        a4 = rl(m, a4 + 2);
+        uint32_t a5 = MOG_LAB_092F;
+        uint8_t c;
+        do {
+            c = rb(m, a4++);
+            wb(m, a5++, c);
+        } while (c);
+    }
+    ww(m, MOG_LAB_090B, 1);
+}
+
+/* LAB_045E : événement de la manche d'un chevalier noir : objet, gain de
+ * caractéristique, or, ou envoûtement (82 = 3) */
+static void random_event(MogCombat *m)
+{
+    for (;;) {
+        wl(m, MOG_v_Combatants + 10, rl(m, MOG_LAB_05E3));
+        uint32_t a0 = CUR;
+        uint32_t d0 = d100(m);
+        d0 = (d0 & 0xFFFFFF00u) | (uint8_t)(d0 + rb(m, a0 + 83));     /* ADD.B */
+        if ((int32_t)d0 <= 0x1E) {                      /* LAB_0461 */
+            find_item(m, 0);
+            ww(m, MOG_LAB_0908, (uint16_t)((rw(m, MOG_LAB_0908) + 1) & 3));
+            wl(m, MOG_LAB_0909, rl(m, MOG_LAB_0907 + (uint32_t)(uint16_t)(rw(m, MOG_LAB_0908) << 2)));
+            return;
+        }
+        if ((int32_t)d0 <= 0x46) {                      /* LAB_0462 */
+            uint32_t entry = 0;
+            uint32_t d1 = pick_stat(m, &entry);
+            if (!(uint16_t)d1)
+                continue;
+            uint32_t k = CUR, a = k + (uint32_t)(int32_t)d1;
+            wb(m, a, (uint8_t)(rb(m, a) + 1));
+            wl(m, MOG_LAB_0909, rl(m, MOG_LAB_090A + entry + 4));
+            if ((uint16_t)d1 == 0x47) {
+                mog_knight_hp(m, CUR);
+                ww(m, CUR + 80, (uint16_t)(rw(m, CUR + 80) + 0x0A));
+            }
+            if ((uint16_t)d1 == 0x48)
+                mog_knight_defence(m, CUR);
+            ww(m, MOG_LAB_090C, (uint16_t)d1);
+            ww(m, MOG_LAB_090B, 3);
+            return;
+        }
+        if ((int32_t)d0 <= 0x5A) {                      /* LAB_045F */
+            find_gold(m, 0);
+            uint16_t n = (uint16_t)(rw(m, MOG_LAB_0906) + 1);
+            if (!(sw(n) < 3))
+                n = 0;
+            ww(m, MOG_LAB_0906, n);
+            wl(m, MOG_LAB_0909, rl(m, MOG_LAB_0905 + (uint32_t)(uint16_t)(n << 2)));
+            return;
+        }
+        if (rb(m, a0 + 83) == 0xFF)
+            continue;
+        wb(m, a0 + 82, 3);
+        ww(m, MOG_LAB_090B, 4);
+        wl(m, MOG_LAB_0909, MOG_LAB_092D);
+        return;
+    }
+}
+
 /* LAB_0030 : chaque chevalier noir vivant tente sa chance (LAB_045E) ;
  * sort (130) : une vie de moins */
 static void black_knights_events(MogCombat *m)
@@ -1056,7 +1222,7 @@ static void black_knights_events(MogCombat *m)
             if ((int8_t)rb(m, a0 + 73) > 0) {
                 if (sw(rw(m, a0 + 74)) < 0)
                     ww(m, a0 + 74, 0);
-                todo(m, "LAB_045E (événement du chevalier noir)");
+                random_event(m);                        /* LAB_045E */
             }
         }
         if (rb(m, a0 + 130))

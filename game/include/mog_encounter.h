@@ -14,6 +14,8 @@ void mog_new_game(MogCombat *m);
 /* LAB_0013 + LAB_0019 : PV maximum et défense du chevalier `obj` d'après
  * sa force, son armure et son inventaire. */
 void mog_update_knight(MogCombat *m, uint32_t obj);
+void mog_knight_hp(MogCombat *m, uint32_t obj);         /* LAB_0013 */
+void mog_knight_defence(MogCombat *m, uint32_t obj);    /* LAB_0019 */
 
 /* Routine de t_CreatureInit (LAB_0164, LAB_0168...) : décor, créatures,
  * adversaires, palette ; le combat démarre ensuite par mog_combat_begin.
