@@ -74,6 +74,10 @@ D0 X, D1 hauteur, D2 profondeur, D3 direction.
   pas `t_WalkStepX/Up/Down` ; sans mouvement : script de repos `22(objet)` ;
 - feu : `Ctl_HumanAttack` → index = `t_AttackStickR/L[bits]` (selon la
   direction), script `34(objet)[index]`, index gardé dans `64(objet)` ;
+- tables de l'objet (catalogue complet : `docs/scripts/mog_scripts.md`) :
+  `30` scripts, `34` attaques, `42` **dégâts par attaque** (nombres retirés
+  aux PV de la cible, ex. `MOVE.L 4(A2),D0 / SUB.W D0,80(A1)`), `46` marche,
+  `50` nombres comparés à l'attaque adverse ; `22` repos, `26` réaction ;
 - `18(objet)` non nul (touché par quelqu'un) : réaction au coup reçu
   (`LAB_01EC`) ;
 - `14(objet)` non nul (a touché quelqu'un) : réaction selon le contrôleur de

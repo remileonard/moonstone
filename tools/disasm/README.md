@@ -110,10 +110,8 @@ déchiffré instruction par instruction par le handler TRACE — impossible à
 désassembler statiquement ; balisé `[TRACE]` dans le source).
 \*\* `LEA SECSTRT_0+250000,A0` : calcul d'adresse d'un tampon, légitime.
 
-Les 162 scripts IMAGEXCEL extraits par `tools/extract_scripts.py` sont
-identiques octet pour octet avec le nouveau source, et 4 scripts
-supplémentaires apparaissent (ex. `mog` `LAB_0028`, auparavant décodé comme
-`ORI.B #$14,(A6)`).
+Les scripts IMAGEXCEL sont désormais identifiés par `tools/ix_scripts.py`
+(voir `docs/scripts/README.md`), qui remplace l'ancien `extract_scripts.py`.
 
 ## Limites
 
