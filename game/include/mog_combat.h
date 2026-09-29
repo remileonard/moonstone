@@ -21,6 +21,8 @@ typedef struct {
     IxHost         eng_host;  /* hôte donné au moteur : $B0 -> mog_native    */
     IxHost         out;       /* hôte du jeu : dessin, sons, messages        */
     uint16_t       joy[2];    /* ports 0 et 1 (LAB_062F / LAB_0630)          */
+    uint16_t       vhposr;    /* position du faisceau lue par l'IA comme
+                                 source de hasard (registre VHPOSR)         */
     unsigned long  errors;    /* routine d'origine non portée, etc.          */
 } MogCombat;
 

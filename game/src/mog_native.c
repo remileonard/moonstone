@@ -34,27 +34,23 @@ void mog_toggle_freeze(MogCombat *m, uint32_t obj)
         ix_ww(VM, en + 48, (uint16_t)(ix_rw(VM, en + 48) ^ 1));
 }
 
+/* LAB_031B : l'entité de l'objet disparaît (objet libéré). */
+void mog_kill_entity_of(MogCombat *m, uint32_t obj)
+{
+    uint32_t en = ix_find_entity(&m->eng, obj);
+    if (!en)
+        return;
+    ix_ww(VM, en, 0);
+    ix_wl(VM, ix_rl(VM, en + 24), 0);
+}
+
 /* LAB_0006 : fin du combat dans 35 images */
-static void end_combat(MogCombat *m)
+void mog_end_combat(MogCombat *m)
 {
     if (ix_rb(VM, MOG_v_Combatants + 8)) {
         ix_wb(VM, MOG_v_Combatants + 16, 0x23);
         ix_wb(VM, MOG_v_Combatants + 8, 0);
     }
-}
-
-/* Routine « adversaire suivant » (LAB_05F0), appelée par LAB_0005. */
-static int next_opponent(MogCombat *m, uint32_t fn)
-{
-    switch (fn) {
-    case MOG_LAB_0166:                                  /* RTS (duel) */
-        return 1;
-    }
-    char t[64];
-    snprintf(t, sizeof t, "LAB_05F0 non portée : %08X", fn);
-    mog_message(m, t);
-    m->errors++;
-    return 0;
 }
 
 /* LAB_0005 : un adversaire de moins ; le suivant entre, ou le combat
@@ -63,14 +59,14 @@ static void opponent_down(MogCombat *m)
 {
     uint32_t a0 = ix_rl(VM, MOG_LAB_05F2);
     if (sw(ix_rw(VM, a0 + 80)) <= 0) {
-        end_combat(m);
+        mog_end_combat(m);
         return;
     }
     ix_ww(VM, MOG_LAB_05EE, (uint16_t)(ix_rw(VM, MOG_LAB_05EE) - 1));
     int16_t left = sw(ix_rw(VM, MOG_LAB_05EC));
     ix_ww(VM, MOG_LAB_05EC, (uint16_t)(left - 1));
     if (!(left > 1) && ix_rw(VM, MOG_LAB_05EE) == 0) {   /* BGT sur SUBI */
-        end_combat(m);
+        mog_end_combat(m);
         return;
     }
     for (;;) {                                          /* LAB_0008 */
@@ -79,7 +75,7 @@ static void opponent_down(MogCombat *m)
         uint32_t fn = ix_rl(VM, MOG_LAB_05F0);
         if (sw(ix_rw(VM, MOG_LAB_05EC)) <= 0)
             return;
-        if (!next_opponent(m, fn))
+        if (!mog_next_opponent(m, fn))
             return;
     }
 }
@@ -152,7 +148,7 @@ int mog_native(MogCombat *m, uint32_t routine, uint32_t en)
     uint32_t obj = ix_rl(VM, en + 24);
     switch (routine) {
     case MOG_LAB_0005: opponent_down(m); return 1;
-    case MOG_LAB_0006: end_combat(m); return 1;
+    case MOG_LAB_0006: mog_end_combat(m); return 1;
     case MOG_LAB_000A: freeze_others(m); return 1;
     case MOG_LAB_000D:                                  /* le joueur meurt */
         ix_ww(VM, ix_rl(VM, MOG_v_Combatants) + 80, 0xFFFF);

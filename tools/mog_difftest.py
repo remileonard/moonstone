@@ -12,6 +12,7 @@ chaque routine testée :
 puis mémoire (hors pile de l'émulateur) et sons sont comparés.
 
   python3 tools/mog_difftest.py <dossier_données> [--frames N] [--seed S]
+                                [--encounter LAB_0168]
 """
 import argparse
 import os
@@ -46,10 +47,21 @@ class Players:
         S, rng = ref.S, self.rng
         objs = [ref.rl(S['v_Combatants']), ref.rl(S['v_Combatants'] + 4)]
         s16 = lambda v: v - 0x10000 if v & 0x8000 else v
+        others = []                      # objets des autres entités actives
+        for i in range(10):
+            en = S['t_Entities'] + 50 * i
+            if ref.rb(en):
+                others.append(ref.rl(en + 24))
         for p in range(2):
-            me, other = objs[p], objs[1 - p]
-            if not me or not other:
+            me = objs[p]
+            if not me or ref.rb(me + 77) != 12:
                 continue
+            other = objs[1 - p] if objs[1 - p] and ref.rb(objs[1 - p] + 77) == 12 else None
+            if other is None:
+                cand = [o for o in others if o != me and s16(ref.rw(o + 80)) > 0]
+                if not cand:
+                    continue
+                other = min(cand, key=lambda o: abs(s16(ref.rw(o + 4)) - s16(ref.rw(me + 4))))
             port = 0 if ref.rb(me + 11) == 1 else 1
             if self.hold[port] > 0:
                 self.hold[port] -= 1
@@ -91,12 +103,15 @@ def main():
     ap.add_argument('data')
     ap.add_argument('--frames', type=int, default=300)
     ap.add_argument('--seed', type=int, default=1)
+    ap.add_argument('--encounter', help="routine d'init de rencontre (ex. LAB_0168) ; "
+                    'sinon duel à deux joueurs')
     a = ap.parse_args()
 
     rng = random.Random(a.seed)
     ref = MogRef(a.data)
     ref.boot()
-    ref.start_duel()
+    start = (lambda: ref.start_encounter(a.encounter)) if a.encounter else ref.start_duel
+    start()
     solo = MogRef(a.data)
     S = ref.S
     ignore_from = ref.stack_top - STACK_SIZE
@@ -144,9 +159,9 @@ def main():
         ref.run_frames(1)
         if ref.left_combat:
             duels += 1
-            ref.start_duel()
+            start()
     print('contacts : %s' % (', '.join('%s ×%d' % kv for kv in sorted(cover.items())) or 'aucun'))
-    print('duels terminés : %d' % duels)
+    print('combats terminés : %d' % duels)
     print('%d images, %d échecs' % (a.frames, fails))
     sys.exit(1 if fails else 0)
 

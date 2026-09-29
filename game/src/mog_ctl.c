@@ -17,11 +17,6 @@
 
 #define VM (m->eng.vm)
 
-typedef struct {
-    uint32_t script;     /* A0 */
-    uint16_t x, h, d;    /* D0-D2 */
-    uint8_t  dir;        /* D3 */
-} CtlResult;
 
 static int16_t sw(uint16_t v) { return (int16_t)v; }
 
@@ -58,7 +53,7 @@ static void hurt(MogCombat *m, uint32_t obj, uint16_t n)
 static int16_t hp(MogCombat *m, uint32_t obj) { return sw(ix_rw(VM, obj + 80)); }
 
 /* Ctl_Return [LAB_02BA] */
-static CtlResult ctl_return(MogCombat *m)
+CtlResult mog_ctl_return(MogCombat *m)
 {
     uint32_t a1 = ix_rl(VM, MOG_LAB_0633);
     CtlResult r;
@@ -70,15 +65,15 @@ static CtlResult ctl_return(MogCombat *m)
     return r;
 }
 
-static CtlResult set_script(MogCombat *m, uint32_t script)
+CtlResult mog_set_script(MogCombat *m, uint32_t script)
 {
     ix_wl(VM, MOG_v_CtlScript, script);
-    return ctl_return(m);
+    return mog_ctl_return(m);
 }
 
 /* Col_SpanOverlap [LAB_03CA] : 1 si [d0,d1] et [d2,d3] se chevauchent
  * (comparaisons 32 bits : BMI = bit de signe de la différence). */
-static int span_overlap(uint32_t d0, uint32_t d1, uint32_t d2, uint32_t d3)
+int mog_span(uint32_t d0, uint32_t d1, uint32_t d2, uint32_t d3)
 {
     if ((d2 - d0) & 0x80000000u)                    /* LAB_03CC */
         return (int32_t)d3 >= (int32_t)d0;
@@ -90,7 +85,7 @@ static int span_overlap(uint32_t d0, uint32_t d1, uint32_t d2, uint32_t d3)
 }
 
 /* LAB_030D : relance l'entité de l'objet `obj` sur `script`. */
-static void restart_entity(MogCombat *m, uint32_t obj, uint32_t script)
+void mog_restart_entity(MogCombat *m, uint32_t obj, uint32_t script)
 {
     uint32_t en = ix_find_entity(&m->eng, obj);
     if (!en)
@@ -133,17 +128,17 @@ static void block_by(MogCombat *m, uint32_t a0, uint32_t a1)
             go = 0;
         }
         if (go) {                                       /* LAB_03AE */
-            d5 = span_overlap((uint16_t)(ix_rw(VM, a0 + 58) + dx),
+            d5 = mog_span((uint16_t)(ix_rw(VM, a0 + 58) + dx),
                               (uint16_t)(ix_rw(VM, a0 + 60) + dx),
                               ix_rw(VM, a1 + 58), ix_rw(VM, a1 + 60));
-            d5 += span_overlap(ix_rw(VM, a0 + 112), ix_rw(VM, a0 + 114),
+            d5 += mog_span(ix_rw(VM, a0 + 112), ix_rw(VM, a0 + 114),
                                ix_rw(VM, a1 + 112), ix_rw(VM, a1 + 114));
             if (d5 == 2)
                 bclr(m, bits, d6);
         }
     }
     /* LAB_03AF */
-    d5 = span_overlap(ix_rw(VM, a0 + 58), ix_rw(VM, a0 + 60),
+    d5 = mog_span(ix_rw(VM, a0 + 58), ix_rw(VM, a0 + 60),
                       ix_rw(VM, a1 + 58), ix_rw(VM, a1 + 60));
     int16_t d2 = (int16_t)(ix_rw(VM, a0 + 8) - ix_rw(VM, a1 + 8));
     if (d2 < 0) {
@@ -153,7 +148,7 @@ static void block_by(MogCombat *m, uint32_t a0, uint32_t a1)
         d6 = 3;
     }
     if (!(d2 > 20)) {
-        d5 += span_overlap(ix_rw(VM, a0 + 112), ix_rw(VM, a0 + 114),
+        d5 += mog_span(ix_rw(VM, a0 + 112), ix_rw(VM, a0 + 114),
                            ix_rw(VM, a1 + 112), ix_rw(VM, a1 + 114));
         if (d5 == 2)
             bclr(m, bits, d6);
@@ -162,7 +157,7 @@ static void block_by(MogCombat *m, uint32_t a0, uint32_t a1)
 
 /* LAB_03A9 : directions bloquées par les autres combattants ; renvoie le
  * masque des directions permises (bits 0-3 de L00_08671). */
-static uint16_t blocked_dirs(MogCombat *m, uint32_t a0, uint16_t dx, uint16_t dir)
+uint16_t mog_blocked_dirs(MogCombat *m, uint32_t a0, uint16_t dx, uint16_t dir)
 {
     ix_wl(VM, MOG_LAB_0637, a0);
     ix_ww(VM, MOG_LAB_0635, dx);
@@ -213,12 +208,12 @@ static void terrain_obstacles(MogCombat *m, uint32_t a0, uint16_t dx, uint16_t d
     uint32_t n = (uint32_t)(uint16_t)(ix_rw(VM, a1) - 1) + 1;   /* DBF */
     a1 += 2;
     for (uint32_t i = 0; i < n; i++, a1 += 8) {
-        if (!span_overlap(ix_rw(VM, a1), ix_rw(VM, a1 + 2),
+        if (!mog_span(ix_rw(VM, a1), ix_rw(VM, a1 + 2),
                           ix_rw(VM, MOG_LAB_0A77), ix_rw(VM, MOG_LAB_0A78)))
             continue;
         uint16_t y = ix_rw(VM, a1 + 4);
         uint16_t by = ix_rw(VM, a0 + 114);
-        if (span_overlap(0x1E, y, by, (uint16_t)(by + 1))) {
+        if (mog_span(0x1E, y, by, (uint16_t)(by + 1))) {
             int16_t lx0 = sw(ix_rw(VM, MOG_LAB_0A77));
             int16_t lx1 = sw(ix_rw(VM, MOG_LAB_0A78));
             if (ix_rb(VM, a0 + 10) & 2) {
@@ -238,23 +233,23 @@ static void terrain_obstacles(MogCombat *m, uint32_t a0, uint16_t dx, uint16_t d
 /* ------------------------------------------------------------------ */
 
 /* LAB_020E : script de réaction 30(objet)[attaque adverse] */
-static CtlResult react_script(MogCombat *m, uint32_t a0, uint32_t a1)
+CtlResult mog_react_script(MogCombat *m, uint32_t a0, uint32_t a1)
 {
     int16_t k = sw(ix_rw(VM, a0 + 64));
-    return set_script(m, ix_rl(VM, ix_rl(VM, a1 + 30) + (uint32_t)(int32_t)k));
+    return mog_set_script(m, ix_rl(VM, ix_rl(VM, a1 + 30) + (uint32_t)(int32_t)k));
 }
 
 /* Réponse par l'attaque en cours 34(objet)[64(objet)] (parade réussie). */
-static CtlResult own_attack(MogCombat *m)
+CtlResult mog_own_attack(MogCombat *m)
 {
     uint32_t a1 = ix_rl(VM, MOG_LAB_0633);
     int16_t k = sw(ix_rw(VM, a1 + 64));
-    return set_script(m, ix_rl(VM, ix_rl(VM, a1 + 34) + (uint32_t)(int32_t)k));
+    return mog_set_script(m, ix_rl(VM, ix_rl(VM, a1 + 34) + (uint32_t)(int32_t)k));
 }
 
 /* LAB_01E6 : parade ? (LAB_01EB = 1) — 50(objet)[attaque adverse] doit
  * valoir l'attaque en cours. */
-static void check_parry(MogCombat *m, uint32_t a1)
+void mog_check_parry(MogCombat *m, uint32_t a1)
 {
     ix_ww(VM, MOG_LAB_01EB, 0);
     uint32_t a0 = ix_rl(VM, a1 + 18);
@@ -286,7 +281,7 @@ static uint16_t scale_down(MogCombat *m, uint32_t a1, uint16_t d0)
 }
 
 /* LAB_021B : dégâts infligés par a0 (« KNIGHT DAMAGE ») */
-static uint16_t knight_damage(MogCombat *m, uint32_t a0)
+uint16_t mog_knight_damage(MogCombat *m, uint32_t a0)
 {
     uint16_t k = ix_rw(VM, a0 + 64);
     uint16_t d0 = (uint16_t)ix_rl(VM, ix_rl(VM, a0 + 42) + (uint32_t)(int32_t)sw(k));
@@ -316,19 +311,19 @@ static uint16_t knight_damage(MogCombat *m, uint32_t a0)
 static CtlResult r_020B(MogCombat *m, uint32_t a0, uint32_t a1)
 {
     if (hp(m, a1) > 0) {                                /* LAB_020D */
-        hurt(m, a1, knight_damage(m, a0));
-        return react_script(m, a0, a1);
+        hurt(m, a1, mog_knight_damage(m, a0));
+        return mog_react_script(m, a0, a1);
     }
     ix_wl(VM, MOG_v_CtlScript, MOG_LAB_07F8);
     if (ix_rw(VM, a0 + 64) == 8)
         ix_wl(VM, MOG_v_CtlScript, MOG_LAB_07F9);
-    return ctl_return(m);
+    return mog_ctl_return(m);
 }
 
 static CtlResult r_0201(MogCombat *m, uint32_t a0, uint32_t a1, uint16_t d0)
 {
     hurt(m, a1, scale_down(m, a1, d0));                 /* LAB_0202 */
-    return react_script(m, a0, a1);
+    return mog_react_script(m, a0, a1);
 }
 
 /* Réaction au coup reçu, selon le contrôleur de l'attaquant (LAB_0621). */
@@ -342,11 +337,11 @@ static CtlResult react_hit_by(MogCombat *m, uint32_t fn, uint32_t a0, uint32_t a
         if (!ix_rl(VM, a1 + 14) && hp(m, a1) <= 0 && !ix_rl(VM, MOG_LAB_06DA)) {
             uint32_t att = ix_rl(VM, a1 + 18);
             uint32_t s = ix_rb(VM, a1 + 10) != ix_rb(VM, att + 10) ? MOG_LAB_084E : MOG_LAB_0849;
-            restart_entity(m, att, s);
-            return set_script(m, 0);
+            mog_restart_entity(m, att, s);
+            return mog_set_script(m, 0);
         } else {                                        /* LAB_0209 */
             uint32_t att = ix_rl(VM, a1 + 18);
-            return set_script(m, ix_rb(VM, a1 + 10) == ix_rb(VM, att + 10)
+            return mog_set_script(m, ix_rb(VM, a1 + 10) == ix_rb(VM, att + 10)
                                  ? MOG_LAB_084A : MOG_LAB_084B);
         }
     case MOG_LAB_020B:
@@ -359,16 +354,16 @@ static CtlResult react_hit_by(MogCombat *m, uint32_t fn, uint32_t a0, uint32_t a
         } else {
             hurt(m, a1, 10);
         }
-        return react_script(m, a0, a1);
+        return mog_react_script(m, a0, a1);
     }
     case MOG_LAB_01FD:
         hurt(m, a1, 7);
         if (ix_rw(VM, a0 + 64) == 0x20) {
             a1 = ix_rl(VM, MOG_LAB_0633);
             if (hp(m, a1) <= 0)
-                return set_script(m, MOG_LAB_07FD);
+                return mog_set_script(m, MOG_LAB_07FD);
         }
-        return react_script(m, a0, a1);
+        return mog_react_script(m, a0, a1);
     case MOG_LAB_0200:
         ix_ww(VM, a1 + 8, (uint16_t)(ix_rw(VM, a0 + 8) - 1));
         if (ix_rw(VM, a0 + 64) == 4)
@@ -384,19 +379,19 @@ static CtlResult react_hit_by(MogCombat *m, uint32_t fn, uint32_t a0, uint32_t a
         ix_wl(VM, MOG_LAB_08CE, MOG_LAB_08CC);
         ix_wl(VM, MOG_v_CtlScript, MOG_LAB_07FB);
         ix_wb(VM, a1 + 10, 3);
-        return ctl_return(m);
+        return mog_ctl_return(m);
     case MOG_LAB_0205:
         if (hp(m, a1) <= 0)
-            return set_script(m, MOG_LAB_07F9);         /* LAB_01F5 */
-        check_parry(m, a1);
+            return mog_set_script(m, MOG_LAB_07F9);         /* LAB_01F5 */
+        mog_check_parry(m, a1);
         if (!ix_rw(VM, MOG_LAB_01EB))
             return r_020B(m, a0, a1);
-        return own_attack(m);
+        return mog_own_attack(m);
     case MOG_LAB_01ED:
         if (ix_rw(VM, a0 + 64) == 8)
             ix_wb(VM, a1 + 10, (uint8_t)(ix_rb(VM, a0 + 10) ^ 2));
         hurt(m, a1, 5);
-        return react_script(m, a0, a1);
+        return mog_react_script(m, a0, a1);
     case MOG_LAB_01EF: {
         uint16_t k = ix_rw(VM, a0 + 64);
         if (k == 4 || k == 8) {
@@ -405,35 +400,35 @@ static CtlResult react_hit_by(MogCombat *m, uint32_t fn, uint32_t a0, uint32_t a
             if (k == 4) {
                 ix_wl(VM, MOG_v_CtlScript, MOG_LAB_085F);
                 ix_wb(VM, a1 + 130, 1);
-                return ctl_return(m);
+                return mog_ctl_return(m);
             }
-            return set_script(m, MOG_LAB_085E);
+            return mog_set_script(m, MOG_LAB_085E);
         }
         return r_020B(m, a0, a1);
     }
     case MOG_LAB_01F2:
         if (hp(m, a1) <= 0)                             /* LAB_01F4 */
-            return set_script(m, ix_rb(VM, a0 + 77) == 0x18 ? MOG_LAB_07F9 : MOG_LAB_07F8);
-        check_parry(m, a1);
+            return mog_set_script(m, ix_rb(VM, a0 + 77) == 0x18 ? MOG_LAB_07F9 : MOG_LAB_07F8);
+        mog_check_parry(m, a1);
         if (ix_rw(VM, MOG_LAB_01EB))
-            return own_attack(m);
+            return mog_own_attack(m);
         a0 = ix_rl(VM, a1 + 18);                        /* LAB_01F3 */
         hurt(m, a1, (uint16_t)ix_rl(VM, ix_rl(VM, a0 + 42)
                                      + (uint32_t)(int32_t)sw(ix_rw(VM, a0 + 64))));
-        return react_script(m, a0, a1);
+        return mog_react_script(m, a0, a1);
     case MOG_LAB_01F6:
-        check_parry(m, a1);
+        mog_check_parry(m, a1);
         if (ix_rw(VM, MOG_LAB_01EB))
-            return set_script(m, MOG_LAB_07F3);
+            return mog_set_script(m, MOG_LAB_07F3);
         hurt(m, a1, 3);
         if (!ix_rl(VM, a1 + 14) && hp(m, a1) <= 0 && !ix_rl(VM, MOG_LAB_06DA)) {
-            restart_entity(m, ix_rl(VM, a1 + 18), MOG_LAB_081C);
-            return set_script(m, 0);
+            mog_restart_entity(m, ix_rl(VM, a1 + 18), MOG_LAB_081C);
+            return mog_set_script(m, 0);
         }
-        return react_script(m, a0, a1);
+        return mog_react_script(m, a0, a1);
     }
     *ok = 0;
-    return ctl_return(m);
+    return mog_ctl_return(m);
 }
 
 /* Réaction après avoir touché, selon le contrôleur de la cible (LAB_0622). */
@@ -446,21 +441,21 @@ static CtlResult react_hit(MogCombat *m, uint32_t fn, uint32_t a0, uint32_t a1, 
         if (c == 0x0C || c == 0x10) {                   /* LAB_01E4 */
             if (hp(m, a0) > 0) {
                 if (ix_rw(VM, a0 + 64) == 0x1C)         /* LAB_01E5 */
-                    return set_script(m, 0xFFFFFFFFu);
+                    return mog_set_script(m, 0xFFFFFFFFu);
             } else if (ix_rw(VM, a1 + 64) == 8 && !ix_rl(VM, MOG_LAB_06DA)) {
-                return set_script(m, 0xFFFFFFFFu);
+                return mog_set_script(m, 0xFFFFFFFFu);
             }
         }
         if (ix_rw(VM, a0 + 64) == 0x18)                 /* LAB_01E2 */
-            return set_script(m, 0xFFFFFFFFu);
-        return set_script(m, ix_rl(VM, a1 + 26));       /* LAB_01E3 */
+            return mog_set_script(m, 0xFFFFFFFFu);
+        return mog_set_script(m, ix_rl(VM, a1 + 26));       /* LAB_01E3 */
     }
     case MOG_LAB_0201:
         ix_ww(VM, a0 + 64, 0x20);
         return r_0201(m, a0, a1, 0x1E);
     }
     *ok = 0;
-    return ctl_return(m);
+    return mog_ctl_return(m);
 }
 
 /* ------------------------------------------------------------------ */
@@ -482,7 +477,7 @@ static CtlResult human_attack(MogCombat *m, uint32_t a1)
     uint32_t tab = ix_rb(VM, a1 + 10) == 3 ? MOG_t_AttackStickL : MOG_t_AttackStickR;
     d0 = ix_rw(VM, tab + (uint32_t)(int32_t)sw(d0));
     ix_ww(VM, a1 + 64, d0);
-    return set_script(m, ix_rl(VM, ix_rl(VM, a1 + 34) + (uint32_t)(int32_t)sw(d0)));
+    return mog_set_script(m, ix_rl(VM, ix_rl(VM, a1 + 34) + (uint32_t)(int32_t)sw(d0)));
 }
 
 static CtlResult human_knight(MogCombat *m, uint32_t a0)
@@ -523,7 +518,7 @@ static CtlResult human_knight(MogCombat *m, uint32_t a0)
     uint16_t d0 = read_joystick(m, a0);
     ix_ww(VM, a1 + 62, d0);
     if (!d0)
-        return ctl_return(m);
+        return mog_ctl_return(m);
     if (a0 == ix_rl(VM, MOG_LAB_05D1) && ix_rw(VM, MOG_LAB_05D3)) {   /* commandes inversées */
         if (d0 & 0x0C)
             d0 ^= 0x0C;
@@ -554,7 +549,7 @@ static CtlResult human_knight(MogCombat *m, uint32_t a0)
 
     /* LAB_01D2 */
     a0 = ix_rl(VM, MOG_LAB_0633);
-    uint16_t allowed = blocked_dirs(m, a0, ix_rw(VM, MOG_LAB_061E), ix_rb(VM, a0 + 10));
+    uint16_t allowed = mog_blocked_dirs(m, a0, ix_rw(VM, MOG_LAB_061E), ix_rb(VM, a0 + 10));
     ix_ww(VM, a0 + 62, (uint16_t)(ix_rw(VM, a0 + 62) & allowed));
     mog_arena_bounds(m, a0);
     terrain_obstacles(m, a0, ix_rw(VM, MOG_LAB_061E), ix_rw(VM, MOG_LAB_061F));
@@ -570,12 +565,12 @@ static CtlResult human_knight(MogCombat *m, uint32_t a0)
     if (!moved) {
         ix_wl(VM, MOG_v_CtlScript, ix_rl(VM, a0 + 22));
         ix_wb(VM, a0 + 12, ix_rb(VM, MOG_LAB_01D8));
-        return ctl_return(m);
+        return mog_ctl_return(m);
     }
     a1 = ix_rl(VM, MOG_LAB_0633);                       /* LAB_01D7 */
     bclr(m, a1 + 104, 7);
     uint16_t k = (uint16_t)(group + (ix_rb(VM, a1 + 12) << 2));
-    return set_script(m, ix_rl(VM, ix_rl(VM, a1 + 46) + (uint32_t)(int32_t)sw(k)));
+    return mog_set_script(m, ix_rl(VM, ix_rl(VM, a1 + 46) + (uint32_t)(int32_t)sw(k)));
 }
 
 /* ------------------------------------------------------------------ */
@@ -642,7 +637,7 @@ static CtlResult projectile(MogCombat *m, uint32_t a0)
         gone = x >= 0x14A;
     else
         gone = x <= 0 && (int16_t)-x <= 10;             /* LAB_02CC */
-    return gone ? set_script(m, 0) : ctl_return(m);     /* LAB_02D1 */
+    return gone ? mog_set_script(m, 0) : mog_ctl_return(m);     /* LAB_02D1 */
 }
 
 /* LAB_02D2 (contrôleur 40) : objet inerte, contacts effacés. */
@@ -651,7 +646,7 @@ static CtlResult inert(MogCombat *m, uint32_t a0)
     ix_wl(VM, MOG_LAB_0633, a0);
     ix_wl(VM, a0 + 18, 0);
     ix_wl(VM, a0 + 14, 0);
-    return set_script(m, 0xFFFFFFFFu);
+    return mog_set_script(m, 0xFFFFFFFFu);
 }
 
 static CtlResult run_controller(MogCombat *m, uint32_t fn, uint32_t obj, int *ok)
@@ -665,8 +660,11 @@ static CtlResult run_controller(MogCombat *m, uint32_t fn, uint32_t obj, int *ok
     case MOG_LAB_02D2:
         return inert(m, obj);
     }
+    CtlResult r;
+    if (mog_ai_controller(m, fn, obj, &r))
+        return r;
     *ok = 0;
-    CtlResult r = { 0xFFFFFFFFu, 0, 0, 0, 0 };
+    r.script = 0xFFFFFFFFu;
     return r;
 }
 

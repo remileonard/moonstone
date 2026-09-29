@@ -20,7 +20,8 @@ Crochets (routine remplacée par un RTS + fonction Python) :
   messages  LAB_0BB3 (traces du jeu) ;
   sons      LAB_0AA2 (noté dans events) ; dessin LAB_0CDA (noté dans draws).
 
-  python3 tools/mog_ref.py <dossier_données>     exécute l'initialisation
+  python3 tools/mog_ref.py <dossier_données> [--duel | --encounter LAB_0168]
+                           [--frames N] [-v]
 """
 import os
 import re
@@ -107,6 +108,7 @@ class MogRef:
         self.draws = []
         self.events = []                 # sons joués (« S n »)
         self.hook(S['LAB_00EE'], self.h_joy)
+        self.hook(S['LAB_00EC'], lambda: None)          # attente « appuyez sur feu »
         self.joy = [0, 0]                # bits ports 0 / 1 : 0 D, 1 G, 2 B, 3 H, 4 feu
         self.frame_no = 0
         self.frame_limit = None
@@ -116,6 +118,11 @@ class MogRef:
         self.left_combat = False         # retour à la boucle principale (LAB_0001)
         uc.hook_add(U.UC_HOOK_CODE, self.h_main_loop, None,
                     begin=S['LAB_0001'], end=S['LAB_0001'])
+        # adresse de retour de Combat_Run lancé par start_encounter
+        self.combat_exit = self.stack_top - 0x40
+        uc.mem_write(self.combat_exit, b'\x60\xfe')        # BRA.S *
+        uc.hook_add(U.UC_HOOK_CODE, self.h_main_loop, None,
+                    begin=self.combat_exit, end=self.combat_exit)
         uc.hook_add(U.UC_HOOK_MEM_UNMAPPED, self.h_unmapped)
 
     # -- accès -------------------------------------------------------------
@@ -314,6 +321,32 @@ class MogRef:
         self.call(S['LAB_0152'])
         self.call(S['LAB_0156'])
 
+    # Rencontres du menu de débogage LAB_007D (touche -> routine d'init)
+    ENCOUNTERS = ['LAB_0168', 'LAB_019A', 'LAB_018C', 'LAB_0188', 'LAB_0175',
+                  'LAB_016A', 'LAB_0192', 'LAB_0196', 'LAB_019E', 'LAB_01A0']
+
+    def start_encounter(self, init):
+        """Chevalier 1 (LAB_0613, joystick port 0) contre la rencontre
+        `init` (routine de t_CreatureInit), jusqu'à Combat_Loop."""
+        S = self.S
+        self.left_combat = False
+        self.frame_limit = None
+        self.call(S['LAB_01AE'])                  # nouvelle partie
+        k = S['LAB_0613']
+        self.wb(k + 77, 12)                       # Ctl_HumanKnight
+        self.wb(k + 11, 1)                        # port 0
+        self.wl(k + 54, 0)
+        self.wl(S['v_Combatants'], k)
+        self.call(S['LAB_020F'])
+        self.call(S['LAB_01BE'])
+        self.call(S['LAB_0011'])
+        self.wl(S['LAB_0633'], k)
+        self.call(S[init])
+        sp = self.stack_top - 0x100
+        self.wl(sp, self.combat_exit)                   # JSR Combat_Run
+        self.w('A7', sp)
+        self.run_frames(0, start=S['Combat_Run'])
+
     def start_duel(self):
         """Duel à deux joueurs humains (LAB_0002) jusqu'à Combat_Loop."""
         self.left_combat = False
@@ -322,14 +355,38 @@ class MogRef:
         self.run_frames(0, start=self.S['Combat_Loop'])
 
 
+def describe(ref):
+    """Entités actives : contrôleur, script, position."""
+    S, out = ref.S, []
+    for i in range(10):
+        en = S['t_Entities'] + 50 * i
+        if ref.rb(en):
+            out.append('ctl%d %s x=%d d=%d' % (ref.rb(en + 32), ref.where(ref.rl(en + 2)),
+                                               ref.rw(en + 6), ref.rw(en + 10)))
+    return ' | '.join(out)
+
+
 def main():
-    if len(sys.argv) < 2:
-        print(__doc__)
-        sys.exit(2)
-    ref = MogRef(sys.argv[1], log=print)
+    import argparse
+    ap = argparse.ArgumentParser(description='mog d\'origine sous émulation')
+    ap.add_argument('data')
+    ap.add_argument('--duel', action='store_true', help='duel à deux joueurs')
+    ap.add_argument('--encounter', help='rencontre (%s)' % ', '.join(MogRef.ENCOUNTERS))
+    ap.add_argument('--frames', type=int, default=40)
+    ap.add_argument('-v', action='store_true', help='journal (fichiers, messages)')
+    a = ap.parse_args()
+    ref = MogRef(a.data, log=print if a.v else None)
     try:
         ref.boot()
         print('initialisation terminée')
+        if a.duel or a.encounter:
+            if a.encounter:
+                ref.start_encounter(a.encounter)
+            else:
+                ref.start_duel()
+            print('début :', describe(ref))
+            ref.run_frames(a.frames)
+            print('image %d :' % ref.frame_no, describe(ref), '(combat fini)' if ref.left_combat else '')
     except Stop as ex:
         print('arrêt : %s' % ex)
         sys.exit(1)
