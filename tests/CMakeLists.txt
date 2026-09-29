@@ -43,3 +43,21 @@ add_executable(mog_boot_dump mog_boot_dump.c
 target_include_directories(mog_boot_dump PRIVATE
     ${CMAKE_SOURCE_DIR}/game/include ${CMAKE_SOURCE_DIR}/game/data)
 target_link_libraries(mog_boot_dump PRIVATE moon_assets)
+
+# Combat complet sans écran, images PNG (game/src/mog_fight.c)
+add_executable(mog_fight_shot mog_fight_shot.c
+    ${CMAKE_SOURCE_DIR}/game/src/ix_vm.c
+    ${CMAKE_SOURCE_DIR}/game/src/ix_engine.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_ctl.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_col.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_native.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_ai.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_setup.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_encounter.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_loop.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_boot.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_fight.c
+    ${CMAKE_SOURCE_DIR}/game/data/ix_mog.c)
+target_include_directories(mog_fight_shot PRIVATE
+    ${CMAKE_SOURCE_DIR}/game/include ${CMAKE_SOURCE_DIR}/game/data)
+target_link_libraries(mog_fight_shot PRIVATE moon_assets)

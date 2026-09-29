@@ -397,6 +397,7 @@ static void black_knight_init(GameCtx *ctx)
         bk->constitution    = 2;
         bk->max_hp          = 30;
         bk->hp              = 30;
+        bk->lives           = 5;
         bk->dead            = 0;
         bk->turn_done       = 0;
         bk->steps_remaining = 0;

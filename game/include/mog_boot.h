@@ -37,6 +37,10 @@ void     mog_file_close(MogFile *f);
 /* LAB_0CC2 : décompression LZSS de n octets de src vers dst. */
 uint32_t mog_unpack(IxVM *vm, uint32_t src, uint32_t n, uint32_t dst);
 
+/* SECSTRT_30 / SECSTRT_28 : tampons graphiques (LAB_0D40), table
+ * d'inversion des bits LAB_0CD9. */
+void     mog_boot_graphics(IxVM *vm);
+
 /* LAB_013A : décors de combat (fichier « Test ») à rl(LAB_05B9 + 8). */
 void     mog_boot_backgrounds(IxVM *vm);
 

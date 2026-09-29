@@ -355,6 +355,51 @@ découpage mémoire `LAB_0004`, tables `LAB_0152`/`LAB_0156`, `LAB_0303`,
 tables de réaction `LAB_020F`, chargeur de CEL `LAB_0CBB` (LZSS : un octet
 de contrôle pour 8 jetons, copie arrière de 34 − (mot >> 11) octets),
 `Col_InitHitFile`, `Col_LoadHitData` (qui charge aussi la CEL), CEL du
-chevalier `LAB_0115`. Écrits, pas encore vérifiés : CEL du chevalier
-adverse `LAB_0116`, mise en route `Combat_Run` et image de `Combat_Loop`
-(partie logique, `game/src/mog_loop.c`).
+chevalier `LAB_0115`, tampons graphiques de `SECSTRT_30` (dont `LAB_0D40`,
+tampon de retournement des frames) et table d'inversion des bits `LAB_0CD9`.
+
+## 12. Préparation des rencontres et passerelle avec le jeu
+
+### Préparation (`game/src/mog_encounter.c`)
+
+Nouvelle partie (`LAB_01AE` pour la partie combat, `LAB_01BE`, `LAB_0011`),
+les 11 routines de `t_CreatureInit`, écran de chargement `LAB_0134`, décors
+`LAB_013C` (PIV du fichier « Test » décodés par `LAB_0C21` dans les plans
+de `LAB_05C0`, `LAB_05C1`, `LAB_0D92`), terrain `.t` (`LAB_0A6D` :
+obstacles dans `SECSTRT_14`, objets posés par `SECSTRT_12` / `LAB_0A64`,
+reproduction exacte du blit « D = A | ¬B & C »), chargeurs de créatures
+(`LAB_0116` à `LAB_0126`, banques de sons `*.a`), nombre d'adversaires
+`LAB_0177`, palette `LAB_03F3`.
+
+`tools/mog_setupcheck.py <données> [LAB_xxxx ...]` : après une nouvelle
+partie dans le banc, la routine de rencontre puis `Combat_Run` sont
+exécutées par l'original et par le C ; **mémoire identique pour les 11
+rencontres**, hors écrans (le banc n'émule pas le blitter : terrain et
+copies d'écran n'y sont pas faits), palette courante du fondu (tenue par
+l'interruption d'image) et variables sans objet (disque demandé,
+compteur d'images, affichage des textes de `LAB_0432`).
+
+### Combat complet (`game/src/mog_fight.c`)
+
+`mog_fight_boot` (démarrage comme `SECSTRT_0`), `mog_fight_start`
+(chevalier rempli d'après le jeu, rencontre, `Combat_Run`),
+`mog_fight_frame` (une image de `Combat_Loop`, joysticks), `mog_fight_render`
+(décor lu dans les plans de `LAB_05C0`, sprites décodés des CEL en mémoire
+de mog au fil des dessins du moteur, couleur 0 transparente, plans absents
+à 0 comme `LAB_0CDA`).
+
+`game/src/moon_combat.c` (`game_run_combat`) : passerelle GameCtx ↔ mog.
+Créature : `t_CreatureInit[pve_creature_type]`, lieu d'après
+`pve_node_group` (fol → forêt `FO?.t`, wal → `Wa?.t`, swl → marais
+`Sw?.t`, gll → `GL?.t`) ; chevaliers (0x01, 0x21) : `LAB_0164`, adversaire
+humain au joystick 2 ou chevalier noir (IA `LAB_0EFF`) ; Vallée (0x1c) :
+Démon `LAB_01A0`. 6 VBL par image (`v_FrameVbls`). Fin : PV <= 0, une vie
+de moins et PV rendus (`Combat_CheckKO`).
+
+`build/tests/mog_fight_shot <données> <préfixe> <rencontre> <lieu>
+[images] [pas]` : même combat sans écran, joueur piloté, images PNG.
+
+Reste à faire : sons (banques `*.a` en mémoire de mog), fondus et
+pulsations de couleurs (`LAB_0E5D`, indicateur de PV faibles), fin de
+combat de l'original (`LAB_0048`, `LAB_0114`, butin `LAB_001C`),
+inventaire du jeu vers celui de mog.

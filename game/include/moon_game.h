@@ -57,6 +57,7 @@ typedef struct {
     int      max_hp;       /* maximum hit points                      */
     int      xp;           /* experience points                       */
     int      gold;         /* gold coins                              */
+    int      lives;        /* vies (73(chevalier), 5 au départ)       */
     int      relics;       /* number of relics collected              */
     int      has_moonstone;/* 1 = this knight holds the Moonstone     */
     int      map_x;        /* current overworld node X                */

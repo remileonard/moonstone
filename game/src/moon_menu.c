@@ -116,6 +116,7 @@ static void setup_default_knights(GameCtx *ctx)
         ctx->knights[i].max_hp  = 100;
         ctx->knights[i].xp      = 0;
         ctx->knights[i].gold    = 50;
+        ctx->knights[i].lives   = 5;
         ctx->knights[i].relics  = 0;
         ctx->knights[i].map_x   = 0;
         ctx->knights[i].map_y   = 0;
