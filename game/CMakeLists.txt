@@ -23,6 +23,7 @@ set(GAME_SOURCES
     src/moon_ending.c
     src/ix_vm.c
     src/ix_engine.c
+    src/mog_ctl.c
     data/ix_program.c
     data/ix_mog.c
 )

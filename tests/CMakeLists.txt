@@ -17,3 +17,11 @@ add_executable(ix_trace ix_trace.c
     ${CMAKE_SOURCE_DIR}/game/src/ix_engine.c)
 target_include_directories(ix_trace PRIVATE
     ${CMAKE_SOURCE_DIR}/game/include ${CMAKE_SOURCE_DIR}/game/data)
+
+# Routines portées du combat (utilisée par tools/mog_difftest.py)
+add_executable(mog_step mog_step.c
+    ${CMAKE_SOURCE_DIR}/game/src/ix_vm.c
+    ${CMAKE_SOURCE_DIR}/game/src/ix_engine.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_ctl.c)
+target_include_directories(mog_step PRIVATE
+    ${CMAKE_SOURCE_DIR}/game/include ${CMAKE_SOURCE_DIR}/game/data)

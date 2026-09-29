@@ -60,7 +60,7 @@ int main(int argc, char **argv)
     fseek(f, 0, SEEK_END);
     long n = ftell(f);
     fseek(f, 0, SEEK_SET);
-    IxVM vm = { malloc((size_t)n), (uint32_t)n, 0 };
+    IxVM vm = { malloc((size_t)n), IX_VM_BASE, (uint32_t)n, 0 };
     if (!vm.mem || fread(vm.mem, 1, (size_t)n, f) != (size_t)n) { fclose(f); return 1; }
     fclose(f);
 

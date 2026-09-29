@@ -1,0 +1,58 @@
+/*
+ * mog_step.c — exécute une routine portée du combat de mog sur une image
+ * mémoire, pour tools/mog_difftest.py.
+ *
+ *   mog_step <mémoire> <routine> <joy0> <joy1> <sortie>
+ *
+ * <mémoire> : octets de l'adresse 0 à la fin de l'espace du jeu (image
+ * prise dans tools/mog_ref.py). <routine> : Combat_RunControllers.
+ * Écrit la mémoire après la routine dans <sortie> ; sur stdout :
+ *   S n        son         M texte     message du jeu
+ *   E erreurs défauts
+ */
+#include "mog_combat.h"
+#include "ix_mog_syms.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+static void sound(void *u, int n) { (void)u; printf("S %d\n", n); }
+static void message(void *u, const char *t) { (void)u; printf("M %s\n", t); }
+
+int main(int argc, char **argv)
+{
+    if (argc < 6) {
+        fprintf(stderr, "usage : mog_step mémoire routine joy0 joy1 sortie\n");
+        return 2;
+    }
+    FILE *f = fopen(argv[1], "rb");
+    if (!f) { perror(argv[1]); return 1; }
+    fseek(f, 0, SEEK_END);
+    long n = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    IxVM vm = { malloc((size_t)n), 0, (uint32_t)n, (uint32_t)n };
+    if (!vm.mem || fread(vm.mem, 1, (size_t)n, f) != (size_t)n) { fclose(f); return 1; }
+    fclose(f);
+
+    IxHost host = { NULL, NULL, NULL, sound, NULL, message };
+    MogCombat m;
+    mog_combat_init(&m, &vm, &host);
+    m.joy[0] = (uint16_t)strtoul(argv[3], NULL, 0);
+    m.joy[1] = (uint16_t)strtoul(argv[4], NULL, 0);
+
+    if (!strcmp(argv[2], "Combat_RunControllers"))
+        mog_run_controllers(&m);
+    else {
+        fprintf(stderr, "routine inconnue : %s\n", argv[2]);
+        return 2;
+    }
+
+    FILE *o = fopen(argv[5], "wb");
+    if (!o) { perror(argv[5]); return 1; }
+    fwrite(vm.mem, 1, vm.size, o);
+    fclose(o);
+    printf("E %lu %lu\n", m.errors + m.eng.errors, ix_vm_faults);
+    free(vm.mem);
+    return 0;
+}

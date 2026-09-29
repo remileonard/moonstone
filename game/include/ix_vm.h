@@ -3,6 +3,8 @@
  *
  * L'image générée (game/data/ix_<bin>.c) est chargée à partir de
  * IX_VM_BASE : hunks bout à bout, BSS à zéro, relocations appliquées.
+ * La mémoire peut commencer plus bas (`base`) pour contenir aussi les blocs
+ * que le lanceur donne au jeu (ix_vm_load_at).
  * Les routines portées manipulent cette mémoire exactement comme le code
  * 68000 d'origine (mêmes adresses, mêmes tailles, big-endian).
  */
@@ -13,7 +15,8 @@
 #include "ix_data.h"
 
 typedef struct {
-    uint8_t  *mem;       /* mem[0] = adresse IX_VM_BASE          */
+    uint8_t  *mem;       /* mem[0] = adresse `base`               */
+    uint32_t  base;      /* IX_VM_BASE, ou 0 (ix_vm_load_at)      */
     uint32_t  size;      /* octets alloués (image + zone libre)  */
     uint32_t  heap;      /* prochaine adresse libre (ix_vm_alloc) */
 } IxVM;
@@ -21,6 +24,8 @@ typedef struct {
 /* Charge l'image ; `extra` octets de zone libre sont ajoutés après
  * (objets, tables créées par le portage). 0 = succès. */
 int  ix_vm_load(IxVM *vm, const IxImage *img, uint32_t extra);
+/* Idem, mémoire commençant à l'adresse `base` (<= IX_VM_BASE). */
+int  ix_vm_load_at(IxVM *vm, const IxImage *img, uint32_t base, uint32_t extra);
 void ix_vm_free(IxVM *vm);
 
 /* Réserve n octets à zéro dans la zone libre ; renvoie l'adresse (0 si plein). */
@@ -32,12 +37,12 @@ extern unsigned long ix_vm_faults;
 
 static inline int ix_vm_ok(const IxVM *vm, uint32_t va, uint32_t n)
 {
-    return va >= IX_VM_BASE && va - IX_VM_BASE + n <= vm->size;
+    return va >= vm->base && va - vm->base + n <= vm->size;
 }
 
 static inline uint8_t *ix_vm_ptr(const IxVM *vm, uint32_t va)
 {
-    return vm->mem + (va - IX_VM_BASE);
+    return vm->mem + (va - vm->base);
 }
 
 static inline uint8_t ix_rb(const IxVM *vm, uint32_t va)

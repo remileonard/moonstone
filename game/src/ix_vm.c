@@ -10,8 +10,14 @@ unsigned long ix_vm_faults;
 
 int ix_vm_load(IxVM *vm, const IxImage *img, uint32_t extra)
 {
+    return ix_vm_load_at(vm, img, IX_VM_BASE, extra);
+}
+
+int ix_vm_load_at(IxVM *vm, const IxImage *img, uint32_t base, uint32_t extra)
+{
     memset(vm, 0, sizeof *vm);
-    vm->size = img->total_size + extra;
+    vm->base = base;
+    vm->size = IX_VM_BASE - base + img->total_size + extra;
     vm->mem  = calloc(1, vm->size);
     if (!vm->mem)
         return -1;
@@ -41,7 +47,7 @@ void ix_vm_free(IxVM *vm)
 uint32_t ix_vm_alloc(IxVM *vm, uint32_t n)
 {
     n = (n + 3u) & ~3u;
-    if (vm->heap - IX_VM_BASE + n > vm->size)
+    if (vm->heap - vm->base + n > vm->size)
         return 0;
     uint32_t va = vm->heap;
     vm->heap += n;
