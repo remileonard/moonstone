@@ -39,6 +39,8 @@ typedef struct {
     /* Attentes actives de l'original (feu, touche) : le temps passe
      * (interruptions) ; l'hôte y fait une VBL (NULL : rien). */
     void (*idle)(void *user);
+    /* Puce audio (mog_sound.c) ; NULL : pas de son, mémoire intacte. */
+    struct MogAudio *audio;
 } MogCombat;
 
 /* Prépare la structure sur une mémoire déjà chargée. `host` : dessin, sons,

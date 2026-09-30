@@ -15,6 +15,7 @@
 #include "mog_combat.h"
 #include "mog_map.h"
 #include "mog_game.h"
+#include "mog_sound.h"
 #include "moon_assets.h"
 #include "ix_mog_syms.h"
 
@@ -85,6 +86,37 @@ int main(int argc, char **argv)
     mog_combat_init(&m, &vm, &host);
     m.frame_start = frame_start;
     int code = 0;
+    if (!strcmp(argv[2], "snd")) {
+        /* Pilote de sons (tools/mog_sndcheck.py) : « P n voie » (LAB_0F8C),
+         * « V » (LAB_0F73), « D a n » (n octets en a, hexadécimal),
+         * « R » (registres Paula LC LEN PER VOL des 4 voies), « Q ». */
+        static MogAudio audio;
+        m.audio = &audio;
+        mog_snd_init(&m);
+        char line[128];
+        while (fgets(line, sizeof line, stdin)) {
+            unsigned a = 0, b = 0;
+            if (line[0] == 'P' && sscanf(line + 1, "%u %u", &a, &b) == 2)
+                mog_snd_play(&m, (int)a, (int)b);
+            else if (line[0] == 'V')
+                mog_snd_vbl(&m);
+            else if (line[0] == 'I' && sscanf(line + 1, "%u", &a) == 1)
+                mog_snd_irq_voice(&m, (int)a);
+            else if (line[0] == 'D' && sscanf(line + 1, "%x %u", &a, &b) == 2) {
+                for (unsigned i = 0; i < b; i++)
+                    printf("%02x", ix_rb(&vm, a + i));
+                printf("\n");
+            } else if (line[0] == 'R') {
+                for (int c = 0; c < 4; c++)
+                    printf("%08x %04x %04x %04x ", audio.ch[c].lc, audio.ch[c].len,
+                           audio.ch[c].per, audio.ch[c].vol);
+                printf("\n");
+            } else if (line[0] == 'Q')
+                break;
+            fflush(stdout);
+        }
+        return 0;
+    }
     if (!strcmp(argv[2], "map")) {
         mog_map_enter(&m);
         for (;;) {

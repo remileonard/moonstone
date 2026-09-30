@@ -72,6 +72,12 @@ static void host_vbl(void *user, MogGame *g, MogGameInput *out)
     out->key = key;
 }
 
+static void host_audio(void *user, const int16_t *stereo, int frames)
+{
+    (void)user;
+    hal_audio_stream_push(stereo, frames);
+}
+
 void game_run_mog(GameCtx *ctx)
 {
     for (;;) {
@@ -79,6 +85,8 @@ void game_run_mog(GameCtx *ctx)
         s_game.vbl = host_vbl;
         s_game.user = ctx;
         s_game.seed = (int)(hal_ticks() & 3);           /* LAB_04A5 : faisceau */
+        s_game.audio_rate = hal_audio_stream_open();
+        s_game.audio = s_game.audio_rate ? host_audio : NULL;
         if (mog_game_boot(&s_game) < 0) {
             fprintf(stderr, "démarrage de mog impossible (fichiers du jeu ?)\n");
             return;

@@ -7,6 +7,7 @@
  */
 #include "mog_private.h"
 #include "ix_mog_syms.h"
+#include "mog_sound.h"
 
 #include <stdio.h>
 
@@ -160,8 +161,7 @@ void mog_shake(MogCombat *m)
 void mog_voice(MogCombat *m, int ch, int n)
 {
     ix_wb(VM, MOG_LAB_0AA6, (uint8_t)(ix_rb(VM, MOG_LAB_0AA6) | (1u << ch)));
-    if (m->voice)
-        m->voice(m->out.user, ch, n);
+    mog_snd_play(m, n, ch);                             /* LAB_0F8C */
 }
 
 /* LAB_0A9E-LAB_0AA0 : libère le canal ch, son $A7 */

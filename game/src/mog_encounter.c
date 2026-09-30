@@ -12,6 +12,7 @@
 #include "mog_encounter.h"
 #include "mog_text.h"
 #include "ix_mog_syms.h"
+#include "mog_sound.h"
 
 #include <stdio.h>
 
@@ -181,8 +182,7 @@ static void show_background(MogCombat *m)
 static void loading_screen(MogCombat *m)
 {
     for (int ch = 0; ch < 4; ch++)                      /* LAB_0133 */
-        if (m->voice)
-            m->voice(m->out.user, ch, 0x6E + ch);
+        mog_snd_play(m, 0x6E + ch, ch);
     /* LAB_0138 */
     uint32_t a2 = rl(m, MOG_LAB_0E93);                  /* LAB_03EB : noir */
     for (int i = 0; i < 33; i++)

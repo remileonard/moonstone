@@ -32,6 +32,7 @@ add_executable(mog_step mog_step.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_boot.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_blit.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_vbl.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_sound.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_text.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_map.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_screens.c
@@ -65,6 +66,7 @@ add_executable(mog_fight_shot mog_fight_shot.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_fight.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_blit.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_vbl.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_sound.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_text.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_map.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_screens.c
@@ -88,6 +90,7 @@ add_executable(mog_run mog_run.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_boot.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_blit.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_vbl.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_sound.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_text.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_map.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_screens.c
@@ -113,6 +116,7 @@ add_executable(mog_game_shot mog_game_shot.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_boot.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_blit.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_vbl.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_sound.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_text.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_map.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_screens.c

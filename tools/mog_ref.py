@@ -497,6 +497,10 @@ class MogRef:
                   A1=CHIP_BLOCK, D1=CHIP_SIZE, A0=self.fast, D0=FAST_SIZE)
         self.call(S['LAB_0152'])
         self.call(S['LAB_0156'])
+        # LAB_0572 (sprite du pointeur) déborde de 2 octets du bloc SECSTRT_43 ;
+        # sur l'Amiga ce bloc est à part, ici il touche SECSTRT_44 (voie 0 du
+        # son) : LAB_0F89 la remet en état, comme si rien ne l'avait touchée.
+        self.call(S['LAB_0F89'])
 
     # Rencontres du menu de débogage LAB_007D (touche -> routine d'init)
     ENCOUNTERS = ['LAB_0168', 'LAB_019A', 'LAB_018C', 'LAB_0188', 'LAB_0175',

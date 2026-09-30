@@ -194,4 +194,17 @@ void hal_fade_from_black(uint32_t *pal, const uint32_t *target, int n, int steps
 }
 #endif
 
+/* ------------------------------------------------------------------ */
+/* Flux audio brut (puce Paula émulée du jeu de mog)                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * hal_audio_stream_open — ouvre un flux stéréo 16 bits (à la place de la
+ * musique de SDL_mixer). Renvoie la fréquence d'échantillonnage, ou 0 si
+ * le son n'est pas disponible.
+ */
+int  hal_audio_stream_open(void);
+/** hal_audio_stream_push — ajoute `frames` échantillons stéréo au flux. */
+void hal_audio_stream_push(const int16_t *stereo, int frames);
+
 #endif /* MOON_HAL_H */

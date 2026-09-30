@@ -340,7 +340,43 @@ des captures PNG : c'est la vérification rapide du branchement.
 
 ---
 
-## 8. Commandes
+## 8. Le son
+
+Le pilote de sons de l'original est porté comme le reste, sur sa mémoire
+(`mog_sound.c`) :
+
+- quatre voies de 148 octets ;
+- des programmes d'octets (table `LAB_1098`, 22 codes) ;
+- des instruments (`LAB_10A2`), des enveloppes et des vibratos ;
+- le serveur de VBL `LAB_0F73` et l'interruption audio `LAB_0F6F`.
+
+La puce **Paula** est émulée :
+- registres LC / LEN / PER / VOL verrouillés ;
+- DMACON, INTENA, INTREQ ;
+- interruption au départ du DMA et à chaque fin de bloc ;
+- échantillons 8 bits lus dans la mémoire de mog, horloge PAL.
+
+Le mixage produit 1/50 s de son par VBL, stéréo à la manière de
+l'Amiga (voies 0 et 3 à gauche, 1 et 2 à droite).
+
+`tools/mog_sndcheck.py` compare le pilote à l'original, pour chacun des
+168 sons :
+- les voies, les variables du pilote et les registres Paula ;
+- après le départ, puis à chaque VBL ;
+- avec l'interruption appelée des deux côtés.
+
+Sans hôte audio (`m->audio` NULL), rien ne joue et la mémoire n'est pas
+touchée : le lockstep reste valable.
+
+Trouvé en route : le sprite du pointeur (`LAB_0572`) déborde de 2 octets
+du bloc `SECSTRT_43`. Sur l'Amiga, c'est un bloc de mémoire chip à part.
+Dans l'image mémoire, les sections se suivent, et ces 2 octets
+effaçaient la voie 0 du son. La fin du sprite est donc coupée (C), et le
+banc remet la voie en état après le démarrage.
+
+---
+
+## 9. Commandes
 
 ```sh
 cmake --build build

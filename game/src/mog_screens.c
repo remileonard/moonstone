@@ -175,7 +175,12 @@ void mog_pointer_boot(MogCombat *m)
             ww(m, a3, rw(m, a1 + 2 * i));
             ww(m, a3 + 2, rw(m, a2 + 2 * i));
         }
-        wl(m, a3, 0);
+        /* CLR.L de fin : avec po.cel (18 lignes), 2 octets de plus que les
+         * 80 de SECSTRT_43. Sur l'Amiga, ce bloc de mémoire chip est à part ;
+         * ici les sections se suivent et SECSTRT_44 (voie 0 du son) serait
+         * écrasée : on s'arrête à la fin du bloc. */
+        for (uint32_t i = 0; i < 4 && a3 + i < MOG_SECSTRT_43 + 80; i++)
+            wb(m, a3 + i, 0);
     }
     wl(m, MOG_LAB_097D, rl(m, MOG_LAB_0E8D));
     wl(m, MOG_LAB_097E, rl(m, MOG_LAB_0E8E));

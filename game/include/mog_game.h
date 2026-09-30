@@ -32,6 +32,10 @@ struct MogGame {
     /* Une VBL de l'hôte : présenter fb, attendre 1/50 s, lire les entrées. */
     void    (*vbl)(void *user, MogGame *g, MogGameInput *in);
     void     *user;
+    /* Son : échantillons stéréo 16 bits d'une VBL (NULL : pas de son). */
+    void    (*audio)(void *user, const int16_t *stereo, int frames);
+    int       audio_rate;               /* Hz */
+    int       audio_frac;
 };
 
 /* Démarrage (SECSTRT_0 ... LAB_0152 / LAB_0156) et nouvelle partie à un

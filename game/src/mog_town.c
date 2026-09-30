@@ -15,6 +15,7 @@
 #include "mog_vbl.h"
 #include "mog_boot.h"
 #include "ix_mog_syms.h"
+#include "mog_sound.h"
 
 #include <stdio.h>
 
@@ -61,8 +62,7 @@ static void zone_id(MogCombat *m, uint32_t id) { wl(m, MOG_LAB_0A58 + 16, id); }
 static void voices(MogCombat *m, int n)
 {
     for (int ch = 0; ch < 4; ch++)
-        if (m->voice)
-            m->voice(m->out.user, ch, n + ch);
+        mog_snd_play(m, n + ch, ch);                    /* LAB_0F8C */
 }
 
 /* ------------------------------------------------------------------ */

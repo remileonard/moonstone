@@ -14,6 +14,7 @@
 #include "mog_map.h"
 #include "mog_screens.h"
 #include "mog_vbl.h"
+#include "mog_sound.h"
 #include "mog_private.h"
 #include "ix_mog_syms.h"
 
@@ -78,6 +79,21 @@ static int key_code(MogGame *g, int c)
     return 0;
 }
 
+/* Une VBL de son : serveur du pilote (LAB_0F73), puis 1/50 s de Paula */
+static void sound_vbl(MogGame *g)
+{
+    if (!g->m.audio)
+        return;
+    mog_snd_vbl(&g->m);
+    static int16_t buf[2 * 4096];
+    int n = (g->audio_rate + g->audio_frac) / 50;
+    g->audio_frac = (g->audio_rate + g->audio_frac) % 50;
+    if (n > 4096)
+        n = 4096;
+    mog_snd_mix(&g->m, buf, n, g->audio_rate);
+    g->audio(g->user, buf, n);
+}
+
 static void vbl(void *u)
 {
     MogGame *g = u;
@@ -86,6 +102,7 @@ static void vbl(void *u)
     uint32_t pal = ix_rl(VM, MOG_LAB_0E93);             /* registres couleur */
     for (int i = 0; i < 32; i++)
         g->colour[i] = ix_rw(VM, pal + 2u * (unsigned)i);
+    sound_vbl(g);                                       /* LAB_0F73 */
     if (!g->vbl)
         return;
     mog_game_render(g);
@@ -143,6 +160,13 @@ int mog_game_boot(MogGame *g)
     mog_combat_init(&g->m, VM, &h);
     g->m.wait_vbl = vbl;
     g->m.idle = g->vbl ? idle : NULL;
+    static MogAudio audio;                              /* Paula */
+    if (g->audio && g->audio_rate > 0) {
+        memset(&audio, 0, sizeof audio);
+        g->m.audio = &audio;
+    }
+    mog_snd_init(&g->m);                                /* LAB_0AA7 : LAB_0F89 */
+    mog_snd_relocate(&g->m);                            /*   LAB_0FD4 */
     mog_pointer_boot(&g->m);                            /* LAB_0572 */
 
     MogCombat *m = &g->m;

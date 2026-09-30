@@ -553,6 +553,8 @@ int mog_load_hit_cel(IxVM *vm, uint32_t name, uint32_t dest)
 
 /* LAB_0115 (sans les sons) : CEL du chevalier dans les banques LAB_05E1
  * (kn1, kn2, kn3, puis kn4 avec ses points d'impact), blo.cel. */
+static void read_file(IxVM *vm, uint32_t name, uint32_t dst, uint32_t skip, uint32_t n);
+
 void mog_boot_knight_cels(IxVM *vm)
 {
     static const uint32_t names[3] = { MOG_LAB_076F, MOG_LAB_0770, MOG_LAB_0771 };
@@ -567,6 +569,7 @@ void mog_boot_knight_cels(IxVM *vm)
     ix_wl(vm, MOG_LAB_0A4F, ix_rl(vm, MOG_LAB_0A4D));
     ix_wl(vm, MOG_LAB_0A50, ix_rl(vm, MOG_LAB_0A4E));
     mog_load_cel(vm, MOG_LAB_0774, ix_rl(vm, MOG_LAB_05BB));
+    read_file(vm, MOG_SECSTRT_17, ix_rl(vm, MOG_LAB_05C7), 0x20, 0x57F8);   /* LAB_0AAA */
 }
 
 /* LAB_020F : réactions du chevalier humain, selon le contrôleur de

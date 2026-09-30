@@ -11,6 +11,7 @@
  */
 #include "mog_private.h"
 #include "ix_mog_syms.h"
+#include "mog_sound.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -28,8 +29,7 @@ void mog_message(MogCombat *m, const char *t)
 
 void mog_sound(MogCombat *m, int n)
 {
-    if (m->out.sound)
-        m->out.sound(m->out.user, n);
+    mog_snd_effect(m, n);                               /* LAB_0AA2 */
 }
 
 
@@ -596,9 +596,7 @@ static void fwd_draw(void *u, uint32_t cel, int frame, int x, int y, int flipped
 
 static void fwd_sound(void *u, int n)
 {
-    MogCombat *m = u;
-    if (m->out.sound)
-        m->out.sound(m->out.user, n);
+    mog_snd_effect(u, n);                               /* $A4 : LAB_0AA2 */
 }
 
 static void fwd_message(void *u, const char *t)

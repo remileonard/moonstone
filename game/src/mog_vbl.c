@@ -28,12 +28,11 @@ static uint16_t step_colour(uint16_t d1, uint16_t d2)
 /* LAB_0FC2 : pendant un fondu marqué (LAB_0FC4), volume des 4 voies */
 static void sound_fade(IxVM *vm)
 {
-    if (!ix_rw(VM, MOG_LAB_0FC4))
-        return;
-    ix_ww(VM, MOG_SECSTRT_44 + 142, 0x10);
-    ix_ww(VM, MOG_LAB_0F66 + 142, 0x10);
-    ix_ww(VM, MOG_LAB_0F67 + 142, 0x10);
-    ix_ww(VM, MOG_LAB_0F68 + 142, 0x10);
+    uint16_t v = ix_rw(VM, MOG_LAB_0FC4) ? 0x10 : 0;    /* LAB_0FC3 : 0 */
+    ix_ww(VM, MOG_SECSTRT_44 + 142, v);
+    ix_ww(VM, MOG_LAB_0F66 + 142, v);
+    ix_ww(VM, MOG_LAB_0F67 + 142, v);
+    ix_ww(VM, MOG_LAB_0F68 + 142, v);
 }
 
 void mog_vbl_colours(IxVM *vm, uint16_t colour[32])
