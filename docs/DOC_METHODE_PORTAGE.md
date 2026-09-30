@@ -430,6 +430,9 @@ build/tests/mog_game_shot <données> <préfixe> script.txt
 
 # intro : original et C côte à côte ; C seul (images + musique .wav)
 python3 tools/prog_lockstep.py <données> --scene intro
+# la fin (partie gagnée : EXT_0007 = $80 | chevalier | lieu), sans jouer
+python3 tools/prog_lockstep.py <données> --scene intro --flags 0x91
+build/game/moonstone <données> 3 --fin 0x91
 build/tests/prog_intro_shot <données> <préfixe> 100
 ```
 

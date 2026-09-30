@@ -32,10 +32,14 @@ int main(int argc, char *argv[])
     const char *asset_dir = ".";
     int scale = 2;
 
-    int combat = -1, combat_all = 0, place = -1, mog = 0;
+    int combat = -1, combat_all = 0, place = -1, mog = 0, ending = -1;
     for (int i = 1; i < argc; i++)
         if (!strcmp(argv[i], "--mog")) {
             mog = 1;
+            argc = i;
+            break;
+        } else if (!strcmp(argv[i], "--fin")) {    /* la fin, sans partie */
+            ending = i + 1 < argc ? (int)strtol(argv[i + 1], NULL, 0) : 0x91;
             argc = i;
             break;
         } else if (!strcmp(argv[i], "--combat") && i + 1 < argc) {
@@ -67,7 +71,9 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    if (mog) {
+    if (ending >= 0) {
+        game_run_mog_ending(&ctx, ending | 0x80);
+    } else if (mog) {
         game_run_mog(&ctx);
     } else if (combat >= 0) {
         static const int all[] = { 12, 24, 20, 36, 48, 4, 64, 32, 0, 28, 8 };

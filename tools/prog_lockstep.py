@@ -119,6 +119,8 @@ def main():
     ap.add_argument('data')
     ap.add_argument('--scene', default='05a5')
     ap.add_argument('--png', help='préfixe : image montrée toutes les 50 VBL')
+    ap.add_argument('--flags', type=lambda v: int(v, 0), default=0,
+                    help='EXT_0007 ($3E0) avec --scene intro : $80 | chevalier | lieu -> la fin')
     a = ap.parse_args()
     label = SCENES.get(a.scene)
 
@@ -127,6 +129,7 @@ def main():
     if a.scene == 'intro':
         label = 'SECSTRT_0'
         b.boot()
+        ref.ww(0x3E0, a.flags)                          # écrit par mog (partie gagnée)
     else:
         b.to_scene(label)
     b.start(label)

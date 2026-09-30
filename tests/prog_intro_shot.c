@@ -4,7 +4,9 @@
  * image montrée toutes les N VBL (<préfixe>_NNNNN.png), musique dans
  * <préfixe>.wav (stéréo 16 bits, 44100 Hz).
  *
- *   prog_intro_shot <données> <préfixe> [N]
+ *   prog_intro_shot <données> <préfixe> [N [drapeaux]]
+ *
+ * drapeaux : EXT_0007 ($3E0) écrit par mog ; bit 7 : la fin au lieu de l'intro.
  */
 #include "prog_intro.h"
 #include "prog_vbl.h"
@@ -162,6 +164,8 @@ int main(int argc, char **argv)
     uint32_t fast;
     if (prog_boot_memory(&vm, &fast) < 0)
         return 1;
+    if (argc > 4)
+        ix_ww(&vm, 0x3E0, (uint16_t)strtol(argv[4], NULL, 0));
     p.vm = &vm;
     p.vbl = on_vbl;
     p.potgor = 0xFFFF;

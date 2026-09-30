@@ -143,8 +143,9 @@ static void intro_vbl(ProgIntro *p)
         ix_ww(p->vm, PROGRAM_SECSTRT_16, 1);
 }
 
-/* program : démarrage et intro, jusqu'au chargement de mog */
-static void run_intro(GameCtx *ctx)
+/* program : démarrage, puis l'intro, ou la fin si mog a été gagné
+ * (flags : EXT_0007 = $3E0, écrit par mog), jusqu'au chargement de mog */
+static void run_program(GameCtx *ctx, uint16_t flags)
 {
     static IxVM vm;
     static ProgIntro p;
@@ -159,15 +160,15 @@ static void run_intro(GameCtx *ctx)
     p.user = ctx;
     p.potgor = 0xFFFF;                                  /* bouton droit relâché */
     s_fast = 0;
+    ix_ww(&vm, 0x3E0, flags);
     prog_boot(&p, PROG_CHIP_BLOCK, PROG_CHIP_SIZE, fast, PROG_FAST_SIZE);
     prog_intro(&p);
     ix_vm_free(&vm);
 }
 
-void game_run_mog(GameCtx *ctx)
+/* mog : menu, parties ; après une victoire, la fin (program) */
+static void game_loop(GameCtx *ctx)
 {
-    s_rate = hal_audio_stream_open();
-    run_intro(ctx);
     for (;;) {
         memset(&s_game, 0, sizeof s_game);
         s_game.vbl = host_vbl;
@@ -184,5 +185,21 @@ void game_run_mog(GameCtx *ctx)
                                      : r == MOG_MAP_OVER ? "fin de partie" : "arrêt");
         if (r < 0)
             return;
+        if (r == MOG_MAP_WIN)                           /* mog relance program */
+            run_program(ctx, ix_rw(&s_game.vm, 0x3E0));
     }
+}
+
+void game_run_mog(GameCtx *ctx)
+{
+    s_rate = hal_audio_stream_open();
+    run_program(ctx, 0);
+    game_loop(ctx);
+}
+
+void game_run_mog_ending(GameCtx *ctx, int flags)
+{
+    s_rate = hal_audio_stream_open();
+    run_program(ctx, (uint16_t)flags);
+    game_loop(ctx);
 }

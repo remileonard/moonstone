@@ -611,7 +611,15 @@ static void script_call(ProgIntro *p, uint32_t fn)
             flash(p, PROGRAM_LAB_0043, 2);
         }
         wait_vbls(p, w[6]);
-    } else
+    } else if (fn == PROGRAM_LAB_0032) {                /* fin : pulsations */
+        wl(p, PROGRAM_LAB_0033, prog_glow(VM, 12, rw(p, PROGRAM_SECSTRT_9), 5, 0));
+        wl(p, PROGRAM_LAB_0034, prog_glow(VM, 15, rw(p, PROGRAM_LAB_01C9), 5, 0));
+        wl(p, PROGRAM_LAB_0035, prog_glow(VM, 23, rw(p, PROGRAM_LAB_01CA), 5, 0));
+    } else if (fn == PROGRAM_LAB_05AE)                  /* fin du défilement */
+        ww(p, PROGRAM_LAB_05E6, 1);
+    else if (fn == PROGRAM_LAB_05AF)                    /* défilement ralenti */
+        ww(p, PROGRAM_L31_00850, (uint16_t)(rw(p, PROGRAM_L31_00850) - 1));
+    else
         fprintf(stderr, "prog : routine de script inconnue %06X\n", fn);
 }
 
@@ -1902,10 +1910,287 @@ int prog_loading(ProgIntro *p)
     return 0;
 }
 
+/* ------------------------------------------------------------------ fin */
+
+/* LAB_01B9 : couleurs de la fin (LAB_01D2, SECSTRT_9...) selon le lieu de
+ * la victoire (LAB_0005 bits 1, 0, 2) */
+static void ending_colours(ProgIntro *p)
+{
+    static const uint16_t c[3][6] = {
+        { 0x0F80, 0x0C50, 0x0920, 0x0C50, 0x0920, 0x0700 },
+        { 0x0000, 0x0222, 0x0444, 0x0111, 0x0333, 0x0555 },
+        { 0x0B40, 0x0D60, 0x0F80, 0x0D60, 0x0F80, 0x0FA0 },
+    };
+    static const uint8_t bit[3] = { 1, 0, 2 };
+    uint16_t d0 = rw(p, PROGRAM_LAB_0005);
+    for (int k = 0; k < 3; k++)
+        if (d0 & (1u << bit[k])) {
+            ww(p, PROGRAM_LAB_01D2 + 24, c[k][0]);
+            ww(p, PROGRAM_LAB_01D2 + 30, c[k][1]);
+            ww(p, PROGRAM_LAB_01D2 + 46, c[k][2]);
+            ww(p, PROGRAM_SECSTRT_9, c[k][3]);
+            ww(p, PROGRAM_LAB_01C9, c[k][4]);
+            ww(p, PROGRAM_LAB_01CA, c[k][5]);
+            return;
+        }
+}
+
+/* LAB_018E : décors, CEL et musique de la fin (sans générique) */
+static void ending_loading(ProgIntro *p)
+{
+    static const struct { uint32_t screen, name, pal; int tint; } bg[4] = {
+        { PROGRAM_LAB_00CB, PROGRAM_L08_00075, PROGRAM_LAB_01CE, 1 },
+        { PROGRAM_LAB_00CC, PROGRAM_L08_00053, PROGRAM_LAB_01CF, 1 },
+        { PROGRAM_LAB_00CD, PROGRAM_LAB_016D, PROGRAM_LAB_01D0, 1 },
+        { PROGRAM_LAB_00CF, PROGRAM_LAB_016E, PROGRAM_LAB_01D2, 2 },
+    };
+    for (int i = 0; i < 4; i++) {
+        set_planes(p, rl(p, bg[i].screen));
+        load_picture(p, bg[i].name, rl(p, PROGRAM_LAB_00C4));
+        save_palette(p, bg[i].pal);
+        if (bg[i].tint == 2)
+            ending_colours(p);
+        tint(p, bg[i].pal);
+    }
+    clear_screen(p, rl(p, PROGRAM_LAB_00C8));
+    set_planes(p, rl(p, PROGRAM_LAB_00C8));
+    load_picture(p, PROGRAM_L08_0007D, rl(p, PROGRAM_LAB_00C4));
+    save_palette(p, PROGRAM_LAB_01CB);
+    set_planes(p, rl(p, PROGRAM_LAB_00C9));
+    load_picture(p, PROGRAM_L08_00085, rl(p, PROGRAM_LAB_00C4));
+    save_palette(p, PROGRAM_LAB_01CC);
+    /* planches LAB_0276 : 0, 1, 3, 2, 4 à la suite dans le bloc chip */
+    static const struct { uint32_t name, slot; } cel[5] = {
+        { PROGRAM_LAB_0169, 0 }, { PROGRAM_LAB_0163, 4 }, { PROGRAM_LAB_0166, 12 },
+        { PROGRAM_LAB_0168, 8 }, { PROGRAM_LAB_0164, 16 },
+    };
+    uint32_t a1 = rl(p, PROGRAM_LAB_00C2);
+    for (int i = 0; i < 5; i++) {
+        wl(p, PROGRAM_LAB_0276 + cel[i].slot, a1);
+        prog_load_cel(VM, cel[i].name, a1);
+        a1 = rl(p, PROGRAM_LAB_0276 + cel[i].slot) + prog_cel_size(VM, cel[i].name);
+    }
+    a1 = rl(p, PROGRAM_LAB_00CA);
+    wl(p, PROGRAM_LAB_0276 + 20, a1);
+    prog_load_cel(VM, PROGRAM_LAB_016A, a1);
+    prog_cel_size(VM, PROGRAM_LAB_016A);
+    a1 = rl(p, PROGRAM_LAB_00CE);
+    wl(p, PROGRAM_LAB_0121, a1);
+    prog_load_cel(VM, PROGRAM_LAB_0167, a1);
+    MogFile f;
+    prog_file_open(VM, PROGRAM_L08_00123, &f);          /* co.stile */
+    prog_file_read(VM, &f, PROGRAM_SECSTRT_33, 1000);
+    prog_file_close(&f);
+    prog_file_open(VM, PROGRAM_LAB_01B6, &f);           /* vmusic.cmp */
+    prog_file_read(VM, &f, rl(p, PROGRAM_LAB_0124), 0xEFA0);
+    prog_file_close(&f);
+    rnc_unpack(p, rl(p, PROGRAM_LAB_0124));
+}
+
+/* Début d'une scène de la fin : décor `bg` (copié ou non), palette `pal`
+ * (LAB_011E = mode) */
+static void ending_scene(ProgIntro *p, uint32_t bg, uint32_t pal, uint16_t mode)
+{
+    ent_reset(p);
+    black(p);
+    copy_long(p, rl(p, bg), rl(p, PROGRAM_LAB_00C6));
+    show_background(p);
+    wl(p, PROGRAM_LAB_011D, pal);
+    ww(p, PROGRAM_LAB_0120, 0);
+    ww(p, PROGRAM_LAB_011F, 0);
+    ww(p, PROGRAM_LAB_011E, mode);
+}
+
+/* LAB_0036 : retour à Stonehenge, puis le cercle des druides */
+static void ending_0036(ProgIntro *p)
+{
+    static const uint32_t c[5] = { PROGRAM_LAB_00DC, PROGRAM_LAB_00DD, PROGRAM_LAB_00DB,
+                                   PROGRAM_LAB_00DF, PROGRAM_LAB_00E1 };
+    ww(p, PROGRAM_LAB_00D1, 1);
+    ww(p, PROGRAM_LAB_003E, 2);
+    ent_reset(p);
+    prog_fade_black(p);
+    swap_screens(p);
+    copy_long(p, rl(p, PROGRAM_LAB_00CF), rl(p, PROGRAM_LAB_00C6));
+    show_background(p);
+    wl(p, PROGRAM_LAB_011D, PROGRAM_LAB_01D2);
+    ww(p, PROGRAM_LAB_0120, 0);
+    ww(p, PROGRAM_LAB_011F, 0);
+    ww(p, PROGRAM_LAB_011E, 2);
+    wl(p, PROGRAM_LAB_00D0, 6);
+    spawn_left(p, PROGRAM_LAB_00E6);
+    prog_music_start(p);                                /* SECSTRT_1 */
+    run_until_end(p);
+    wl(p, rl(p, PROGRAM_LAB_0033), 0);                  /* LAB_0579 */
+    wl(p, rl(p, PROGRAM_LAB_0034), 0);
+    wl(p, rl(p, PROGRAM_LAB_0035), 0);
+    prog_fade_black(p);
+    ww(p, PROGRAM_LAB_00D1, 0);
+    ww(p, PROGRAM_LAB_003E, 0);
+    wl(p, PROGRAM_LAB_0123, 4);
+    ent_reset(p);
+    swap_screens(p);
+    copy_long(p, rl(p, PROGRAM_LAB_00CD), rl(p, PROGRAM_LAB_00C6));
+    show_background(p);
+    wl(p, PROGRAM_LAB_011D, PROGRAM_LAB_01D0);
+    ww(p, PROGRAM_LAB_0120, 0);
+    ww(p, PROGRAM_LAB_011F, 0);
+    ww(p, PROGRAM_LAB_011E, 2);
+    wl(p, PROGRAM_LAB_00D0, 8);
+    circle(p, c, 5);                                    /* LAB_0031 */
+    spawn_left(p, PROGRAM_LAB_00ED);
+    run_until_end(p);
+    wl(p, PROGRAM_LAB_00D0, 6);
+}
+
+/* LAB_0037 : la procession (LAB_003A), puis deux personnages */
+static void ending_0037(ProgIntro *p)
+{
+    wl(p, PROGRAM_LAB_0123, 0);
+    ending_scene(p, PROGRAM_LAB_00CB, PROGRAM_LAB_01CE, 4);
+    spawn_left(p, PROGRAM_LAB_00E9);
+    spawn_left(p, PROGRAM_LAB_00EA);
+    ww(p, PROGRAM_L00_00602, 0);
+    wl(p, PROGRAM_L00_0060A, PROGRAM_LAB_003A);
+    ww(p, PROGRAM_LAB_0029, 5);
+    ww(p, PROGRAM_L00_0060E, 0);
+    wl(p, PROGRAM_LAB_00D0, 6);
+    ww(p, PROGRAM_LAB_00EF, 5);
+    ww(p, PROGRAM_LAB_00F0, 15);
+    procession2(p);                                     /* LAB_001F */
+    for (int i = 0; i < 41; i++) {                      /* LAB_0038 */
+        frame_mark(p);
+        ent_controllers(p);
+        ent_render(p);
+        swap_screens(p);
+        restore_areas(p);
+        frame_wait(p);
+    }
+    ww(p, PROGRAM_LAB_00EF, 0);
+    ww(p, PROGRAM_LAB_00F0, 0);
+    wl(p, PROGRAM_LAB_00D0, 8);
+    ent_reset(p);
+    ww(p, PROGRAM_LAB_0120, 0);
+    spawn_left(p, PROGRAM_LAB_00E9);
+    spawn_left(p, PROGRAM_LAB_00E8);
+    run_until_end(p);
+}
+
+/* LAB_0039 : trois plans (LAB_00D5, LAB_00E9 + LAB_00EB, LAB_00EC) */
+static void ending_0039(ProgIntro *p)
+{
+    ending_scene(p, PROGRAM_LAB_00CC, PROGRAM_LAB_01CF, 4);
+    spawn_left(p, PROGRAM_LAB_00D5);
+    run_until_end(p);
+    ending_scene(p, PROGRAM_LAB_00CB, PROGRAM_LAB_01CE, 4);
+    spawn_left(p, PROGRAM_LAB_00E9);
+    spawn_left(p, PROGRAM_LAB_00EB);
+    run_until_end(p);
+    ending_scene(p, PROGRAM_LAB_00CC, PROGRAM_LAB_01CF, 4);
+    spawn_left(p, PROGRAM_LAB_00EC);
+    run_until_end(p);
+    clear_screen(p, rl(p, PROGRAM_LAB_00C6));
+    clear_screen(p, rl(p, PROGRAM_LAB_056C));
+}
+
+/* LAB_05AB : défilement de tuiles (carte co.stile) préparé en bas */
+static void ending_scroll_start(ProgIntro *p)
+{
+    fill_lists(p);
+    swap_screens(p);
+    clear_screen(p, rl(p, PROGRAM_SECSTRT_30));
+    wl(p, PROGRAM_LAB_05D7, rl(p, PROGRAM_LAB_00C6));
+    wl(p, PROGRAM_LAB_05D6, rl(p, PROGRAM_LAB_00C8));
+    wl(p, PROGRAM_LAB_05D6 + 4, rl(p, PROGRAM_LAB_00C9));
+    wl(p, PROGRAM_LAB_05D6 + 8, rl(p, PROGRAM_LAB_00CA));
+    wl(p, PROGRAM_LAB_00D0, 2);
+    wl(p, PROGRAM_LAB_0123, 0);
+    ww(p, PROGRAM_LAB_05B8, 1000);
+    ww(p, PROGRAM_L31_00850, 2);
+    ww(p, PROGRAM_LAB_05BD, 0);
+    ww(p, PROGRAM_LAB_05BC, 8);
+    ww(p, PROGRAM_LAB_05E6, 0);
+    ww(p, PROGRAM_L31_00850, 9);
+    draw_rows(p);
+    tiles_to_draw(p);
+    swap_screens(p);
+}
+
+/* LAB_05AC : la vue remonte (script : LAB_05AF ralentit, LAB_05AE
+ * arrête) jusqu'à LAB_05B8 < 200 */
+static void ending_scroll(ProgIntro *p)
+{
+    while (!rw(p, PROGRAM_LAB_05E6)) {
+        frame_mark(p);
+        scroll(p, 8);
+        ent_controllers(p);
+        ent_render(p);
+        swap_screens(p);
+        frame_wait(p);
+        if ((int16_t)rw(p, PROGRAM_LAB_05B8) < 200)
+            break;
+    }
+    copy_screen(p, rl(p, PROGRAM_SECSTRT_30), rl(p, PROGRAM_LAB_056C));
+    copy_screen(p, rl(p, PROGRAM_SECSTRT_30), rl(p, PROGRAM_LAB_00C6));
+}
+
+/* LAB_003B : la montée vers la lune, puis le dernier écran (LAB_00B0) */
+static void ending_003b(ProgIntro *p)
+{
+    black(p);
+    ent_reset(p);
+    wl(p, PROGRAM_LAB_00C6, rl(p, PROGRAM_LAB_00C7));
+    ending_scroll_start(p);
+    wl(p, PROGRAM_LAB_011D, PROGRAM_LAB_01CB);
+    set_palette(p, PROGRAM_LAB_01CB);                   /* LAB_0010 */
+    copy_palette(p, PROGRAM_LAB_01CB);
+    wait_vbls(p, 15);
+    ww(p, PROGRAM_LAB_0120, 0);
+    ww(p, PROGRAM_LAB_011F, 0);
+    ww(p, PROGRAM_LAB_011E, 4);
+    wl(p, PROGRAM_LAB_0123, 0);
+    wl(p, PROGRAM_LAB_00D0, 6);
+    spawn_left(p, PROGRAM_LAB_00EE);
+    ending_scroll(p);
+    run_until_end(p);
+    prog_fade_black(p);
+    ent_reset(p);
+    wl(p, PROGRAM_LAB_00C6, rl(p, PROGRAM_LAB_00C9));
+    show_background(p);
+    fade_wait(p, PROGRAM_LAB_01CC);
+    wait_vbls(p, 100);
+    set_planes(p, rl(p, PROGRAM_LAB_056C));
+    text_records(p, PROGRAM_LAB_00B0);
+    swap_screens(p);
+    wait_vbls(p, 500);
+    fade_to(p, PROGRAM_LAB_026D, 6);
+    wait_vbls(p, 90);
+}
+
+/* LAB_0001 de SECSTRT_0 (EXT_0007 bit 7 : mog a été gagné) : la fin,
+ * « The End », puis mog de nouveau */
+void prog_ending(ProgIntro *p)
+{
+    prog_text_screen(p, PROGRAM_LAB_00A2);
+    ending_loading(p);
+    wl(p, PROGRAM_LAB_0123, 2);
+    ending_0036(p);
+    ending_0037(p);
+    ending_0039(p);
+    ending_003b(p);
+    prog_text_screen(p, PROGRAM_LAB_0002);              /* « The End » */
+    wait_vbls(p, 25);
+    prog_fade_black(p);
+}
+
 /* SECSTRT_0 après le démarrage : l'intro entière, jusqu'au chargement de
  * mog (LAB_0000). LAB_005B : serveur de la musique retiré. */
 void prog_intro(ProgIntro *p)
 {
+    if (rw(p, PROGRAM_LAB_0005) & 0x80) {               /* partie gagnée */
+        prog_ending(p);
+        return;
+    }
     wl(p, PROGRAM_LAB_0060, 0);
     wl(p, PROGRAM_LAB_0123, 0);
     wl(p, PROGRAM_LAB_00D0, 2);

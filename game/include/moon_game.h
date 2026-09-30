@@ -219,6 +219,8 @@ void game_run_overworld  (GameCtx *ctx);
 void game_run_combat     (GameCtx *ctx);
 /* Jeu complet de mog porté en C (moon_mog.c) */
 void game_run_mog        (GameCtx *ctx);
+/* La fin de l'original (program, EXT_0007 = flags), puis le jeu (--mog) */
+void game_run_mog_ending (GameCtx *ctx, int flags);
 void game_run_town       (GameCtx *ctx);
 void game_run_shop       (GameCtx *ctx);
 void game_run_wizard     (GameCtx *ctx);
