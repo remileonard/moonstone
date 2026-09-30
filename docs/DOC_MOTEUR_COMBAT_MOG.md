@@ -8,8 +8,7 @@
 > overworld ; `LAB_04CF`/`LAB_04D0` est l'écran qui *suit* le combat (butin,
 > temple, boutique). Le champ `77` d'un objet est l'**index de contrôleur**,
 > pas un type d'arme. Les opcodes de script de `mog` n'ont **pas** la même
-> sémantique que ceux de l'intro dans `program` (sur lesquels
-> `tools/imagexcel.c` est calqué).
+> sémantique que ceux de l'intro dans `program`.
 
 ## 1. Boucle
 
@@ -235,7 +234,7 @@ Le test au pixel du C suit `Col_PixelHit`, mais :
 
 - Cadence fixe : une étape de script toutes les 6 VBL (≈ 120 ms), pas à
   chaque image affichée.
-- Le moteur de `tools/imagexcel.c` suit l'intro (`program`) : en combat,
+- Un moteur calqué sur l'intro (`program`) ne suffit pas : en combat,
   `$A8`, `$AC`, `$B0`, `$B4`, `$B8`, `$C4`, `$C8`, `$CC`, `$D0` ont un effet
   réel (écriture de champs, conditions sur l'état, créations d'entités,
   mort). Les tailles diffèrent aussi (`$8C` fait 8 octets, `$A0` 8, etc.).
