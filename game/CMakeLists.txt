@@ -31,6 +31,7 @@ set(GAME_SOURCES
     src/mog_encounter.c
     src/mog_fight.c
     src/mog_blit.c
+    src/mog_gfx.c
     src/mog_vbl.c
     src/mog_text.c
     src/mog_map.c
@@ -41,6 +42,9 @@ set(GAME_SOURCES
     src/moon_mog.c
     src/mog_boot.c
     src/mog_loop.c
+    src/prog_blit.c
+    src/prog_gfx.c
+    src/prog_vbl.c
     data/ix_program.c
     data/ix_mog.c
 )

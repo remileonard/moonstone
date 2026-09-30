@@ -30,6 +30,7 @@ add_executable(mog_step mog_step.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_encounter.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_loop.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_boot.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_gfx.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_blit.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_vbl.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_sound.c
@@ -46,6 +47,7 @@ target_link_libraries(mog_step PRIVATE moon_assets)
 add_executable(mog_boot_dump mog_boot_dump.c
     ${CMAKE_SOURCE_DIR}/game/src/ix_vm.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_boot.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_gfx.c
     ${CMAKE_SOURCE_DIR}/game/data/ix_mog.c)
 target_include_directories(mog_boot_dump PRIVATE
     ${CMAKE_SOURCE_DIR}/game/include ${CMAKE_SOURCE_DIR}/game/data)
@@ -63,6 +65,7 @@ add_executable(mog_fight_shot mog_fight_shot.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_encounter.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_loop.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_boot.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_gfx.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_fight.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_blit.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_vbl.c
@@ -88,6 +91,7 @@ add_executable(mog_run mog_run.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_encounter.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_loop.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_boot.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_gfx.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_blit.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_vbl.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_sound.c
@@ -114,6 +118,7 @@ add_executable(mog_game_shot mog_game_shot.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_encounter.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_loop.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_boot.c
+    ${CMAKE_SOURCE_DIR}/game/src/mog_gfx.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_blit.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_vbl.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_sound.c

@@ -25,7 +25,9 @@ static uint16_t step_colour(uint16_t d1, uint16_t d2)
     return d1;
 }
 
+#ifndef PROG_TWIN
 /* LAB_0FC2 : pendant un fondu marqué (LAB_0FC4), volume des 4 voies */
+#define VBL_FADE_STEP(vm) sound_fade(vm)
 static void sound_fade(IxVM *vm)
 {
     uint16_t v = ix_rw(VM, MOG_LAB_0FC4) ? 0x10 : 0;    /* LAB_0FC3 : 0 */
@@ -34,6 +36,7 @@ static void sound_fade(IxVM *vm)
     ix_ww(VM, MOG_LAB_0F67 + 142, v);
     ix_ww(VM, MOG_LAB_0F68 + 142, v);
 }
+#endif
 
 void mog_vbl_colours(IxVM *vm, uint16_t colour[32])
 {
@@ -44,7 +47,7 @@ void mog_vbl_colours(IxVM *vm, uint16_t colour[32])
         uint16_t n = (uint16_t)(ix_rw(VM, MOG_LAB_0E92) - 1);
         ix_ww(VM, MOG_LAB_0E92, n);
         if (!n) {
-            sound_fade(vm);
+            VBL_FADE_STEP(vm);          /* program : LAB_0598 (musique) */
             ix_ww(VM, MOG_LAB_0E92, ix_rw(VM, MOG_LAB_0E91));
             for (uint32_t i = 0; i < 32; i++) {
                 uint16_t c = ix_rw(VM, cur + 2 * i);
