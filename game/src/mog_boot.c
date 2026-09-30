@@ -9,6 +9,7 @@
  */
 #include "mog_boot.h"
 #include "ix_mog_names.h"
+#include "mog_struct.h"
 #include "moon_assets.h"
 
 #include <stdlib.h>
@@ -539,7 +540,7 @@ void mog_boot_ui(IxVM *vm)
     mog_load_cel(vm, MOG_s_SmallFont, ix_rl(vm, MOG_t_FontBank));
     read_file(vm, MOG_s_ChPiv, ix_rl(vm, MOG_t_FastBuffers + 56), 0, 0x25F6);
     ix_wl(vm, MOG_v_BoldFont, ix_rl(vm, MOG_t_FontBank + 16));
-    ix_wl(vm, MOG_v_Combatants + 10, ix_rl(vm, MOG_t_FontBank + 16));
+    ix_wl(vm, MOG_v_Combatants + CMB_FONT, ix_rl(vm, MOG_t_FontBank + 16));
 }
 
 /* LAB_0128 : icônes de la carte (LAB_070E en LAB_0664), ki.cel (LAB_0784) */

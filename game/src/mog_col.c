@@ -11,6 +11,7 @@
  */
 #include "mog_combat.h"
 #include "ix_mog_names.h"
+#include "mog_struct.h"
 
 #define VM (m->eng.vm)
 
@@ -31,8 +32,8 @@ static int span(uint32_t d0, uint32_t d1, uint32_t d2, uint32_t d3)
 /* Combat_ClearHitLinks [LAB_0161] */
 void mog_clear_hit_links(MogCombat *m)
 {
-    ix_wl(VM, MOG_v_DragonObj + 14, 0);
-    ix_wl(VM, MOG_v_DragonObj + 18, 0);
+    ix_wl(VM, MOG_v_DragonObj + OBJ_HIT, 0);
+    ix_wl(VM, MOG_v_DragonObj + OBJ_HIT_BY, 0);
     uint32_t a1 = ix_rl(VM, MOG_v_Objects);
     for (int i = 0; i < 21; i++, a1 += IX_OBJECT_SIZE) {    /* DBF sur 20 : 21 objets */
         ix_wl(VM, a1 + 14, 0);
@@ -147,9 +148,9 @@ void mog_collisions(MogCombat *m)
                         continue;
                     uint32_t o6 = ix_rl(VM, a6 + 24), o5 = ix_rl(VM, a5 + 24);
                     ix_wl(VM, o6 + 14, o5);
-                    ix_wl(VM, o5 + 18, o6);
-                    ix_ww(VM, o5 + 122, ix_rw(VM, MOG_v_HitX));
-                    ix_ww(VM, o5 + 124, ix_rw(VM, MOG_v_HitY));
+                    ix_wl(VM, o5 + OBJ_HIT_BY, o6);
+                    ix_ww(VM, o5 + OBJ_IMPACT_X, ix_rw(VM, MOG_v_HitX));
+                    ix_ww(VM, o5 + OBJ_IMPACT_Y, ix_rw(VM, MOG_v_HitY));
                     hit = 1;
                     break;
                 }

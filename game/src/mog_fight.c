@@ -13,6 +13,7 @@
 #include "mog_screens.h"
 #include "mog_encounter.h"
 #include "ix_mog_names.h"
+#include "mog_struct.h"
 
 #include <string.h>
 
@@ -166,19 +167,19 @@ int mog_fight_start(MogFight *f, const MogFightSetup *s)
     MogCombat *m = &f->m;
     uint32_t k = knight_obj(s->knight);
     f->player = k;
-    ix_wb(VM, k + 77, 12);                              /* Ctl_HumanKnight */
-    ix_wb(VM, k + 11, 1);                               /* joystick 1 */
-    ix_wl(VM, k + 54, (uint32_t)(s->knight & 3));       /* couleurs */
-    ix_wb(VM, k + 70, (uint8_t)(s->strength > 0 ? s->strength : 1));
-    ix_wb(VM, k + 71, (uint8_t)(s->constitution > 0 ? s->constitution : 1));
-    ix_wb(VM, k + 72, (uint8_t)(s->endurance > 0 ? s->endurance : 1));
-    ix_wb(VM, k + 73, (uint8_t)(s->lives > 0 ? s->lives : 1));
-    ix_ww(VM, k + 74, (uint16_t)s->gold);
-    ix_wb(VM, k + 76, (uint8_t)s->daggers);
-    ix_ww(VM, k + 80, 0x7FFF);
+    ix_wb(VM, k + OBJ_CONTROLLER, 12);                              /* Ctl_HumanKnight */
+    ix_wb(VM, k + OBJ_PORT, 1);                               /* joystick 1 */
+    ix_wl(VM, k + OBJ_KNIGHT, (uint32_t)(s->knight & 3));       /* couleurs */
+    ix_wb(VM, k + OBJ_STRENGTH, (uint8_t)(s->strength > 0 ? s->strength : 1));
+    ix_wb(VM, k + OBJ_CONSTITUTION, (uint8_t)(s->constitution > 0 ? s->constitution : 1));
+    ix_wb(VM, k + OBJ_ENDURANCE, (uint8_t)(s->endurance > 0 ? s->endurance : 1));
+    ix_wb(VM, k + OBJ_LIVES, (uint8_t)(s->lives > 0 ? s->lives : 1));
+    ix_ww(VM, k + OBJ_GOLD, (uint16_t)s->gold);
+    ix_wb(VM, k + OBJ_DAGGERS, (uint8_t)s->daggers);
+    ix_ww(VM, k + OBJ_HP, 0x7FFF);
     mog_update_knight(m, k);                            /* LAB_0011 : PV max */
-    if (s->hp > 0 && s->hp < sw(ix_rw(VM, k + 84)))
-        ix_ww(VM, k + 80, (uint16_t)s->hp);
+    if (s->hp > 0 && s->hp < sw(ix_rw(VM, k + OBJ_HP_MAX)))
+        ix_ww(VM, k + OBJ_HP, (uint16_t)s->hp);
     ix_wl(VM, MOG_v_Combatants, k);
     ix_wl(VM, MOG_v_CurObj, k);
 
@@ -187,22 +188,22 @@ int mog_fight_start(MogFight *f, const MogFightSetup *s)
         uint32_t o = knight_obj(s->opponent);
         f->foe = o;
         if (s->opponent_human) {
-            ix_wb(VM, o + 77, 12);
-            ix_wb(VM, o + 11, 2);                       /* joystick 2 */
-            ix_wl(VM, o + 54, (uint32_t)(s->opponent & 3));
+            ix_wb(VM, o + OBJ_CONTROLLER, 12);
+            ix_wb(VM, o + OBJ_PORT, 2);                       /* joystick 2 */
+            ix_wl(VM, o + OBJ_KNIGHT, (uint32_t)(s->opponent & 3));
         } else {
-            ix_wb(VM, o + 77, 0x10);                    /* LAB_0EFF */
-            ix_wb(VM, o + 11, 4);
-            ix_wl(VM, o + 54, 4);
+            ix_wb(VM, o + OBJ_CONTROLLER, 0x10);                    /* LAB_0EFF */
+            ix_wb(VM, o + OBJ_PORT, 4);
+            ix_wl(VM, o + OBJ_KNIGHT, 4);
         }
-        ix_wb(VM, o + 70, (uint8_t)(s->opp_strength > 0 ? s->opp_strength : 1));
-        ix_wb(VM, o + 71, (uint8_t)(s->opp_constitution > 0 ? s->opp_constitution : 1));
-        ix_wb(VM, o + 72, (uint8_t)(s->opp_endurance > 0 ? s->opp_endurance : 1));
-        ix_ww(VM, o + 80, 0x7FFF);
+        ix_wb(VM, o + OBJ_STRENGTH, (uint8_t)(s->opp_strength > 0 ? s->opp_strength : 1));
+        ix_wb(VM, o + OBJ_CONSTITUTION, (uint8_t)(s->opp_constitution > 0 ? s->opp_constitution : 1));
+        ix_wb(VM, o + OBJ_ENDURANCE, (uint8_t)(s->opp_endurance > 0 ? s->opp_endurance : 1));
+        ix_ww(VM, o + OBJ_HP, 0x7FFF);
         mog_update_knight(m, o);
-        if (s->opp_hp > 0 && s->opp_hp < sw(ix_rw(VM, o + 84)))
-            ix_ww(VM, o + 80, (uint16_t)s->opp_hp);
-        ix_wl(VM, MOG_v_Combatants + 4, o);
+        if (s->opp_hp > 0 && s->opp_hp < sw(ix_rw(VM, o + OBJ_HP_MAX)))
+            ix_ww(VM, o + OBJ_HP, (uint16_t)s->opp_hp);
+        ix_wl(VM, MOG_v_Combatants + CMB_OPPONENT, o);
     }
 
     ix_wl(VM, MOG_v_PlaceType, (uint32_t)(s->place & 12));
@@ -241,17 +242,17 @@ int mog_fight_frame_vbls(const MogFight *f)
 
 int mog_fight_player_hp(const MogFight *f)
 {
-    return sw(ix_rw((IxVM *)&f->vm, f->player + 80));
+    return sw(ix_rw((IxVM *)&f->vm, f->player + OBJ_HP));
 }
 
 int mog_fight_player_max_hp(const MogFight *f)
 {
-    return sw(ix_rw((IxVM *)&f->vm, f->player + 84));
+    return sw(ix_rw((IxVM *)&f->vm, f->player + OBJ_HP_MAX));
 }
 
 int mog_fight_player_gold(const MogFight *f)
 {
-    return ix_rw((IxVM *)&f->vm, f->player + 74);
+    return ix_rw((IxVM *)&f->vm, f->player + OBJ_GOLD);
 }
 
 /* Combat_CheckKO : PV <= 0, le chevalier est à terre */
@@ -262,5 +263,5 @@ int mog_fight_won(const MogFight *f)
 
 int mog_fight_foe_hp(const MogFight *f)
 {
-    return f->foe ? sw(ix_rw((IxVM *)&f->vm, f->foe + 80)) : 0;
+    return f->foe ? sw(ix_rw((IxVM *)&f->vm, f->foe + OBJ_HP)) : 0;
 }

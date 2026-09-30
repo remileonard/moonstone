@@ -5,6 +5,7 @@
  */
 #include "mog_private.h"
 #include "ix_mog_names.h"
+#include "mog_struct.h"
 
 #include <stdio.h>
 
@@ -22,14 +23,14 @@ typedef struct {
 
 static void apply(MogCombat *m, uint32_t a1, const Kit *k)
 {
-    if (k->attacks) wl(m, a1 + 34, k->attacks);
-    if (k->scripts) wl(m, a1 + 30, k->scripts);
-    if (k->damage)  wl(m, a1 + 42, k->damage);
-    if (k->walk)    wl(m, a1 + 46, k->walk);
-    wl(m, a1 + 38, MOG_t_BankEnemy);
-    wb(m, a1 + 77, k->ctl);
+    if (k->attacks) wl(m, a1 + OBJ_ATTACKS, k->attacks);
+    if (k->scripts) wl(m, a1 + OBJ_REACTIONS, k->scripts);
+    if (k->damage)  wl(m, a1 + OBJ_DAMAGE, k->damage);
+    if (k->walk)    wl(m, a1 + OBJ_WALK, k->walk);
+    wl(m, a1 + OBJ_BANKS, MOG_t_BankEnemy);
+    wb(m, a1 + OBJ_CONTROLLER, k->ctl);
     if (k->port)
-        wb(m, a1 + 11, k->port);
+        wb(m, a1 + OBJ_PORT, k->port);
 }
 
 /* Routine d'équipement (LAB_05F1) pour l'objet a1. 0 si non portée. */
@@ -41,132 +42,132 @@ static int creature_setup(MogCombat *m, uint32_t fn, uint32_t a1)
     case MOG_Kit_TroggA: {                                /* Troggs */
         Kit k = { MOG_t_TroggAAttacks, MOG_t_TroggAScripts, MOG_t_TroggADamage, MOG_t_TroggAWalk, 0x18, 4 };
         apply(m, a1, &k);
-        wl(m, a1 + 22, MOG_x_TroggAStand);
-        wl(m, a1 + 26, MOG_x_TroggAStand);
-        ww(m, a1 + 116, 0x64);
-        ww(m, a1 + 118, 0x5A);
-        ww(m, a1 + 120, 5);
-        ww(m, a1 + 80, 0x14);
-        ww(m, a1 + 84, 0x14);
+        wl(m, a1 + OBJ_STAND, MOG_x_TroggAStand);
+        wl(m, a1 + OBJ_RECOIL, MOG_x_TroggAStand);
+        ww(m, a1 + OBJ_REACH, 0x64);
+        ww(m, a1 + OBJ_TOO_CLOSE, 0x5A);
+        ww(m, a1 + OBJ_DEPTH_REACH, 5);
+        ww(m, a1 + OBJ_HP, 0x14);
+        ww(m, a1 + OBJ_HP_MAX, 0x14);
         return 1;
     }
     case MOG_Kit_TroggB: {
         Kit k = { MOG_t_TroggBAttacks, MOG_t_TroggBScripts, MOG_t_TroggBDamage, MOG_t_TroggBWalk, 0x1C, 4 };
         apply(m, a1, &k);
-        wl(m, a1 + 22, MOG_x_TroggBStand);
-        wl(m, a1 + 26, MOG_x_TroggBStand);
-        ww(m, a1 + 116, 0x46);
-        ww(m, a1 + 118, 0x41);
-        ww(m, a1 + 120, 5);
-        ww(m, a1 + 80, 0x14);
-        ww(m, a1 + 84, 0x14);
+        wl(m, a1 + OBJ_STAND, MOG_x_TroggBStand);
+        wl(m, a1 + OBJ_RECOIL, MOG_x_TroggBStand);
+        ww(m, a1 + OBJ_REACH, 0x46);
+        ww(m, a1 + OBJ_TOO_CLOSE, 0x41);
+        ww(m, a1 + OBJ_DEPTH_REACH, 5);
+        ww(m, a1 + OBJ_HP, 0x14);
+        ww(m, a1 + OBJ_HP_MAX, 0x14);
         return 1;
     }
     case MOG_Kit_TroggSpear: {
-        wl(m, a1 + 30, MOG_t_TroggSpearScripts);
-        wl(m, a1 + 46, MOG_t_TroggSpearWalk);
-        wl(m, a1 + 38, MOG_t_BankEnemy);
-        wb(m, a1 + 77, 0x20);
-        wb(m, a1 + 11, 4);
-        wl(m, a1 + 22, MOG_x_TroggSpearStand);
-        wl(m, a1 + 26, MOG_x_TroggSpearStand);
-        ww(m, a1 + 116, 0x82);
-        ww(m, a1 + 118, 0x78);
-        ww(m, a1 + 120, 5);
-        ww(m, a1 + 80, 0x0F);
-        ww(m, a1 + 84, 0x0F);
+        wl(m, a1 + OBJ_REACTIONS, MOG_t_TroggSpearScripts);
+        wl(m, a1 + OBJ_WALK, MOG_t_TroggSpearWalk);
+        wl(m, a1 + OBJ_BANKS, MOG_t_BankEnemy);
+        wb(m, a1 + OBJ_CONTROLLER, 0x20);
+        wb(m, a1 + OBJ_PORT, 4);
+        wl(m, a1 + OBJ_STAND, MOG_x_TroggSpearStand);
+        wl(m, a1 + OBJ_RECOIL, MOG_x_TroggSpearStand);
+        ww(m, a1 + OBJ_REACH, 0x82);
+        ww(m, a1 + OBJ_TOO_CLOSE, 0x78);
+        ww(m, a1 + OBJ_DEPTH_REACH, 5);
+        ww(m, a1 + OBJ_HP, 0x0F);
+        ww(m, a1 + OBJ_HP_MAX, 0x0F);
         return 1;
     }
     case MOG_Kit_PassingKnight:
-        wl(m, a1 + 30, MOG_t_PassingKnightScripts);
-        wl(m, a1 + 46, MOG_t_PassingKnightWalk);
-        wl(m, a1 + 38, MOG_t_BankEnemy);
-        wb(m, a1 + 77, 0);
-        wb(m, a1 + 11, 4);
-        wl(m, a1 + 26, MOG_x_PassingKnightRecoil);
-        wl(m, a1 + 22, MOG_x_PassingKnightStand);
-        ww(m, a1 + 80, 0x0A);
-        ww(m, a1 + 84, 0x0A);
-        ww(m, a1 + 116, 2);
-        ww(m, a1 + 120, 0x0A);
-        ww(m, a1 + 120, 5);
-        ww(m, a1 + 118, 1);
+        wl(m, a1 + OBJ_REACTIONS, MOG_t_PassingKnightScripts);
+        wl(m, a1 + OBJ_WALK, MOG_t_PassingKnightWalk);
+        wl(m, a1 + OBJ_BANKS, MOG_t_BankEnemy);
+        wb(m, a1 + OBJ_CONTROLLER, 0);
+        wb(m, a1 + OBJ_PORT, 4);
+        wl(m, a1 + OBJ_RECOIL, MOG_x_PassingKnightRecoil);
+        wl(m, a1 + OBJ_STAND, MOG_x_PassingKnightStand);
+        ww(m, a1 + OBJ_HP, 0x0A);
+        ww(m, a1 + OBJ_HP_MAX, 0x0A);
+        ww(m, a1 + OBJ_REACH, 2);
+        ww(m, a1 + OBJ_DEPTH_REACH, 0x0A);
+        ww(m, a1 + OBJ_DEPTH_REACH, 5);
+        ww(m, a1 + OBJ_TOO_CLOSE, 1);
         return 1;
     case MOG_Kit_Ratmen: {                                /* hommes-rats */
-        wl(m, a1 + 30, MOG_t_RatmenScripts);
-        wl(m, a1 + 46, MOG_t_RatmenWalk);
-        wl(m, a1 + 42, MOG_t_RatmenDamage);
-        wl(m, a1 + 38, MOG_t_BankEnemy);
-        wb(m, a1 + 77, 0x24);
-        wb(m, a1 + 11, 4);
-        wl(m, a1 + 22, MOG_x_RatmenStand);
-        wl(m, a1 + 26, MOG_x_RatmenStand);
-        ww(m, a1 + 80, 5);
-        ww(m, a1 + 84, 5);
-        ww(m, a1 + 116, 0x28);
-        ww(m, a1 + 118, 0x1E);
-        ww(m, a1 + 120, 5);
+        wl(m, a1 + OBJ_REACTIONS, MOG_t_RatmenScripts);
+        wl(m, a1 + OBJ_WALK, MOG_t_RatmenWalk);
+        wl(m, a1 + OBJ_DAMAGE, MOG_t_RatmenDamage);
+        wl(m, a1 + OBJ_BANKS, MOG_t_BankEnemy);
+        wb(m, a1 + OBJ_CONTROLLER, 0x24);
+        wb(m, a1 + OBJ_PORT, 4);
+        wl(m, a1 + OBJ_STAND, MOG_x_RatmenStand);
+        wl(m, a1 + OBJ_RECOIL, MOG_x_RatmenStand);
+        ww(m, a1 + OBJ_HP, 5);
+        ww(m, a1 + OBJ_HP_MAX, 5);
+        ww(m, a1 + OBJ_REACH, 0x28);
+        ww(m, a1 + OBJ_TOO_CLOSE, 0x1E);
+        ww(m, a1 + OBJ_DEPTH_REACH, 5);
         uint32_t a4 = MOG_t_RatmenDamage;
         wl(m, a4 + 8, 1);
         wl(m, a4 + 4, 3);
-        uint16_t level = ix_rw(VM, MOG_v_Combatants + 18);
+        uint16_t level = ix_rw(VM, MOG_v_Combatants + CMB_MOON);
         if (level == 0x2D) {
-            ww(m, a1 + 80, 7);
-            ww(m, a1 + 84, 7);
+            ww(m, a1 + OBJ_HP, 7);
+            ww(m, a1 + OBJ_HP_MAX, 7);
             wl(m, a4 + 8, 3);
             wl(m, a4 + 4, 6);
         }
         if (level == 0x31) {                            /* LAB_0190 */
-            ww(m, a1 + 80, 0x0C);
-            ww(m, a1 + 84, 0x0C);
+            ww(m, a1 + OBJ_HP, 0x0C);
+            ww(m, a1 + OBJ_HP_MAX, 0x0C);
             wl(m, a4 + 8, 5);
             wl(m, a4 + 4, 8);
         }
         return 1;
     }
     case MOG_Kit_Balok:
-        wl(m, a1 + 38, MOG_t_BankEnemy);
-        wl(m, a1 + 22, MOG_x_BalokStand);
-        wl(m, a1 + 26, MOG_x_BalokRecoil);
-        wl(m, a1 + 42, MOG_t_BalokDamage);
-        wb(m, a1 + 77, 0x30);
-        ww(m, a1 + 80, 0x1E);
-        ww(m, a1 + 84, 0x1E);
-        wb(m, a1 + 10, 1);
-        ww(m, a1 + 120, 0x0A);
-        ww(m, a1 + 118, 0x3C);
-        ww(m, a1 + 116, 0x50);
+        wl(m, a1 + OBJ_BANKS, MOG_t_BankEnemy);
+        wl(m, a1 + OBJ_STAND, MOG_x_BalokStand);
+        wl(m, a1 + OBJ_RECOIL, MOG_x_BalokRecoil);
+        wl(m, a1 + OBJ_DAMAGE, MOG_t_BalokDamage);
+        wb(m, a1 + OBJ_CONTROLLER, 0x30);
+        ww(m, a1 + OBJ_HP, 0x1E);
+        ww(m, a1 + OBJ_HP_MAX, 0x1E);
+        wb(m, a1 + OBJ_FACING, 1);
+        ww(m, a1 + OBJ_DEPTH_REACH, 0x0A);
+        ww(m, a1 + OBJ_TOO_CLOSE, 0x3C);
+        ww(m, a1 + OBJ_REACH, 0x50);
         return 1;
     case MOG_Kit_Mudmen:
-        wl(m, a1 + 46, MOG_t_MudmenWalk);
-        wl(m, a1 + 42, MOG_t_MudmenDamage);
-        wl(m, a1 + 38, MOG_t_BankEnemy);
-        wl(m, a1 + 30, MOG_t_MudmenScripts);
-        wl(m, a1 + 22, MOG_x_MudmenStand);
-        wl(m, a1 + 26, MOG_x_MudmenStand);
-        ww(m, a1 + 80, 0x1E);
-        ww(m, a1 + 84, 0x1E);
-        wb(m, a1 + 77, 4);
-        wb(m, a1 + 11, 4);
-        ww(m, a1 + 116, 0x50);
-        ww(m, a1 + 118, 0x4B);
-        ww(m, a1 + 120, 5);
-        ww(m, a1 + 104, 0);
+        wl(m, a1 + OBJ_WALK, MOG_t_MudmenWalk);
+        wl(m, a1 + OBJ_DAMAGE, MOG_t_MudmenDamage);
+        wl(m, a1 + OBJ_BANKS, MOG_t_BankEnemy);
+        wl(m, a1 + OBJ_REACTIONS, MOG_t_MudmenScripts);
+        wl(m, a1 + OBJ_STAND, MOG_x_MudmenStand);
+        wl(m, a1 + OBJ_RECOIL, MOG_x_MudmenStand);
+        ww(m, a1 + OBJ_HP, 0x1E);
+        ww(m, a1 + OBJ_HP_MAX, 0x1E);
+        wb(m, a1 + OBJ_CONTROLLER, 4);
+        wb(m, a1 + OBJ_PORT, 4);
+        ww(m, a1 + OBJ_REACH, 0x50);
+        ww(m, a1 + OBJ_TOO_CLOSE, 0x4B);
+        ww(m, a1 + OBJ_DEPTH_REACH, 5);
+        ww(m, a1 + OBJ_AI_FLAGS, 0);
         return 1;
     case MOG_Kit_Troll:
-        wl(m, a1 + 22, MOG_x_TrollStand);
-        wl(m, a1 + 26, MOG_x_TrollStand);
-        wl(m, a1 + 46, MOG_t_TrollWalk);
-        wl(m, a1 + 30, MOG_t_TrollScripts);
-        wl(m, a1 + 42, MOG_t_TrollDamage);
-        wl(m, a1 + 38, MOG_t_BankEnemy);
-        ww(m, a1 + 80, 0x28);
-        ww(m, a1 + 84, 0x28);
-        wb(m, a1 + 77, 0x40);
-        wb(m, a1 + 11, 4);
-        ww(m, a1 + 116, 0x96);
-        ww(m, a1 + 120, 5);
-        ww(m, a1 + 118, 0x5A);
+        wl(m, a1 + OBJ_STAND, MOG_x_TrollStand);
+        wl(m, a1 + OBJ_RECOIL, MOG_x_TrollStand);
+        wl(m, a1 + OBJ_WALK, MOG_t_TrollWalk);
+        wl(m, a1 + OBJ_REACTIONS, MOG_t_TrollScripts);
+        wl(m, a1 + OBJ_DAMAGE, MOG_t_TrollDamage);
+        wl(m, a1 + OBJ_BANKS, MOG_t_BankEnemy);
+        ww(m, a1 + OBJ_HP, 0x28);
+        ww(m, a1 + OBJ_HP_MAX, 0x28);
+        wb(m, a1 + OBJ_CONTROLLER, 0x40);
+        wb(m, a1 + OBJ_PORT, 4);
+        ww(m, a1 + OBJ_REACH, 0x96);
+        ww(m, a1 + OBJ_DEPTH_REACH, 5);
+        ww(m, a1 + OBJ_TOO_CLOSE, 0x5A);
         return 1;
     }
     return 0;
@@ -216,10 +217,10 @@ void mog_enter_object_with(MogCombat *m, uint32_t a1, uint32_t script)
         n = (uint16_t)((ix_rw(VM, MOG_v_EntryRank) + 1) & 3);
         ww(m, MOG_v_EntryRank, n);
     } while (!n);
-    ww(m, a1 + 8, entry_depth(m, n));
-    ix_start_entity(&m->eng, script, a1, ix_rl(VM, a1 + 38),
-                    (int16_t)ix_rw(VM, a1 + 4), (int16_t)ix_rw(VM, a1 + 6),
-                    (int16_t)ix_rw(VM, a1 + 8), ix_rb(VM, a1 + 10), ix_rb(VM, a1 + 77));
+    ww(m, a1 + OBJ_DEPTH, entry_depth(m, n));
+    ix_start_entity(&m->eng, script, a1, ix_rl(VM, a1 + OBJ_BANKS),
+                    (int16_t)ix_rw(VM, a1 + OBJ_X), (int16_t)ix_rw(VM, a1 + OBJ_HEIGHT),
+                    (int16_t)ix_rw(VM, a1 + OBJ_DEPTH), ix_rb(VM, a1 + OBJ_FACING), ix_rb(VM, a1 + OBJ_CONTROLLER));
 }
 
 /* LAB_01A8 : idem sur le script de repos 22(objet). */
@@ -234,10 +235,10 @@ int mog_spawn_opponent(MogCombat *m, uint32_t rec)
 {
     ww(m, MOG_v_FoesEntered, (uint16_t)(ix_rw(VM, MOG_v_FoesEntered) + 1));
     uint32_t a1 = mog_alloc_object(m);
-    ww(m, a1 + 4, ix_rw(VM, rec));
-    ww(m, a1 + 6, ix_rw(VM, rec + 2));
-    ww(m, a1 + 8, ix_rw(VM, rec + 4));
-    wb(m, a1 + 10, (uint8_t)ix_rw(VM, rec + 6));
+    ww(m, a1 + OBJ_X, ix_rw(VM, rec));
+    ww(m, a1 + OBJ_HEIGHT, ix_rw(VM, rec + 2));
+    ww(m, a1 + OBJ_DEPTH, ix_rw(VM, rec + 4));
+    wb(m, a1 + OBJ_FACING, (uint8_t)ix_rw(VM, rec + 6));
     uint32_t fn = ix_rl(VM, MOG_v_FoeKitFn);
     if (!creature_setup(m, fn, a1)) {
         char t[64];

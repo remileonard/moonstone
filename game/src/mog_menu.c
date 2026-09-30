@@ -18,6 +18,7 @@
 #include "mog_vbl.h"
 #include "mog_boot.h"
 #include "ix_mog_names.h"
+#include "mog_struct.h"
 
 #define VM (m->eng.vm)
 
@@ -83,7 +84,7 @@ static void menu_draw(MogCombat *m)
     clear_scraps(m);
     ww(m, MOG_v_MenuCursorY, rw(m, MOG_t_MenuLineY + 2u * rw(m, MOG_v_MenuLine)));
     ww(m, MOG_v_BlitByCpu, 1);
-    mog_draw_cel(VM, &m->blt, rl(m, MOG_v_Combatants + 10), 0x49, 5, 10);
+    mog_draw_cel(VM, &m->blt, rl(m, MOG_v_Combatants + CMB_FONT), 0x49, 5, 10);
     mog_draw_cel(VM, &m->blt, rl(m, MOG_v_CursorCel), 0, rw(m, MOG_v_MenuCursorX), rw(m, MOG_v_MenuCursorY));
     ww(m, MOG_v_BlitByCpu, 0);
     mog_number(m, rw(m, MOG_v_Players), MOG_s_PlayersCount);   /* LAB_0442 */
@@ -138,7 +139,7 @@ int mog_menu(MogCombat *m)
     mog_fade_out(m);                                    /* LAB_03F1 */
     /* LAB_012D : LAB_0100 (disquette 2) sans objet */
     mog_load_cel(VM, MOG_s_SelCel, rl(m, MOG_v_SheetPlanes));
-    wl(m, MOG_v_Combatants + 10, rl(m, MOG_t_FontBank + 16));
+    wl(m, MOG_v_Combatants + CMB_FONT, rl(m, MOG_t_FontBank + 16));
     menu_background(m);
     mog_copy_screen(m, rl(m, MOG_v_ShowPlanes), rl(m, MOG_v_DrawPlanes));
     mog_copy_screen(m, rl(m, MOG_v_ShowPlanes), rl(m, MOG_v_BgPlanes));
@@ -147,7 +148,7 @@ int mog_menu(MogCombat *m)
     ww(m, MOG_v_MenuCursorX, 0x32);
     ww(m, MOG_v_MenuCursorY, 0x30);
     ww(m, MOG_v_MenuCursorY0, 0x30);
-    wl(m, MOG_v_Combatants + 10, rl(m, MOG_t_FontBank + 16));
+    wl(m, MOG_v_Combatants + CMB_FONT, rl(m, MOG_t_FontBank + 16));
     add_players(m, 0);
     mog_swap_screens(m);
     wl(m, MOG_v_CursorCel, rl(m, MOG_v_SheetPlanes));
@@ -162,7 +163,7 @@ int mog_menu(MogCombat *m)
         if (d1 & MOG_JOY_FIRE) {
             uint16_t row = rw(m, MOG_v_MenuLine);
             if (row == 3) {                             /* LAB_00B9 */
-                ww(m, MOG_v_Combatants + 14, rw(m, MOG_v_Players));
+                ww(m, MOG_v_Combatants + CMB_CHOOSERS, rw(m, MOG_v_Players));
                 mog_fade_black(m);
                 return 3;
             }
@@ -271,8 +272,8 @@ static void take_knight(MogCombat *m, uint16_t d0, uint32_t a1)
     wl(m, MOG_v_NameEdited, names[d0]);
     enter_name(m);
     wb(m, MOG_v_KnightsFree, (uint8_t)(rb(m, MOG_v_KnightsFree) & ~(1u << d0)));
-    wl(m, a1 + 54, d0);
-    wb(m, a1 + 11, 2);
+    wl(m, a1 + OBJ_KNIGHT, d0);
+    wb(m, a1 + OBJ_PORT, 2);
 }
 
 void mog_choose_knights(MogCombat *m)

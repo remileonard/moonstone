@@ -10,6 +10,7 @@
 #include "mog_private.h"
 #include "mog_text.h"
 #include "ix_mog_names.h"
+#include "mog_struct.h"
 
 #define VM (m->eng.vm)
 
@@ -20,7 +21,7 @@ static void ww(MogCombat *m, uint32_t a, uint16_t v) { ix_ww(VM, a, v); }
 static uint16_t glyph(MogCombat *m, uint8_t c)
 {
     uint16_t f = ix_rb(VM, MOG_t_FontGlyphFrame + (uint8_t)(c - 0x20));
-    uint32_t font = ix_rl(VM, MOG_v_Combatants + 10);
+    uint32_t font = ix_rl(VM, MOG_v_Combatants + CMB_FONT);
     uint32_t e = font + (uint32_t)(uint16_t)(f * 10);
     ww(m, MOG_v_GlyphWidth, rw(m, e + 14));
     ww(m, MOG_v_GlyphHeight, rw(m, e + 16));
@@ -59,7 +60,7 @@ void mog_text_records(MogCombat *m, uint32_t a0)
         ix_wl(VM, MOG_v_TextRecord, a0);
         do {
             uint32_t a2 = ix_rl(VM, MOG_v_TextRecord);     /* LAB_0433 */
-            if (ix_rl(VM, MOG_v_Combatants + 10) == ix_rl(VM, MOG_t_FontBank + 16))
+            if (ix_rl(VM, MOG_v_Combatants + CMB_FONT) == ix_rl(VM, MOG_t_FontBank + 16))
                 ix_wb(VM, a2 + 9, ix_rb(VM, a2 + 9) | 8);       /* LAB_043B */
             ix_wl(VM, MOG_v_TextChar, ix_rl(VM, a2));
             ww(m, MOG_v_TextX, rw(m, a2 + 4));
@@ -91,7 +92,7 @@ void mog_text_records(MogCombat *m, uint32_t a0)
                     note_scrap(m, x, y);
                 if (ix_rb(VM, a2 + 9) & 8)
                     ww(m, MOG_v_GlyphWidth, (uint16_t)(rw(m, MOG_v_GlyphWidth) - 3));
-                mog_draw_cel(VM, &m->blt, ix_rl(VM, MOG_v_Combatants + 10), f, x, y);
+                mog_draw_cel(VM, &m->blt, ix_rl(VM, MOG_v_Combatants + CMB_FONT), f, x, y);
                 x = (uint16_t)(rw(m, MOG_v_TextX) + rw(m, MOG_v_GlyphWidth));
                 ww(m, MOG_v_TextX, x);
                 if (!((int16_t)x < 0x140)) {

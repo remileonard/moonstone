@@ -15,6 +15,7 @@
 #include "mog_vbl.h"
 #include "mog_boot.h"
 #include "ix_mog_names.h"
+#include "mog_struct.h"
 #include "mog_sound.h"
 
 #include <stdio.h>
@@ -103,7 +104,7 @@ static void offer_draw(MogCombat *m)
  * renvoie le bouton (2 : annuler, 3 : accepter) */
 static uint16_t offer(MogCombat *m, uint16_t d0)
 {
-    ww(m, MOG_v_GoldLeft, rw(m, CUR + 74));
+    ww(m, MOG_v_GoldLeft, rw(m, CUR + OBJ_GOLD));
     ww(m, MOG_v_GoldOffered, 0);
     ww(m, MOG_v_PurseFrame, d0);
     mog_clear_zones(m);                                 /* LAB_044E */
@@ -127,7 +128,7 @@ static uint16_t offer(MogCombat *m, uint16_t d0)
     ww(m, MOG_t_ZoneTemplate + 20, 2);
     ww(m, MOG_t_ZoneTemplate + 22, 0x4A);
     mog_add_zone(m);
-    wl(m, MOG_v_Combatants + 10, rl(m, MOG_t_FontBank));
+    wl(m, MOG_v_Combatants + CMB_FONT, rl(m, MOG_t_FontBank));
     ww(m, MOG_v_BlitByCpu, 1);
     offer_draw(m);
     for (;;) {                                          /* LAB_0496 */
@@ -142,7 +143,7 @@ static uint16_t offer(MogCombat *m, uint16_t d0)
             ww(m, MOG_v_GoldLeft, 0);
             return k;
         case 3:                                         /* LAB_0498 */
-            ww(m, CUR + 74, rw(m, MOG_v_GoldLeft));
+            ww(m, CUR + OBJ_GOLD, rw(m, MOG_v_GoldLeft));
             return k;
         case 4:                                         /* LAB_0499 : reprendre */
             if (!rw(m, MOG_v_GoldOffered))
@@ -168,7 +169,7 @@ static uint16_t offer(MogCombat *m, uint16_t d0)
  * sons, attente du feu ; puis l'or proposé (bourses d0) */
 static uint16_t shop_enter(MogCombat *m, uint32_t picture, uint32_t text, int snd, uint16_t d0, int blit_wait)
 {
-    wl(m, MOG_v_Combatants + 10, rl(m, MOG_t_FontBank));
+    wl(m, MOG_v_Combatants + CMB_FONT, rl(m, MOG_t_FontBank));
     mog_set_planes(m, rl(m, MOG_v_BgPlanes));
     mog_load_picture(m, picture, rl(m, MOG_b_Piv)); /* LAB_0C27 */
     mog_load_cel(VM, MOG_s_MysCel, rl(m, MOG_b_Piv));   /* LAB_049C */
@@ -220,19 +221,19 @@ static void healer(MogCombat *m)
         uint32_t a0 = CUR;
         if ((int16_t)rw(m, MOG_v_GoldOffered) < 0x0A)
             break;
-        if (rb(m, a0 + 130)) {
-            wb(m, a0 + 130, 0);
+        if (rb(m, a0 + OBJ_POISONED)) {
+            wb(m, a0 + OBJ_POISONED, 0);
             d2 |= 1;
         }
-        if (rw(m, a0 + 80) != rw(m, a0 + 84)) {        /* LAB_0490 */
-            ww(m, a0 + 80, rw(m, a0 + 84));
+        if (rw(m, a0 + OBJ_HP) != rw(m, a0 + OBJ_HP_MAX)) {        /* LAB_0490 */
+            ww(m, a0 + OBJ_HP, rw(m, a0 + OBJ_HP_MAX));
             ww(m, MOG_v_GoldOffered, (uint16_t)(rw(m, MOG_v_GoldOffered) - 0x0A));
             d2 |= 2;
             continue;
         }
-        if (rb(m, a0 + 73) == 5)                        /* LAB_0491 */
+        if (rb(m, a0 + OBJ_LIVES) == 5)                        /* LAB_0491 */
             break;
-        wb(m, a0 + 73, (uint8_t)(rb(m, a0 + 73) + 1));
+        wb(m, a0 + OBJ_LIVES, (uint8_t)(rb(m, a0 + OBJ_LIVES) + 1));
         ww(m, MOG_v_GoldOffered, (uint16_t)(rw(m, MOG_v_GoldOffered) - 0x0F));
         d2 |= 4;
     }
@@ -279,7 +280,7 @@ static void trainer(MogCombat *m)
         }
         wb(m, a1 + d1, (uint8_t)(rb(m, a1 + d1) + 1)); /* LAB_047D */
         if (d1 == 0x47)
-            ww(m, a1 + 80, (uint16_t)(rw(m, a1 + 80) + 0x0A));
+            ww(m, a1 + OBJ_HP, (uint16_t)(rw(m, a1 + OBJ_HP) + 0x0A));
         mog_knight_hp(m, a1);                           /* LAB_047E : LAB_0013 */
         mog_knight_defence(m, a1);                      /* LAB_0019 */
         tbl = MOG_t_MasterGainTexts;
@@ -291,10 +292,10 @@ static void trainer(MogCombat *m)
         wb(m, a1 + d1, (uint8_t)(rb(m, a1 + d1) - 1));
         uint32_t a0 = CUR;
         if (d1 == 0x47) {
-            uint16_t v = (uint16_t)(rw(m, a0 + 80) - 0x0A);
-            ww(m, a0 + 80, v);
+            uint16_t v = (uint16_t)(rw(m, a0 + OBJ_HP) - 0x0A);
+            ww(m, a0 + OBJ_HP, v);
             if (!((int16_t)v > 0))
-                ww(m, a0 + 80, 1);
+                ww(m, a0 + OBJ_HP, 1);
         }
         mog_knight_defence(m, a0);                      /* LAB_0480 : LAB_0019 */
         mog_knight_hp(m, a0);                           /* LAB_0013 */
@@ -303,7 +304,7 @@ static void trainer(MogCombat *m)
     wl(m, MOG_v_MasterTexts, tbl);
     for (uint32_t a0 = tbl, i = 0; i < 3; i++, a0 += 8)    /* LAB_0481 */
         if (rl(m, a0) == d1) {
-            shop_leave(m, rl(m, a0 + 4));               /* LAB_0483 */
+            shop_leave(m, rl(m, a0 + 4));                   /* LAB_0483 */
             return;
         }
     shop_leave(m, MOG_t_MasterLost);                        /* LAB_0486 */
@@ -359,7 +360,7 @@ static void knight_colours(MogCombat *m, uint32_t a0, uint32_t d0)
         { 0x0C5, 0x0A3, 0x082, 0x061, 0x040 },          /* 2 */
         { 0xE00, 0xB00, 0x900, 0x600, 0x300 },          /* 3 */
     };
-    uint32_t k = rl(m, CUR + 54);
+    uint32_t k = rl(m, CUR + OBJ_KNIGHT);
     if (k > 3)
         return;
     for (uint32_t i = 0; i < 5; i++)
@@ -383,8 +384,8 @@ int mog_gamble_ctl(MogCombat *m, uint32_t a0, CtlResult *out)
                 ww(m, MOG_v_Bet, rw(m, z + 20));
                 uint32_t k = rl(m, MOG_v_GambleKnight);
                 uint16_t bet = rw(m, MOG_v_Bet);
-                if (!((int16_t)bet > (int16_t)rw(m, k + 74))) {
-                    ww(m, k + 74, (uint16_t)(rw(m, k + 74) - bet));
+                if (!((int16_t)bet > (int16_t)rw(m, k + OBJ_GOLD))) {
+                    ww(m, k + OBJ_GOLD, (uint16_t)(rw(m, k + OBJ_GOLD) - bet));
                     ww(m, MOG_v_GambleState, 1);
                     ww(m, MOG_v_GambleStep, 3);
                     *out = mog_set_script(m, MOG_x_CroupierTake);
@@ -449,13 +450,13 @@ static void roll(MogCombat *m)
     uint32_t k = rl(m, MOG_v_GambleKnight);
     if (win) {                                          /* LAB_04B8 */
         uint32_t d0 = (uint32_t)rw(m, MOG_v_Bet) * rb(m, a1 + 4);
-        ww(m, k + 74, (uint16_t)(rw(m, k + 74) + d0));
+        ww(m, k + OBJ_GOLD, (uint16_t)(rw(m, k + OBJ_GOLD) + d0));
         gp(m, mog_number(m, d0, MOG_s_GoldPieces2));
-        gp(m, mog_number(m, (d0 & 0xFFFF0000u) | rw(m, k + 74), MOG_s_GoldPieces3));
+        gp(m, mog_number(m, (d0 & 0xFFFF0000u) | rw(m, k + OBJ_GOLD), MOG_s_GoldPieces3));
         mog_text_records(m, MOG_t_DiceLoseText);
     } else {
         gp(m, mog_number(m, rw(m, MOG_v_Bet), MOG_s_GoldPieces));
-        gp(m, mog_number(m, rw(m, k + 74), MOG_s_GoldPieces3));
+        gp(m, mog_number(m, rw(m, k + OBJ_GOLD), MOG_s_GoldPieces3));
         mog_text_records(m, MOG_t_DiceWinText);
     }
     mog_show_background(m);                             /* LAB_04B9 : LAB_0418 */
@@ -468,10 +469,10 @@ static void roll(MogCombat *m)
 /* LAB_04A6 : le jeu de dés (mises par le croupier, LAB_04AC) */
 static void gamble(MogCombat *m)
 {
-    if (!((int16_t)rw(m, CUR + 74) > 0))
+    if (!((int16_t)rw(m, CUR + OBJ_GOLD) > 0))
         return;
     ww(m, MOG_v_CreatureLoaded, 0xFFFF);                        /* LAB_04A7 */
-    wl(m, MOG_v_Combatants + 10, rl(m, MOG_t_FontBank));
+    wl(m, MOG_v_Combatants + CMB_FONT, rl(m, MOG_t_FontBank));
     mog_set_planes(m, rl(m, MOG_b_Piv));
     mog_load_picture(m, MOG_s_TavPiv, rl(m, MOG_v_DrawPlanes));
     for (uint32_t i = 0; i < 32; i++)                   /* LAB_0422 */
@@ -483,7 +484,7 @@ static void gamble(MogCombat *m)
         ww(m, MOG_t_PalTownB + 2 * i, rw(m, MOG_t_PivPalette + 2 * i));
     wl(m, MOG_t_BankDice, rl(m, MOG_t_ChipBuffers + 8) + 0x9C40);
     mog_load_cel(VM, MOG_s_DiceCel, rl(m, MOG_t_BankDice));
-    wl(m, MOG_v_Combatants + 10, rl(m, MOG_t_FontBank));
+    wl(m, MOG_v_Combatants + CMB_FONT, rl(m, MOG_t_FontBank));
     wl(m, MOG_v_GambleKnight, CUR);
     mog_clear_zones(m);                                 /* LAB_044E */
     zone_xy(m, 0x10C, 0x26);
@@ -707,7 +708,7 @@ static int demon_reward(MogCombat *m)
     mog_clear_keys(m);                                  /* LAB_0B82 */
     mog_select_knight(m);                               /* LAB_0DBD */
     uint32_t d0 = mog_random(m) & 3;                    /* LAB_04A1 */
-    uint32_t a0 = rl(m, CUR + 96);
+    uint32_t a0 = rl(m, CUR + OBJ_INVENTORY);
     wb(m, a0 + 22, (uint8_t)(rb(m, a0 + 22) | (1u << d0)));
     return (int)d0;
 }
@@ -715,7 +716,7 @@ static int demon_reward(MogCombat *m)
 /* LAB_009D : repaire du Démon (objet 20 = $0F requis) */
 static int demon_lair(MogCombat *m)
 {
-    if (rb(m, rl(m, CUR + 96) + 20) != 0x0F) {
+    if (rb(m, rl(m, CUR + OBJ_INVENTORY) + 20) != 0x0F) {
         mog_message_screen(m, MOG_t_DemonKeyMessage, 0);         /* LAB_0136 */
         mog_wait_fire(m);                               /* LAB_00EC */
         mog_back_to_map(m);                             /* LAB_00B3 : SECSTRT_36 */
@@ -729,14 +730,14 @@ static int demon_lair(MogCombat *m)
         mog_select_knight(m);
         uint32_t d1 = mog_pick_stat(m);                 /* LAB_0469 */
         uint32_t a0 = CUR;
-        wb(m, a0 + 73, (uint8_t)(rb(m, a0 + 73) - 2));
+        wb(m, a0 + OBJ_LIVES, (uint8_t)(rb(m, a0 + OBJ_LIVES) - 2));
         if (rb(m, a0 + d1) != 1)
             wb(m, a0 + d1, (uint8_t)(rb(m, a0 + d1) - 1));
         return inventory_leave(m);                      /* LAB_00B1 */
     }
     uint32_t a0 = CUR;                                  /* LAB_00A0 */
-    ww(m, a0 + 78, (uint16_t)(rw(m, a0 + 78) + 3));
-    wb(m, rl(m, a0 + 96) + 20, 0);
+    ww(m, a0 + OBJ_EXPERIENCE, (uint16_t)(rw(m, a0 + OBJ_EXPERIENCE) + 3));
+    wb(m, rl(m, a0 + OBJ_INVENTORY) + 20, 0);
     mog_message_screen(m, MOG_t_DemonLairMessage, 1);             /* LAB_0137 */
     mog_wait_fire(m);
     mog_wait_vbls(m, 10);
@@ -752,7 +753,7 @@ static void knight_colours4(MogCombat *m, uint32_t a0, uint32_t d0)
         { 0x0C5, 0x082, 0x061, 0x040 },
         { 0xE00, 0x900, 0x600, 0x300 },
     };
-    uint32_t k = rl(m, CUR + 54);
+    uint32_t k = rl(m, CUR + OBJ_KNIGHT);
     if (k > 3)
         return;
     for (uint32_t i = 0; i < 4; i++)
@@ -818,9 +819,9 @@ static void sacrifice(MogCombat *m)
  * (écran 3, LAB_04BF). */
 static int temple(MogCombat *m)
 {
-    uint16_t d0 = rw(m, MOG_v_Combatants + 18);
+    uint16_t d0 = rw(m, MOG_v_Combatants + CMB_MOON);
     uint32_t a1 = rl(m, MOG_v_Combatants);
-    uint8_t d1 = rb(m, rl(m, a1 + 96) + 22);
+    uint8_t d1 = rb(m, rl(m, a1 + OBJ_INVENTORY) + 22);
     int win = ((d1 & 4) && d0 == 0x2E) || ((d1 & 8) && d0 == 0x2E)
            || ((d1 & 2) && d0 == 0x2D) || ((d1 & 1) && d0 == 0x31);
     if (win) {                                          /* LAB_00A8 */
@@ -828,7 +829,7 @@ static int temple(MogCombat *m)
         if (d0 == 0x2E) d7 |= 1;
         if (d0 == 0x2D) d7 |= 4;
         if (d0 == 0x31) d7 |= 2;
-        uint32_t k = rl(m, a1 + 54);
+        uint32_t k = rl(m, a1 + OBJ_KNIGHT);
         if (k == 3) d7 |= 8;
         if (k == 0) d7 |= 0x10;
         if (k == 1) d7 |= 0x20;
@@ -848,11 +849,11 @@ static int temple(MogCombat *m)
     if (rw(m, MOG_v_UsedItem) != 0xFFFF) {
         sacrifice(m);                                   /* LAB_04BF */
         uint32_t a0 = rl(m, MOG_v_Combatants);
-        if (rb(m, a0 + 73) != 5)
-            wb(m, a0 + 73, (uint8_t)(rb(m, a0 + 73) + 1));
+        if (rb(m, a0 + OBJ_LIVES) != 5)
+            wb(m, a0 + OBJ_LIVES, (uint8_t)(rb(m, a0 + OBJ_LIVES) + 1));
         mog_knight_hp(m, a0);                           /* LAB_0013 */
-        ww(m, a0 + 80, rw(m, a0 + 84));
-        wb(m, a0 + 130, 0);
+        ww(m, a0 + OBJ_HP, rw(m, a0 + OBJ_HP_MAX));
+        wb(m, a0 + OBJ_POISONED, 0);
     }
     mog_fade_black(m);                                  /* LAB_00A7 */
     return inventory_leave(m);                          /* LAB_00B1 */
@@ -918,7 +919,7 @@ static void witch(MogCombat *m)
 {
     witch_load(m);                                      /* LAB_0131 */
     mog_fade_black(m);
-    wl(m, MOG_v_Combatants + 10, rl(m, MOG_t_FontBank));
+    wl(m, MOG_v_Combatants + CMB_FONT, rl(m, MOG_t_FontBank));
     clear_objects(m);                                   /* LAB_02CE */
     mog_reset_entities(m);                              /* LAB_0305 */
     copy_40000(m, rl(m, MOG_b_Piv), rl(m, MOG_v_BgPlanes));   /* LAB_041F */
@@ -971,7 +972,7 @@ static void witch(MogCombat *m)
     mog_swap_screens(m);
     load_palette(m, MOG_t_PalTownA);                      /* LAB_0D8A, LAB_03EE */
     scene_until_fire(m, 4);                             /* LAB_045D */
-    wb(m, CUR + 83, 0x46);
+    wb(m, CUR + OBJ_LUCK, 0x46);
     mog_fade_out(m);                                    /* LAB_03F1 */
 }
 
@@ -984,14 +985,14 @@ int mog_town(MogCombat *m, uint32_t d0)
     mog_map_colours_off(m);                             /* LAB_0DC8 */
     ww(m, MOG_v_CelPlanesMax, 4);                             /* SECSTRT_28, D7 = 5 */
     ww(m, MOG_v_ScreenStrideSet, 0);
-    wl(m, MOG_v_Combatants + 10, rl(m, MOG_t_FontBank));
+    wl(m, MOG_v_Combatants + CMB_FONT, rl(m, MOG_t_FontBank));
     mog_select_knight(m);                               /* LAB_0113 : LAB_0DBD */
     mog_before_combat(m);                               /* LAB_0065 */
     switch ((uint16_t)d0) {
     case 0x15: case 0x16: case 0x17: case 0x18: {       /* LAB_00B0 : auberge */
         uint32_t a0 = CUR;
-        if ((int8_t)rb(m, a0 + 73) < 3)
-            wb(m, a0 + 73, (uint8_t)(rb(m, a0 + 73) + 1));
+        if ((int8_t)rb(m, a0 + OBJ_LIVES) < 3)
+            wb(m, a0 + OBJ_LIVES, (uint8_t)(rb(m, a0 + OBJ_LIVES) + 1));
         return inventory_leave(m);
     }
     case 0x19:

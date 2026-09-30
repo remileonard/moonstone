@@ -18,6 +18,7 @@
 #include "mog_sound.h"
 #include "mog_private.h"
 #include "ix_mog_names.h"
+#include "mog_struct.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -189,8 +190,8 @@ int mog_game_boot(MogGame *g)
         mog_choose_knights(m);                          /* LAB_00D3 */
     else {                                              /* outils : un joueur */
         ix_wl(VM, MOG_v_NameEdited, MOG_s_SirGodber);          /* nom du chevalier 1 */
-        ix_wl(VM, MOG_t_KnightObjects + 54, 0);                /* chevalier 1 : joueur */
-        ix_wb(VM, MOG_t_KnightObjects + 11, 2);                /* joystick (port 1) */
+        ix_wl(VM, MOG_t_KnightObjects + OBJ_KNIGHT, 0);                /* chevalier 1 : joueur */
+        ix_wb(VM, MOG_t_KnightObjects + OBJ_PORT, 2);                /* joystick (port 1) */
     }
     mog_new_game_players(m);                            /* LAB_01BE */
     mog_boot_reactions(VM);                             /* LAB_020F */

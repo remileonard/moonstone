@@ -16,6 +16,7 @@
 #include "mog_screens.h"
 #include "mog_encounter.h"
 #include "ix_mog_names.h"
+#include "mog_struct.h"
 
 #include <stdio.h>
 
@@ -84,9 +85,9 @@ static void knight_cell(MogCombat *m)
     uint16_t d2 = rw(m, a0 + 14), d3 = rw(m, a0 + 16);
     d2 >>= 1;
     a0 = CUR;
-    uint16_t x = (uint16_t)(rw(m, a0 + 126) + d2), y = (uint16_t)(rw(m, a0 + 128) + d3);
-    ww(m, a0 + 66, (uint16_t)(x >> 3));
-    ww(m, a0 + 68, (uint16_t)(y >> 3));
+    uint16_t x = (uint16_t)(rw(m, a0 + OBJ_MAP_X) + d2), y = (uint16_t)(rw(m, a0 + OBJ_MAP_Y) + d3);
+    ww(m, a0 + OBJ_CELL_X, (uint16_t)(x >> 3));
+    ww(m, a0 + OBJ_CELL_Y, (uint16_t)(y >> 3));
 }
 
 /* LAB_0E20 : index de la case (40 par ligne) */
@@ -94,7 +95,7 @@ static uint16_t cell_index(MogCombat *m)
 {
     knight_cell(m);
     uint32_t a0 = CUR;
-    uint16_t d1 = (uint16_t)(rw(m, a0 + 68) * 40 + rw(m, a0 + 66));
+    uint16_t d1 = (uint16_t)(rw(m, a0 + OBJ_CELL_Y) * 40 + rw(m, a0 + OBJ_CELL_X));
     ww(m, MOG_v_CellIndex, d1);
     return d1;
 }
@@ -141,10 +142,10 @@ static int overlap(MogCombat *m, uint16_t d0, uint16_t d1, uint16_t d2, uint16_t
 /* LAB_0079 : icône du chevalier a0 (à terre : 42) */
 static void knight_icon(MogCombat *m, uint32_t a0)
 {
-    uint16_t d0 = (uint16_t)(rl(m, a0 + 54) + 5);
-    if (!((int8_t)rb(m, a0 + 73) > 0))
+    uint16_t d0 = (uint16_t)(rl(m, a0 + OBJ_KNIGHT) + 5);
+    if (!((int8_t)rb(m, a0 + OBJ_LIVES) > 0))
         d0 = 0x2A;
-    icon(m, d0, rw(m, a0 + 126), rw(m, a0 + 128));
+    icon(m, d0, rw(m, a0 + OBJ_MAP_X), rw(m, a0 + OBJ_MAP_Y));
 }
 
 /* LAB_0069 : lieux, chevaliers, créatures atteints par le chevalier ;
@@ -156,7 +157,7 @@ static void find_places(MogCombat *m)
     uint32_t a2 = MOG_t_PlacesReached;
     ww(m, MOG_v_PlaceFound, 0xFFFF);
     uint32_t a1 = CUR;
-    uint16_t d3 = rw(m, a1 + 126), d4 = rw(m, a1 + 128);
+    uint16_t d3 = rw(m, a1 + OBJ_MAP_X), d4 = rw(m, a1 + OBJ_MAP_Y);
     if (!rw(m, MOG_v_BootsOn)) {
         for (uint32_t a0 = MOG_t_Places;; ) {            /* LAB_006B */
             uint16_t d0 = rw(m, a0), d1 = rw(m, a0 + 2), d2 = rw(m, a0 + 4);
@@ -165,7 +166,7 @@ static void find_places(MogCombat *m)
                 break;
             if (overlap(m, d0, d1, d2, d3, d4) != 2)
                 continue;
-            uint32_t k = rl(m, a1 + 54);
+            uint32_t k = rl(m, a1 + OBJ_KNIGHT);
             if ((d0 == 0x15 && k != 0) || (d0 == 0x16 && k != 1)
                 || (d0 == 0x17 && k != 2) || (d0 == 0x18 && k != 3))
                 continue;                               /* château d'un autre */
@@ -182,11 +183,11 @@ static void find_places(MogCombat *m)
         for (int i = 0; i < 4; i++, a0 += IX_OBJECT_SIZE) {
             if (a0 == a1)
                 continue;
-            if (overlap(m, 0, rw(m, a1 + 126), rw(m, a1 + 128), rw(m, a0 + 126), rw(m, a0 + 128)) != 2)
+            if (overlap(m, 0, rw(m, a1 + OBJ_MAP_X), rw(m, a1 + OBJ_MAP_Y), rw(m, a0 + OBJ_MAP_X), rw(m, a0 + OBJ_MAP_Y)) != 2)
                 continue;
             knight_icon(m, a0);
             wl(m, a2, a0);
-            wl(m, a2 + 4, (int8_t)rb(m, a0 + 73) > 0 ? 1 : 0x21);
+            wl(m, a2 + 4, (int8_t)rb(m, a0 + OBJ_LIVES) > 0 ? 1 : 0x21);
             a2 += 8;
         }
         /* chevaliers sous le dragon */
@@ -197,8 +198,8 @@ static void find_places(MogCombat *m)
             a0 = MOG_t_KnightObjects;
             for (int i = 0; i < 4; i++, a0 += IX_OBJECT_SIZE) {    /* LAB_0074 */
                 uint32_t d = MOG_v_DragonObj;
-                if (overlap(m, 0x25 - 0x11, (uint16_t)(rw(m, d + 4) - 0x0A), rw(m, d + 8),
-                            rw(m, a0 + 126), rw(m, a0 + 128)) != 2)
+                if (overlap(m, 0x25 - 0x11, (uint16_t)(rw(m, d + OBJ_X) - 0x0A), rw(m, d + OBJ_DEPTH),
+                            rw(m, a0 + OBJ_MAP_X), rw(m, a0 + OBJ_MAP_Y)) != 2)
                     continue;
                 wl(m, a3, a0);
                 a3 += 4;
@@ -211,7 +212,7 @@ static void find_places(MogCombat *m)
     for (int i = 0; i < 24; i++, a0 += 20) {
         if ((int32_t)rl(m, a0 + 10) < 0)
             continue;
-        if (overlap(m, 31, rw(m, a0 + 10), rw(m, a0 + 12), rw(m, a1 + 126), rw(m, a1 + 128)) != 2)
+        if (overlap(m, 31, rw(m, a0 + 10), rw(m, a0 + 12), rw(m, a1 + OBJ_MAP_X), rw(m, a1 + OBJ_MAP_Y)) != 2)
             continue;
         icon(m, 31, rw(m, a0 + 10), rw(m, a0 + 12));
         wl(m, a2, a0);
@@ -228,7 +229,7 @@ static void find_places(MogCombat *m)
 static void map_edges(MogCombat *m)
 {
     uint32_t a0 = CUR;
-    int16_t x = sw(rw(m, a0 + 126)), y = sw(rw(m, a0 + 128));
+    int16_t x = sw(rw(m, a0 + OBJ_MAP_X)), y = sw(rw(m, a0 + OBJ_MAP_Y));
     uint8_t b = rb(m, MOG_v_MapEdgeBits);
     if (!(x > 0)) b &= (uint8_t)~2;
     if (!(x < 0x136)) b &= (uint8_t)~1;
@@ -244,10 +245,10 @@ static void move_knight(MogCombat *m)
         map_edges(m);
         uint16_t d0 = rw(m, MOG_v_MoveDirs);
         uint32_t a0 = CUR;
-        if (d0 & 1) ww(m, a0 + 126, (uint16_t)(rw(m, a0 + 126) + 1));
-        if (d0 & 2) ww(m, a0 + 126, (uint16_t)(rw(m, a0 + 126) - 1));
-        if (d0 & 8) ww(m, a0 + 128, (uint16_t)(rw(m, a0 + 128) - 1));
-        if (d0 & 4) ww(m, a0 + 128, (uint16_t)(rw(m, a0 + 128) + 1));
+        if (d0 & 1) ww(m, a0 + OBJ_MAP_X, (uint16_t)(rw(m, a0 + OBJ_MAP_X) + 1));
+        if (d0 & 2) ww(m, a0 + OBJ_MAP_X, (uint16_t)(rw(m, a0 + OBJ_MAP_X) - 1));
+        if (d0 & 8) ww(m, a0 + OBJ_MAP_Y, (uint16_t)(rw(m, a0 + OBJ_MAP_Y) - 1));
+        if (d0 & 4) ww(m, a0 + OBJ_MAP_Y, (uint16_t)(rw(m, a0 + OBJ_MAP_Y) + 1));
     }
     knight_cell(m);
     find_places(m);
@@ -293,12 +294,12 @@ static void draw_other_knights(MogCombat *m)
     for (int i = 0; i < 4; i++, a0 += IX_OBJECT_SIZE) {
         if (a0 == a1)
             continue;
-        uint16_t d0 = (uint16_t)rl(m, a0 + 54);
-        if (!((int8_t)rb(m, a0 + 73) > 0))
+        uint16_t d0 = (uint16_t)rl(m, a0 + OBJ_KNIGHT);
+        if (!((int8_t)rb(m, a0 + OBJ_LIVES) > 0))
             d0 = 0x21;
-        else if (rb(m, a0 + 82))
+        else if (rb(m, a0 + OBJ_BEWITCHED))
             d0 = (uint16_t)(d0 + 0x2B);
-        icon(m, d0, rw(m, a0 + 126), rw(m, a0 + 128));
+        icon(m, d0, rw(m, a0 + OBJ_MAP_X), rw(m, a0 + OBJ_MAP_Y));
     }
 }
 
@@ -306,10 +307,10 @@ static void draw_other_knights(MogCombat *m)
 static void draw_current(MogCombat *m)
 {
     uint32_t a1 = CUR;
-    uint16_t d0 = (uint16_t)(rl(m, a1 + 54) + 5);
+    uint16_t d0 = (uint16_t)(rl(m, a1 + OBJ_KNIGHT) + 5);
     if (rw(m, MOG_v_BootsOn)) d0 = (uint16_t)(d0 + 5);
     if (rw(m, MOG_v_Boots2On)) d0 = (uint16_t)(d0 + 10);
-    icon(m, d0, rw(m, a1 + 126), rw(m, a1 + 128));
+    icon(m, d0, rw(m, a1 + OBJ_MAP_X), rw(m, a1 + OBJ_MAP_Y));
     wl(m, MOG_v_SavedCurObj, rl(m, MOG_v_CurObj));
     mog_run_controllers(m);
     ix_run_entities(&m->eng);
@@ -326,10 +327,10 @@ static void select_knight(MogCombat *m)
     uint32_t k = MOG_t_KnightObjects + (uint32_t)rw(m, MOG_v_TurnKnight) * IX_OBJECT_SIZE;
     wl(m, MOG_v_CurObj, k);
     wl(m, MOG_v_Combatants, k);
-    wb(m, k + 11, 2);
-    if (rl(m, k + 54) != 4)
-        wb(m, k + 77, 0x0C);
-    uint16_t d0 = (uint16_t)(rb(m, k + 86) << 4);
+    wb(m, k + OBJ_PORT, 2);
+    if (rl(m, k + OBJ_KNIGHT) != 4)
+        wb(m, k + OBJ_CONTROLLER, 0x0C);
+    uint16_t d0 = (uint16_t)(rb(m, k + OBJ_MOVEMENT) << 4);
     ww(m, MOG_v_MovesMax, d0);
     ww(m, MOG_v_MovesQuarter, (uint16_t)(d0 >> 2));
     ww(m, MOG_v_MovesThreeQuarters, (uint16_t)((d0 >> 1) + rw(m, MOG_v_MovesQuarter)));
@@ -382,20 +383,20 @@ void mog_map_dragon(MogCombat *m)
     if (sw(rw(m, MOG_v_Round)) < 2)
         return;
     uint32_t d = MOG_v_DragonObj;
-    if ((int8_t)rb(m, d + 73) < 0)
+    if ((int8_t)rb(m, d + OBJ_LIVES) < 0)
         return;
     mog_reset_entities(m);                              /* LAB_0305 */
     wl(m, MOG_t_Controllers + 40, MOG_Ctl_MapDragon);
     for (uint32_t i = 0; i < 5; i++)
         wl(m, MOG_t_BankMapDragon + 4 * i, rl(m, MOG_b_MapIcons));
-    ww(m, d + 4, 0x0A);
-    ww(m, d + 6, 0);
-    ww(m, d + 8, 0x64);
-    wb(m, d + 10, 3);
-    wl(m, d + 38, MOG_t_BankMapDragon);
-    wb(m, d + 77, 0x28);
-    wb(m, d + 12, 0);
-    wl(m, d + 46, MOG_t_DragonMapScripts);
+    ww(m, d + OBJ_X, 0x0A);
+    ww(m, d + OBJ_HEIGHT, 0);
+    ww(m, d + OBJ_DEPTH, 0x64);
+    wb(m, d + OBJ_FACING, 3);
+    wl(m, d + OBJ_BANKS, MOG_t_BankMapDragon);
+    wb(m, d + OBJ_CONTROLLER, 0x28);
+    wb(m, d + OBJ_WALK_PHASE, 0);
+    wl(m, d + OBJ_WALK, MOG_t_DragonMapScripts);
     uint32_t script = rl(m, MOG_t_DragonMapScripts);
     ix_start_entity(&m->eng, script, d, MOG_t_BankMapDragon, sw(rw(m, script + 4)),
                     sw(rw(m, script + 6)), sw(rw(m, script + 8)), 3, 0x28);
@@ -405,8 +406,8 @@ void mog_map_dragon(MogCombat *m)
     uint32_t k;
     do                                                  /* LAB_0DCC */
         k = MOG_t_KnightObjects + (mog_random(m) & 3) * IX_OBJECT_SIZE;
-    while (!((int8_t)rb(m, k + 73) > 0));
-    wl(m, d + 100, k);
+    while (!((int8_t)rb(m, k + OBJ_LIVES) > 0));
+    wl(m, d + OBJ_TARGET, k);
 }
 
 /* LAB_0DCF (contrôleur 40 sur la carte) : vol du dragon, qui descend
@@ -426,8 +427,8 @@ int mog_map_dragon_ctl(MogCombat *m, uint32_t a0, CtlResult *out)
     }
     ww(m, a0 + 4, (uint16_t)(rw(m, a0 + 4) + dx));
     uint16_t d5 = rw(m, MOG_v_DragonMapDir);
-    uint32_t prey = rl(m, MOG_v_DragonObj + 100);
-    int16_t d0 = sw(rw(m, prey + 128)), y = sw(rw(m, a0 + 8));
+    uint32_t prey = rl(m, MOG_v_DragonObj + OBJ_TARGET);
+    int16_t d0 = sw(rw(m, prey + OBJ_MAP_Y)), y = sw(rw(m, a0 + 8));
     if (d0 != y) {
         if (!(d0 > y))
             d5 = (uint16_t)-d5;
@@ -473,7 +474,7 @@ static void sort_creatures(MogCombat *m)
         return;
     ww(m, MOG_v_CreaturesSorted, 1);
     uint32_t a0 = rl(m, MOG_v_MapCreatures), a1 = CUR, a2 = MOG_t_CreaturesByDist;
-    uint16_t x = rw(m, a1 + 126), y = rw(m, a1 + 128);
+    uint16_t x = rw(m, a1 + OBJ_MAP_X), y = rw(m, a1 + OBJ_MAP_Y);
     for (int i = 0; i < 24; i++, a0 += 20, a2 += 6) {
         uint16_t d3;
         if (sw(rw(m, a0 + 10)) < 0)
@@ -545,7 +546,7 @@ static uint32_t pick_stat(MogCombat *m, uint32_t *entry)
 static void train(MogCombat *m)
 {
     uint32_t a0 = CUR;
-    if (sw(rw(m, MOG_v_TrainCost)) > sw(rw(m, a0 + 78)))
+    if (sw(rw(m, MOG_v_TrainCost)) > sw(rw(m, a0 + OBJ_EXPERIENCE)))
         return;
     uint32_t d1 = pick_stat(m, NULL);
     if (!(uint16_t)d1)
@@ -553,19 +554,19 @@ static void train(MogCombat *m)
     a0 = CUR;
     uint32_t a = a0 + (uint32_t)(int32_t)sw((uint16_t)d1);
     wb(m, a, (uint8_t)(rb(m, a) + 1));
-    ww(m, a0 + 78, (uint16_t)(rw(m, a0 + 78) - rw(m, MOG_v_TrainCost)));
+    ww(m, a0 + OBJ_EXPERIENCE, (uint16_t)(rw(m, a0 + OBJ_EXPERIENCE) - rw(m, MOG_v_TrainCost)));
 }
 
 /* LAB_052F : vies et PV rendus */
 static void heal(MogCombat *m, uint32_t a0)
 {
-    wb(m, a0 + 130, 0);
-    if (rw(m, a0 + 84) == rw(m, a0 + 80)) {
-        wb(m, a0 + 73, (uint8_t)(rb(m, a0 + 73) + 1));
-        if (!((int8_t)rb(m, a0 + 73) < 6))
-            wb(m, a0 + 73, 5);
+    wb(m, a0 + OBJ_POISONED, 0);
+    if (rw(m, a0 + OBJ_HP_MAX) == rw(m, a0 + OBJ_HP)) {
+        wb(m, a0 + OBJ_LIVES, (uint8_t)(rb(m, a0 + OBJ_LIVES) + 1));
+        if (!((int8_t)rb(m, a0 + OBJ_LIVES) < 6))
+            wb(m, a0 + OBJ_LIVES, 5);
     }
-    ww(m, a0 + 80, rw(m, a0 + 84));
+    ww(m, a0 + OBJ_HP, rw(m, a0 + OBJ_HP_MAX));
 }
 
 /* LAB_0E23 : potion (inventaire 0) si peu de vies ou de PV */
@@ -573,9 +574,9 @@ static void use_potion(MogCombat *m)
 {
     ww(m, MOG_v_AiPotionUsed, 0);
     uint32_t a0 = CUR;
-    if ((int8_t)rb(m, a0 + 73) > 3 && !(sw(rw(m, a0 + 80)) < sw((uint16_t)(rw(m, a0 + 84) >> 2))))
+    if ((int8_t)rb(m, a0 + OBJ_LIVES) > 3 && !(sw(rw(m, a0 + OBJ_HP)) < sw((uint16_t)(rw(m, a0 + OBJ_HP_MAX) >> 2))))
         return;
-    uint32_t a1 = rl(m, a0 + 96);
+    uint32_t a1 = rl(m, a0 + OBJ_INVENTORY);
     if (rb(m, a1)) {
         wb(m, a1, (uint8_t)(rb(m, a1) - 1));
         heal(m, a0);
@@ -594,13 +595,13 @@ static void magic_sound(MogCombat *m)
 void mog_loot(MogCombat *m, uint32_t a0, uint32_t a1)
 {
     int d5 = 0;
-    if (rb(m, a0 + 77) == 0x14) {                       /* dragon : moitié de l'or */
-        uint16_t d0 = (uint16_t)(rw(m, a1 + 74) >> 1);
-        ww(m, a0 + 74, (uint16_t)(rw(m, a0 + 74) + d0));
-        ww(m, a1 + 74, d0);
+    if (rb(m, a0 + OBJ_CONTROLLER) == 0x14) {                       /* dragon : moitié de l'or */
+        uint16_t d0 = (uint16_t)(rw(m, a1 + OBJ_GOLD) >> 1);
+        ww(m, a0 + OBJ_GOLD, (uint16_t)(rw(m, a0 + OBJ_GOLD) + d0));
+        ww(m, a1 + OBJ_GOLD, d0);
     }
-    uint32_t a2 = rl(m, a1 + 96), a3 = rl(m, a0 + 96);
-    if (rb(m, a1 + 73)) {                               /* vivant : un objet */
+    uint32_t a2 = rl(m, a1 + OBJ_INVENTORY), a3 = rl(m, a0 + OBJ_INVENTORY);
+    if (rb(m, a1 + OBJ_LIVES)) {                               /* vivant : un objet */
         for (uint32_t a4 = MOG_t_LootSlots;; a4 += 2) {    /* LAB_001E */
             uint16_t d0 = rw(m, a4);
             if (d0 == 0xFFFF)
@@ -616,13 +617,13 @@ void mog_loot(MogCombat *m, uint32_t a0, uint32_t a1)
             wb(m, a2 + d0, (uint8_t)(rb(m, a2 + d0) - 1));
             wb(m, a3 + d0, (uint8_t)(rb(m, a3 + d0) + 1));
             if (!rb(m, a2 + d0) && d0 == 4)
-                wl(m, a1 + 88, 0x16);
+                wl(m, a1 + OBJ_WEAPON, 0x16);
             break;
         }
         if (!d5) {                                      /* LAB_0021 */
-            uint16_t d0 = (uint16_t)(rw(m, a1 + 74) >> 1);
-            ww(m, a0 + 74, (uint16_t)(rw(m, a0 + 74) + d0));
-            ww(m, a1 + 74, d0);
+            uint16_t d0 = (uint16_t)(rw(m, a1 + OBJ_GOLD) >> 1);
+            ww(m, a0 + OBJ_GOLD, (uint16_t)(rw(m, a0 + OBJ_GOLD) + d0));
+            ww(m, a1 + OBJ_GOLD, d0);
         }
     } else {                                            /* à terre : tout */
         for (uint32_t a4 = MOG_t_LootSlots;; a4 += 2) {    /* LAB_0023 */
@@ -637,7 +638,7 @@ void mog_loot(MogCombat *m, uint32_t a0, uint32_t a1)
             if (d0 == 4) {                              /* LAB_0026 */
                 if (!rb(m, a2 + d0))
                     continue;
-                wl(m, a1 + 88, 0x19);
+                wl(m, a1 + OBJ_WEAPON, 0x19);
             }
             wb(m, a3 + d0, (uint8_t)(rb(m, a2 + d0) + rb(m, a3 + d0)));
             ww(m, a2 + d0, 0);
@@ -672,7 +673,7 @@ static void pick_knight(MogCombat *m)
     for (int i = 0; i < 4; i++, a0 += IX_OBJECT_SIZE) {
         if (a0 == a1)
             continue;
-        uint32_t d3 = distance(rw(m, a0 + 126), rw(m, a0 + 128), rw(m, a1 + 126), rw(m, a1 + 128));
+        uint32_t d3 = distance(rw(m, a0 + OBJ_MAP_X), rw(m, a0 + OBJ_MAP_Y), rw(m, a1 + OBJ_MAP_X), rw(m, a1 + OBJ_MAP_Y));
         wl(m, a3, a0);
         a3 += 4;
         wl(m, a2, d3);
@@ -694,12 +695,12 @@ static void pick_knight(MogCombat *m)
             swapped = 1;
         }
     } while (swapped);
-    if (rl(m, a1 + 100))
+    if (rl(m, a1 + OBJ_TARGET))
         return;
     a0 = MOG_t_KnightByDist;
     for (int i = 0; i < 4; i++, a0 += 4) {              /* LAB_0DF5 */
         uint32_t k = rl(m, a0);
-        if (k == a1 || rl(m, k + 54) == 4)
+        if (k == a1 || rl(m, k + OBJ_KNIGHT) == 4)
             continue;
         if (!rw(m, MOG_v_AiCreatureGone)) {
             uint32_t d0 = chance_0DF8(m);
@@ -710,7 +711,7 @@ static void pick_knight(MogCombat *m)
                     continue;
             }
         }
-        wl(m, a1 + 100, k);                             /* LAB_0DF6 */
+        wl(m, a1 + OBJ_TARGET, k);                             /* LAB_0DF6 */
         return;
     }
 }
@@ -719,13 +720,13 @@ static void pick_knight(MogCombat *m)
 static void steal(MogCombat *m)
 {
     uint32_t a0 = CUR;
-    if (!rl(m, a0 + 100))
+    if (!rl(m, a0 + OBJ_TARGET))
         return;
-    uint32_t a1 = rl(m, a0 + 96);
+    uint32_t a1 = rl(m, a0 + OBJ_INVENTORY);
     if (!rb(m, a1 + 14))
         return;
     wb(m, a1 + 14, (uint8_t)(rb(m, a1 + 14) - 1));
-    uint32_t foe = rl(m, a0 + 100);
+    uint32_t foe = rl(m, a0 + OBJ_TARGET);
     magic_sound(m);
     mog_loot(m, a0, foe);
 }
@@ -733,12 +734,12 @@ static void steal(MogCombat *m)
 /* LAB_0E29 : objet 10 si la cible est loin : déplacement doublé */
 static void boots(MogCombat *m)
 {
-    uint32_t a0 = CUR, a2 = rl(m, a0 + 96);
-    if (!rb(m, a2 + 10) || !rl(m, a0 + 100))
+    uint32_t a0 = CUR, a2 = rl(m, a0 + OBJ_INVENTORY);
+    if (!rb(m, a2 + 10) || !rl(m, a0 + OBJ_TARGET))
         return;
-    uint32_t a1 = rl(m, a0 + 100);
-    int16_t d3 = (int16_t)distance(rw(m, a0 + 126), rw(m, a0 + 128), rw(m, a1 + 126), rw(m, a1 + 128));
-    int16_t d0 = (int16_t)((int8_t)rb(m, CUR + 86) << 4);
+    uint32_t a1 = rl(m, a0 + OBJ_TARGET);
+    int16_t d3 = (int16_t)distance(rw(m, a0 + OBJ_MAP_X), rw(m, a0 + OBJ_MAP_Y), rw(m, a1 + OBJ_MAP_X), rw(m, a1 + OBJ_MAP_Y));
+    int16_t d0 = (int16_t)((int8_t)rb(m, CUR + OBJ_MOVEMENT) << 4);
     if (d3 < d0)
         return;
     magic_sound(m);
@@ -751,15 +752,15 @@ static int want_to_buy(MogCombat *m)
 {
     wl(m, MOG_v_AiTownX, 0);
     uint32_t a0 = CUR;
-    int16_t gold = sw(rw(m, a0 + 74));
+    int16_t gold = sw(rw(m, a0 + OBJ_GOLD));
     if (gold <= 0x0A)
         return 0;
-    if (gold > 0x19 && !((int8_t)rb(m, a0 + 73) > 2)) {
+    if (gold > 0x19 && !((int8_t)rb(m, a0 + OBJ_LIVES) > 2)) {
         ww(m, MOG_v_AiBuyPrice, 0x19);                      /* une vie */
         ww(m, MOG_v_AiBuyItem, 0x49);
         return 1;
     }
-    uint32_t armour = rl(m, a0 + 92);
+    uint32_t armour = rl(m, a0 + OBJ_ARMOUR);
     if (!(gold < 0x4B)) {
         if (armour != 0x1E) {
             ww(m, MOG_v_AiBuyPrice, 0x4B);
@@ -784,7 +785,7 @@ static int want_to_buy(MogCombat *m)
     }
     /* LAB_0E31 : armes (l'épée longue est notée, puis remplacée par
      * l'épée si elle suffit : LAB_08F9 garde alors $18) */
-    uint32_t weapon = rl(m, a0 + 88);
+    uint32_t weapon = rl(m, a0 + OBJ_WEAPON);
     if (!(gold < 0x19)) {
         if (weapon == 0x18)
             goto daggers;
@@ -799,7 +800,7 @@ static int want_to_buy(MogCombat *m)
         return 1;
     }
 daggers:
-    if ((int8_t)rb(m, a0 + 76) > 5)                     /* LAB_0E33 */
+    if ((int8_t)rb(m, a0 + OBJ_DAGGERS) > 5)                     /* LAB_0E33 */
         return 0;
     ww(m, MOG_v_AiBuyPrice, 2);
     ww(m, MOG_v_AiBuyItem, 0x4C);
@@ -811,7 +812,7 @@ daggers:
 static void nearest_town(MogCombat *m)
 {
     uint32_t a0 = CUR;
-    uint16_t cx = rw(m, a0 + 66), cy = rw(m, a0 + 68);
+    uint16_t cx = rw(m, a0 + OBJ_CELL_X), cy = rw(m, a0 + OBJ_CELL_Y);
     ww(m, MOG_v_DistTownA, (uint16_t)distance(cx, cy, 0x0C, 0x07));
     uint16_t d3 = (uint16_t)distance(cx, cy, 0x25, 0x14);
     ww(m, MOG_v_DistTownB, d3);
@@ -833,25 +834,25 @@ static int in_places(MogCombat *m, uint32_t d1, uint32_t d2)
 static void buy(MogCombat *m)
 {
     uint32_t a0 = CUR;
-    ww(m, a0 + 74, (uint16_t)(rw(m, a0 + 74) - rw(m, MOG_v_AiBuyPrice)));
+    ww(m, a0 + OBJ_GOLD, (uint16_t)(rw(m, a0 + OBJ_GOLD) - rw(m, MOG_v_AiBuyPrice)));
     switch (rw(m, MOG_v_AiBuyItem)) {
     case 0x58:
-        wl(m, a0 + 88, rl(m, MOG_v_AiBuyExtra));
+        wl(m, a0 + OBJ_WEAPON, rl(m, MOG_v_AiBuyExtra));
         break;
     case 0x5C:
-        wl(m, a0 + 92, rl(m, MOG_v_AiBuyExtra));
+        wl(m, a0 + OBJ_ARMOUR, rl(m, MOG_v_AiBuyExtra));
         mog_update_knight(m, a0);                       /* LAB_0013, LAB_0019 */
         break;
     case 0x49:
-        ww(m, a0 + 80, rw(m, a0 + 84));
-        wb(m, a0 + 73, (uint8_t)(rb(m, a0 + 73) + 1));
+        ww(m, a0 + OBJ_HP, rw(m, a0 + OBJ_HP_MAX));
+        wb(m, a0 + OBJ_LIVES, (uint8_t)(rb(m, a0 + OBJ_LIVES) + 1));
         break;
     case 0x4C:
         for (;;) {                                      /* LAB_0E3A (sic) */
-            wb(m, a0 + 76, (uint8_t)(rb(m, a0 + 76) + 1));
-            if (sw(rw(m, a0 + 74)) < 2 || rw(m, a0 + 76) == 0x0A)
+            wb(m, a0 + OBJ_DAGGERS, (uint8_t)(rb(m, a0 + OBJ_DAGGERS) + 1));
+            if (sw(rw(m, a0 + OBJ_GOLD)) < 2 || rw(m, a0 + OBJ_DAGGERS) == 0x0A)
                 break;
-            wb(m, a0 + 74, (uint8_t)(rb(m, a0 + 74) - 2));
+            wb(m, a0 + OBJ_GOLD, (uint8_t)(rb(m, a0 + OBJ_GOLD) - 2));
         }
         break;
     }
@@ -891,13 +892,13 @@ static void before_combat(MogCombat *m)
  * s'enfuir : message, puis son inventaire (écran 9) ; vrai s'il a fui. */
 static int flee(MogCombat *m)
 {
-    uint32_t a1 = rl(m, MOG_v_Combatants + 4);
-    if (rl(m, a1 + 54) == 4)
+    uint32_t a1 = rl(m, MOG_v_Combatants + CMB_OPPONENT);
+    if (rl(m, a1 + OBJ_KNIGHT) == 4)
         return 0;
     wl(m, MOG_v_Defender, a1);
-    if (!rb(m, rl(m, a1 + 96) + 18))
+    if (!rb(m, rl(m, a1 + OBJ_INVENTORY) + 18))
         return 0;
-    uint32_t s = rl(m, a1 + 108), d = MOG_s_FleeName;
+    uint32_t s = rl(m, a1 + OBJ_NAME), d = MOG_s_FleeName;
     uint8_t c;
     do {
         c = rb(m, s++);
@@ -911,7 +912,7 @@ static int flee(MogCombat *m)
         ww(m, a2 + 2u * (unsigned)i, 0);
     ww(m, MOG_v_UsedItem, 0xFFFF);
     uint32_t k = rl(m, MOG_v_Combatants);
-    wl(m, MOG_v_Combatants, rl(m, MOG_v_Combatants + 4));
+    wl(m, MOG_v_Combatants, rl(m, MOG_v_Combatants + CMB_OPPONENT));
     mog_screen_run(m, 9);                               /* LAB_04CF */
     wl(m, MOG_v_Combatants, k);
     int d0 = 0;
@@ -941,51 +942,51 @@ static int pvp(MogCombat *m, uint32_t a0, uint32_t a1)
 {
     map_colours_off(m);                                 /* LAB_0DC8 */
     wl(m, MOG_v_Combatants, a0);
-    wl(m, MOG_v_Combatants + 4, a1);
-    int fight = !rb(m, a1 + 82) && rb(m, a1 + 73);
+    wl(m, MOG_v_Combatants + CMB_OPPONENT, a1);
+    int fight = !rb(m, a1 + OBJ_BEWITCHED) && rb(m, a1 + OBJ_LIVES);
     if (fight && flee(m)) {                             /* LAB_0058 */
         back_to_map(m);                                 /* LAB_0054 */
         return 0;
     }
     if (fight) {
         a0 = rl(m, MOG_v_Combatants);
-        a1 = rl(m, MOG_v_Combatants + 4);
-        if (rl(m, a0 + 54) == 4 && rl(m, a1 + 54) == 4) {
+        a1 = rl(m, MOG_v_Combatants + CMB_OPPONENT);
+        if (rl(m, a0 + OBJ_KNIGHT) == 4 && rl(m, a1 + OBJ_KNIGHT) == 4) {
             back_to_map(m);
             return 0;
         }
         uint8_t port = 2;                               /* LAB_0050 */
-        if (rl(m, a0 + 54) != 4) {
-            wb(m, a0 + 77, 0x0C);
-            wb(m, a0 + 11, port);
+        if (rl(m, a0 + OBJ_KNIGHT) != 4) {
+            wb(m, a0 + OBJ_CONTROLLER, 0x0C);
+            wb(m, a0 + OBJ_PORT, port);
             port = 1;
         }
-        if (rl(m, a1 + 54) != 4) {
-            wb(m, a1 + 77, 0x0C);
-            wb(m, a1 + 11, port);
+        if (rl(m, a1 + OBJ_KNIGHT) != 4) {
+            wb(m, a1 + OBJ_CONTROLLER, 0x0C);
+            wb(m, a1 + OBJ_PORT, port);
         }
         before_combat(m);                               /* LAB_0065 */
         mog_encounter_init(m, MOG_Enc_EnemyKnight);
         mog_combat_run(m);
         ww(m, MOG_v_CombatantsSwapped, 0);
         a0 = rl(m, MOG_v_Combatants);
-        a1 = rl(m, MOG_v_Combatants + 4);
+        a1 = rl(m, MOG_v_Combatants + CMB_OPPONENT);
         if (rb(m, MOG_v_KnightsDown) == 3) {                 /* LAB_0055 : les deux à terre */
-            if (rl(m, a0 + 54) != 4)
+            if (rl(m, a0 + OBJ_KNIGHT) != 4)
                 mog_screen_run(m, 9);                   /* LAB_04CF */
             back_to_map(m);
             return 0;
         }
         if (rb(m, MOG_v_KnightsDown) & 1) {                  /* le premier à terre */
             ww(m, MOG_v_CombatantsSwapped, 1);
-            wl(m, MOG_v_Combatants + 4, a0);
+            wl(m, MOG_v_Combatants + CMB_OPPONENT, a0);
             wl(m, MOG_v_Combatants, a1);
             a0 = rl(m, MOG_v_Combatants);
-            a1 = rl(m, MOG_v_Combatants + 4);
+            a1 = rl(m, MOG_v_Combatants + CMB_OPPONENT);
         }
     }
-    if (rl(m, a0 + 54) == 4) {                          /* LAB_0057 */
-        ww(m, a0 + 78, (uint16_t)(rw(m, a0 + 78) + 1));
+    if (rl(m, a0 + OBJ_KNIGHT) == 4) {                          /* LAB_0057 */
+        ww(m, a0 + OBJ_EXPERIENCE, (uint16_t)(rw(m, a0 + OBJ_EXPERIENCE) + 1));
         mog_loot(m, a0, a1);
         back_to_map(m);
         return 0;
@@ -993,8 +994,8 @@ static int pvp(MogCombat *m, uint32_t a0, uint32_t a1)
     mog_screen_run(m, 1);                               /* LAB_04CF */
     if (rw(m, MOG_v_CombatantsSwapped)) {
         uint32_t d0 = rl(m, MOG_v_Combatants);
-        wl(m, MOG_v_Combatants, rl(m, MOG_v_Combatants + 4));
-        wl(m, MOG_v_Combatants + 4, d0);
+        wl(m, MOG_v_Combatants, rl(m, MOG_v_Combatants + CMB_OPPONENT));
+        wl(m, MOG_v_Combatants + CMB_OPPONENT, d0);
     }
     back_to_map(m);                                     /* LAB_0054 */
     return 0;
@@ -1043,13 +1044,13 @@ static void lair(MogCombat *m, uint32_t a1)
             return;
         }
         uint32_t k = CUR;                               /* LAB_005C */
-        ww(m, k + 78, (uint16_t)(rw(m, k + 78) + 1));
+        ww(m, k + OBJ_EXPERIENCE, (uint16_t)(rw(m, k + OBJ_EXPERIENCE) + 1));
     }
     mog_screen_run(m, 2);                               /* LAB_005D */
     lair_emptied(m);                                    /* LAB_005F */
     back_to_map(m);                                     /* SECSTRT_36 */
     if (rw(m, MOG_v_BootsOn)) {                          /* LAB_0E03 */
-        wl(m, CUR + 126, rl(m, MOG_v_BootsPos));
+        wl(m, CUR + OBJ_MAP_X, rl(m, MOG_v_BootsPos));
         ww(m, MOG_v_Boots2Flag, 0);                         /* LAB_0E04 */
         ww(m, MOG_v_BootsOn, 0);
         ww(m, MOG_v_Boots2On, 0);
@@ -1070,14 +1071,14 @@ static uint32_t str_copy(MogCombat *m, uint32_t d, uint32_t s)
 /* LAB_0E49 : menu des lieux atteints (1 à 9) */
 static void places_menu(MogCombat *m)
 {
-    wl(m, MOG_v_Combatants + 10, rl(m, MOG_t_FontBank));
+    wl(m, MOG_v_Combatants + CMB_FONT, rl(m, MOG_t_FontBank));
     ww(m, MOG_v_PlacesMenuX, 0x32);
     ww(m, MOG_v_PlacesMenuY, 0x64);
     icon(m, 0x20, 0x32, 0x64);
     uint32_t a0 = CUR;
-    uint32_t a2 = str_copy(m, MOG_b_TextLine, rl(m, a0 + 108));
+    uint32_t a2 = str_copy(m, MOG_b_TextLine, rl(m, a0 + OBJ_NAME));
     str_copy(m, a2 - 1, MOG_s_May);
-    icon(m, (uint16_t)rl(m, a0 + 54), (uint16_t)(rw(m, MOG_v_PlacesMenuX) + 5),
+    icon(m, (uint16_t)rl(m, a0 + OBJ_KNIGHT), (uint16_t)(rw(m, MOG_v_PlacesMenuX) + 5),
          (uint16_t)(rw(m, MOG_v_PlacesMenuY) + 5));
     mog_text(m, MOG_b_TextLine, (uint16_t)(rw(m, MOG_v_PlacesMenuX) + 15),
              (uint16_t)(rw(m, MOG_v_PlacesMenuY) + 5), 0);
@@ -1159,9 +1160,9 @@ static int dragon_attack(MogCombat *m)
     wl(m, MOG_v_PlayerObj, CUR);
     uint32_t a0 = rl(m, MOG_v_PlayerObj);
     int lost = 1;
-    if (rl(m, a0 + 54) == 4) {
-        wb(m, a0 + 73, (uint8_t)(rb(m, a0 + 73) - 1));
-    } else if (!rb(m, a0 + 82) && rb(m, a0 + 73)) {
+    if (rl(m, a0 + OBJ_KNIGHT) == 4) {
+        wb(m, a0 + OBJ_LIVES, (uint8_t)(rb(m, a0 + OBJ_LIVES) - 1));
+    } else if (!rb(m, a0 + OBJ_BEWITCHED) && rb(m, a0 + OBJ_LIVES)) {
         mog_encounter_init(m, MOG_Enc_Dragon);
         mog_combat_run(m);
         lost = rb(m, MOG_v_KnightsDown) & 1;
@@ -1170,9 +1171,9 @@ static int dragon_attack(MogCombat *m)
         mog_loot(m, MOG_v_DragonObj, rl(m, MOG_v_PlayerObj));
         wb(m, MOG_v_KnightsDown, rb(m, MOG_v_KnightsDown) | 1);
     } else {                                            /* LAB_0086 : dragon tué */
-        wb(m, MOG_v_DragonObj + 73, 0xFF);
+        wb(m, MOG_v_DragonObj + OBJ_LIVES, 0xFF);
         a0 = rl(m, MOG_v_PlayerObj);
-        ww(m, a0 + 78, (uint16_t)(rw(m, a0 + 78) + 2));
+        ww(m, a0 + OBJ_EXPERIENCE, (uint16_t)(rw(m, a0 + OBJ_EXPERIENCE) + 2));
         mog_screen_run(m, 10);                          /* LAB_04CF */
     }
     ww(m, MOG_v_MovesUsed, rw(m, MOG_v_MovesMax));           /* LAB_00B2 */
@@ -1191,11 +1192,11 @@ static int arrived(MogCombat *m)
         }
         return 0;
     }
-    uint32_t a0 = CUR, d1 = rl(m, a0 + 100);
+    uint32_t a0 = CUR, d1 = rl(m, a0 + OBJ_TARGET);
     if (d1) {
         if (!in_places(m, d1, 0))
             return 0;
-        int ev = pvp(m, CUR, rl(m, CUR + 100));
+        int ev = pvp(m, CUR, rl(m, CUR + OBJ_TARGET));
         ww(m, MOG_v_MovesUsed, rw(m, MOG_v_MovesMax));
         if (ev)
             return ev;
@@ -1212,11 +1213,11 @@ static uint16_t steer(MogCombat *m)
     uint32_t a0 = CUR;
     if (!rw(m, MOG_v_SteerReady)) {
         ww(m, MOG_v_SteerReady, 1);
-        uint16_t d0 = rw(m, a0 + 126), d1 = rw(m, a0 + 128), d2, d3;
-        if (rl(m, a0 + 100)) {
-            uint32_t a1 = rl(m, a0 + 100);
-            d2 = rw(m, a1 + 126);
-            d3 = rw(m, a1 + 128);
+        uint16_t d0 = rw(m, a0 + OBJ_MAP_X), d1 = rw(m, a0 + OBJ_MAP_Y), d2, d3;
+        if (rl(m, a0 + OBJ_TARGET)) {
+            uint32_t a1 = rl(m, a0 + OBJ_TARGET);
+            d2 = rw(m, a1 + OBJ_MAP_X);
+            d3 = rw(m, a1 + OBJ_MAP_Y);
         } else if (rl(m, MOG_v_AiTownX)) {
             d2 = rw(m, MOG_v_AiTownX);
             d3 = rw(m, MOG_v_AiTownY);
@@ -1307,11 +1308,11 @@ static void find_gold(MogCombat *m, int d3)
     d0 += 0x0A;
     if (d3) {
         uint32_t a0 = rl(m, MOG_v_Lair);
-        ww(m, a0 + 8, (uint16_t)(rw(m, a0 + 8) + d0));
+        ww(m, a0 + LAIR_GOLD, (uint16_t)(rw(m, a0 + LAIR_GOLD) + d0));
         return;
     }
     uint32_t a0 = CUR;
-    ww(m, a0 + 74, (uint16_t)(rw(m, a0 + 74) + d0));
+    ww(m, a0 + OBJ_GOLD, (uint16_t)(rw(m, a0 + OBJ_GOLD) + d0));
     mog_number(m, d0, MOG_b_GoldText);
     uint32_t a2 = MOG_b_GoldText;
     for (int i = 0; i < 5 && rb(m, a2); i++)
@@ -1342,7 +1343,7 @@ static void find_item(MogCombat *m, int d3)
             continue;
         wl(m, MOG_v_LastItem, d0);
         a1 = CUR;
-        a0 = rl(m, a1 + 96);
+        a0 = rl(m, a1 + OBJ_INVENTORY);
         if (d3 == 1) {
             a1 = rl(m, MOG_v_Lair);
             a0 = rl(m, a1);
@@ -1353,7 +1354,7 @@ static void find_item(MogCombat *m, int d3)
             if (rb(m, a0 + 4))
                 continue;
             if (!d3)
-                wl(m, a1 + 88, 0x19);
+                wl(m, a1 + OBJ_WEAPON, 0x19);
         }
         break;
     }
@@ -1361,7 +1362,7 @@ static void find_item(MogCombat *m, int d3)
     if (!d3) {
         if (d0 == 6) {
             uint32_t k = CUR;
-            ww(m, k + 80, (uint16_t)(rw(m, k + 80) + 0x14));
+            ww(m, k + OBJ_HP, (uint16_t)(rw(m, k + OBJ_HP) + 0x14));
             mog_knight_hp(m, k);
         }
         uint32_t a4 = MOG_t_ItemNames;                     /* LAB_0477 : nom */
@@ -1384,10 +1385,10 @@ static void find_item(MogCombat *m, int d3)
 static void random_event(MogCombat *m)
 {
     for (;;) {
-        wl(m, MOG_v_Combatants + 10, rl(m, MOG_t_FontBank));
+        wl(m, MOG_v_Combatants + CMB_FONT, rl(m, MOG_t_FontBank));
         uint32_t a0 = CUR;
         uint32_t d0 = d100(m);
-        d0 = (d0 & 0xFFFFFF00u) | (uint8_t)(d0 + rb(m, a0 + 83));     /* ADD.B */
+        d0 = (d0 & 0xFFFFFF00u) | (uint8_t)(d0 + rb(m, a0 + OBJ_LUCK));     /* ADD.B */
         if ((int32_t)d0 <= 0x1E) {                      /* LAB_0461 */
             find_item(m, 0);
             ww(m, MOG_v_ItemMessageIndex, (uint16_t)((rw(m, MOG_v_ItemMessageIndex) + 1) & 3));
@@ -1404,7 +1405,7 @@ static void random_event(MogCombat *m)
             wl(m, MOG_v_EventMessage, rl(m, MOG_t_StatGains + entry + 4));
             if ((uint16_t)d1 == 0x47) {
                 mog_knight_hp(m, CUR);
-                ww(m, CUR + 80, (uint16_t)(rw(m, CUR + 80) + 0x0A));
+                ww(m, CUR + OBJ_HP, (uint16_t)(rw(m, CUR + OBJ_HP) + 0x0A));
             }
             if ((uint16_t)d1 == 0x48)
                 mog_knight_defence(m, CUR);
@@ -1421,9 +1422,9 @@ static void random_event(MogCombat *m)
             wl(m, MOG_v_EventMessage, rl(m, MOG_t_GoldMessages + (uint32_t)(uint16_t)(n << 2)));
             return;
         }
-        if (rb(m, a0 + 83) == 0xFF)
+        if (rb(m, a0 + OBJ_LUCK) == 0xFF)
             continue;
-        wb(m, a0 + 82, 3);
+        wb(m, a0 + OBJ_BEWITCHED, 3);
         ww(m, MOG_v_EventKind, 4);
         wl(m, MOG_v_EventMessage, MOG_t_BewitchedMessage);
         return;
@@ -1437,17 +1438,17 @@ static void black_knights_events(MogCombat *m)
     wl(m, MOG_v_EventKnight, rl(m, MOG_v_CurObj));
     uint32_t a0 = MOG_t_KnightObjects;
     for (int i = 0; i < 4; i++, a0 += IX_OBJECT_SIZE) {
-        if (rl(m, a0 + 54) == 4) {
-            wb(m, a0 + 83, 0xFF);
+        if (rl(m, a0 + OBJ_KNIGHT) == 4) {
+            wb(m, a0 + OBJ_LUCK, 0xFF);
             wl(m, MOG_v_CurObj, a0);
-            if ((int8_t)rb(m, a0 + 73) > 0) {
-                if (sw(rw(m, a0 + 74)) < 0)
-                    ww(m, a0 + 74, 0);
+            if ((int8_t)rb(m, a0 + OBJ_LIVES) > 0) {
+                if (sw(rw(m, a0 + OBJ_GOLD)) < 0)
+                    ww(m, a0 + OBJ_GOLD, 0);
                 random_event(m);                        /* LAB_045E */
             }
         }
-        if (rb(m, a0 + 130))
-            wb(m, a0 + 73, (uint8_t)(rb(m, a0 + 73) - 1));
+        if (rb(m, a0 + OBJ_POISONED))
+            wb(m, a0 + OBJ_LIVES, (uint8_t)(rb(m, a0 + OBJ_LIVES) - 1));
     }
     wl(m, MOG_v_CurObj, rl(m, MOG_v_EventKnight));
 }
@@ -1467,18 +1468,18 @@ static void new_round(MogCombat *m)
     }
     uint32_t a0 = MOG_t_KnightObjects;
     for (int i = 0; i < 5; i++, a0 += IX_OBJECT_SIZE) {  /* LAB_002B (dragon compris) */
-        if (rb(m, a0 + 83) != 0xFF) {
-            int8_t t = (int8_t)(rb(m, a0 + 83) - 0x0A);
-            wb(m, a0 + 83, (uint8_t)(t < 0 ? 0 : t));
-            if (rb(m, a0 + 82))
-                wb(m, a0 + 82, (uint8_t)(rb(m, a0 + 82) - 1));
+        if (rb(m, a0 + OBJ_LUCK) != 0xFF) {
+            int8_t t = (int8_t)(rb(m, a0 + OBJ_LUCK) - 0x0A);
+            wb(m, a0 + OBJ_LUCK, (uint8_t)(t < 0 ? 0 : t));
+            if (rb(m, a0 + OBJ_BEWITCHED))
+                wb(m, a0 + OBJ_BEWITCHED, (uint8_t)(rb(m, a0 + OBJ_BEWITCHED) - 1));
         }
-        uint16_t d1 = (uint16_t)(rw(m, a0 + 84) - rw(m, a0 + 80));   /* LAB_002D */
+        uint16_t d1 = (uint16_t)(rw(m, a0 + OBJ_HP_MAX) - rw(m, a0 + OBJ_HP));   /* LAB_002D */
         if (d1)
             d1 = (uint16_t)((d1 >> 2) | 1);
-        ww(m, a0 + 80, (uint16_t)(rw(m, a0 + 80) + d1));
-        if (!(sw(rw(m, a0 + 84)) > sw(rw(m, a0 + 80))))
-            ww(m, a0 + 80, rw(m, a0 + 84));
+        ww(m, a0 + OBJ_HP, (uint16_t)(rw(m, a0 + OBJ_HP) + d1));
+        if (!(sw(rw(m, a0 + OBJ_HP_MAX)) > sw(rw(m, a0 + OBJ_HP))))
+            ww(m, a0 + OBJ_HP, rw(m, a0 + OBJ_HP_MAX));
     }
 }
 
@@ -1495,9 +1496,9 @@ static void next_day_screen(MogCombat *m)
     for (uint32_t i = 0; i < 0x25F7; i++)
         wb(m, dst + i, rb(m, src + i));
     mog_piv_decode(m, rl(m, MOG_v_DrawPlanes));
-    wl(m, MOG_v_Combatants + 10, rl(m, MOG_t_FontBank + 16));
+    wl(m, MOG_v_Combatants + CMB_FONT, rl(m, MOG_t_FontBank + 16));
     mog_text_records(m, MOG_t_NextDayText);
-    uint16_t d0 = rw(m, MOG_v_Combatants + 18);
+    uint16_t d0 = rw(m, MOG_v_Combatants + CMB_MOON);
     ww(m, MOG_v_BlitByCpu, 1);
     mog_draw_cel(VM, &m->blt, rl(m, MOG_t_BankMap + 4), d0, 0x77, 0x0C);
     ww(m, MOG_v_BlitByCpu, 0);
@@ -1538,7 +1539,7 @@ void mog_message_screen(MogCombat *m, uint32_t a0, int dim)
     for (uint32_t i = 0; i < 0xE6F; i++)
         wb(m, dst + i, rb(m, src + i));
     mog_piv_decode(m, rl(m, MOG_v_DrawPlanes));             /* LAB_0C21 */
-    wl(m, MOG_v_Combatants + 10, rl(m, MOG_t_FontBank + 16));
+    wl(m, MOG_v_Combatants + CMB_FONT, rl(m, MOG_t_FontBank + 16));
     mog_text_records(m, rl(m, MOG_v_MessageText));           /* LAB_0432 */
     if (dim) {
         static const uint16_t c[6] = { 0x800, 0x600, 0x400, 0, 0x200, 0x100 };
@@ -1597,15 +1598,15 @@ static int end_turn(MogCombat *m)
         }
         select_knight(m);                               /* LAB_0DBB */
         uint32_t a0 = CUR;
-        wl(m, a0 + 100, 0);
+        wl(m, a0 + OBJ_TARGET, 0);
         wl(m, MOG_v_AiTownX, 0);
         ww(m, MOG_v_SteerReady, 0);
         ww(m, MOG_v_CreaturesSorted, 0);
-        if ((int8_t)rb(m, a0 + 82) > 0)
+        if ((int8_t)rb(m, a0 + OBJ_BEWITCHED) > 0)
             continue;                                   /* ensorcelé */
-        if ((int8_t)rb(m, a0 + 73) > 0)
+        if ((int8_t)rb(m, a0 + OBJ_LIVES) > 0)
             return MOG_MAP_ENTER;
-        if (rl(m, a0 + 54) == 4)
+        if (rl(m, a0 + OBJ_KNIGHT) == 4)
             continue;
         ww(m, MOG_v_DeadPlayers, (uint16_t)(rw(m, MOG_v_DeadPlayers) + 1));
         if (rw(m, MOG_v_DeadPlayers) == rw(m, MOG_v_Players))
@@ -1618,7 +1619,7 @@ int mog_map_frame(MogCombat *m)
     mog_frame_start(m);                                 /* Combat_FrameStart */
     uint32_t a0 = CUR;
     uint16_t d1 = 0;
-    int cpu = rl(m, a0 + 54) == 4;
+    int cpu = rl(m, a0 + OBJ_KNIGHT) == 4;
     if (cpu) {
         sort_creatures(m);                              /* LAB_0DDF */
         pick_creature(m);                               /* LAB_0DEA */
@@ -1651,13 +1652,13 @@ int mog_map_frame(MogCombat *m)
     if (!rw(m, MOG_v_Boots2On) && !rw(m, MOG_v_BootsOn)) {
         if (rl(m, MOG_v_MapKeysOff))
             skip_keys = 1;                              /* vers LAB_0DB4 */
-        else if ((d1 & 15) && rl(m, CUR + 54) != 4)
+        else if ((d1 & 15) && rl(m, CUR + OBJ_KNIGHT) != 4)
             ww(m, MOG_v_MovesUsed, (uint16_t)(rw(m, MOG_v_MovesUsed) + 1));
     }
     if (!skip_keys) {                                   /* LAB_0DB1 */
         uint16_t key = rw(m, MOG_v_KeyPressed);
         uint8_t c = rb(m, MOG_t_KeyChars + key);          /* LAB_0D8D */
-        if (rl(m, CUR + 54) != 4) {
+        if (rl(m, CUR + OBJ_KNIGHT) != 4) {
             if (c == 0x20) {
                 map_colours_off(m);
                 mog_screen_run(m, 9);                   /* LAB_04CF */
@@ -1681,7 +1682,7 @@ int mog_map_frame(MogCombat *m)
             return ev;
     }
     uint32_t d = MOG_v_DragonObj;                          /* LAB_0DB6 : le dragon */
-    if (!((int8_t)rb(m, d + 73) < 0) && rw(m, MOG_v_DragonFlying) && rl(m, d + 100) == CUR) {
+    if (!((int8_t)rb(m, d + OBJ_LIVES) < 0) && rw(m, MOG_v_DragonFlying) && rl(m, d + OBJ_TARGET) == CUR) {
         for (uint32_t i = 0; i < 4; i++)
             if (rl(m, MOG_t_UnderDragon + 4 * i) == CUR) {
                 map_colours_off(m);
@@ -1707,7 +1708,7 @@ int mog_map_frame(MogCombat *m)
 void mog_map_0E02(MogCombat *m)
 {
     ww(m, MOG_v_BootsOn, 1);
-    wl(m, MOG_v_BootsPos, rl(m, CUR + 126));
+    wl(m, MOG_v_BootsPos, rl(m, CUR + OBJ_MAP_X));
 }
 
 /* LAB_0E05 : idem pour le chevalier a0 */
@@ -1715,17 +1716,17 @@ void mog_map_0E05(MogCombat *m, uint32_t a0)
 {
     ww(m, MOG_v_Boots2Flag, 1);
     ww(m, MOG_v_Boots2On, 1);
-    wl(m, MOG_v_BootsPos, rl(m, a0 + 126));
+    wl(m, MOG_v_BootsPos, rl(m, a0 + OBJ_MAP_X));
 }
 
 /* LAB_0E06 : le chevalier courant est jeté au hasard sur la carte */
 void mog_map_0E06(MogCombat *m)
 {
     uint32_t a0 = CUR;
-    ww(m, a0 + 126, (uint16_t)(mog_random(m) & 0xFF));
-    ww(m, a0 + 128, (uint16_t)(mog_random(m) & 0x7F));
-    ww(m, a0 + 128, (uint16_t)(rw(m, a0 + 128) + 0x24));
-    ww(m, a0 + 126, (uint16_t)(rw(m, a0 + 126) + 0x20));
+    ww(m, a0 + OBJ_MAP_X, (uint16_t)(mog_random(m) & 0xFF));
+    ww(m, a0 + OBJ_MAP_Y, (uint16_t)(mog_random(m) & 0x7F));
+    ww(m, a0 + OBJ_MAP_Y, (uint16_t)(rw(m, a0 + OBJ_MAP_Y) + 0x24));
+    ww(m, a0 + OBJ_MAP_X, (uint16_t)(rw(m, a0 + OBJ_MAP_X) + 0x20));
 }
 
 /* ------------------------------------------------------------------ */

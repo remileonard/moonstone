@@ -10,6 +10,7 @@
  */
 #include "mog_private.h"
 #include "ix_mog_names.h"
+#include "mog_struct.h"
 #include "mog_vbl.h"
 #include "mog_screens.h"
 
@@ -133,7 +134,7 @@ static void hp_colours(MogCombat *m, uint32_t a1)
         { 0x00C, 0x009, 0x006 }, { 0xFA0, 0xE70, 0xC50 }, { 0xAE8, 0x6B5, 0x473 },
         { 0xD00, 0x900, 0x500 }, { 0x408, 0x305, 0x003 },
     };
-    uint32_t k = ix_rl(VM, a1 + 54);
+    uint32_t k = ix_rl(VM, a1 + OBJ_KNIGHT);
     const uint16_t *v = c[k <= 3 ? k : 4];
     for (int i = 0; i < 3; i++)
         ix_ww(VM, MOG_t_HpColours + 2u * (unsigned)i, v[i]);
@@ -153,7 +154,7 @@ static void low_hp(MogCombat *m)
         if (ix_rl(VM, var[w][0]))
             continue;
         uint32_t a1 = ix_rl(VM, MOG_v_Combatants + 4u * (unsigned)w);
-        if ((int16_t)ix_rw(VM, a1 + 80) > 10)
+        if ((int16_t)ix_rw(VM, a1 + OBJ_HP) > 10)
             continue;
         hp_colours(m, a1);
         for (int i = 0; i < 3; i++)
@@ -211,7 +212,7 @@ void mog_combat_begin(MogCombat *m)
     ix_wl(VM, MOG_v_LowHpGlowA, 0);
     ix_wl(VM, MOG_v_FoeLowHpGlowA, 0);
     clear_keys(m);                                      /* LAB_0B82 */
-    ix_wb(VM, MOG_v_Combatants + 8, 1);
+    ix_wb(VM, MOG_v_Combatants + CMB_ACTIVE, 1);
     ix_wl(VM, MOG_v_PlayerObj, ix_rl(VM, MOG_v_Combatants));
     for (uint32_t i = 0; i < 0x78; i++)                 /* LAB_02F2 : trajectoires */
         ix_wb(VM, MOG_t_Trajectories + i, 0);
@@ -266,15 +267,15 @@ int mog_combat_frame(MogCombat *m)
 static void check_ko(MogCombat *m)
 {
     ix_ww(VM, MOG_v_KnightsDown, 0);
-    uint32_t a0 = ix_rl(VM, MOG_v_Combatants), a1 = ix_rl(VM, MOG_v_Combatants + 4);
-    if (!((int16_t)ix_rw(VM, a0 + 80) > 0)) {
+    uint32_t a0 = ix_rl(VM, MOG_v_Combatants), a1 = ix_rl(VM, MOG_v_Combatants + CMB_OPPONENT);
+    if (!((int16_t)ix_rw(VM, a0 + OBJ_HP) > 0)) {
         ix_wb(VM, MOG_v_KnightsDown, ix_rb(VM, MOG_v_KnightsDown) | 1);
-        ix_ww(VM, a0 + 80, ix_rw(VM, a0 + 84));
-        ix_wb(VM, a0 + 73, (uint8_t)(ix_rb(VM, a0 + 73) - 1));
+        ix_ww(VM, a0 + OBJ_HP, ix_rw(VM, a0 + OBJ_HP_MAX));
+        ix_wb(VM, a0 + OBJ_LIVES, (uint8_t)(ix_rb(VM, a0 + OBJ_LIVES) - 1));
     }
-    if (!((int16_t)ix_rw(VM, a1 + 80) > 0)) {
-        ix_ww(VM, a1 + 80, ix_rw(VM, a1 + 84));
-        ix_wb(VM, a1 + 73, (uint8_t)(ix_rb(VM, a1 + 73) - 1));
+    if (!((int16_t)ix_rw(VM, a1 + OBJ_HP) > 0)) {
+        ix_ww(VM, a1 + OBJ_HP, ix_rw(VM, a1 + OBJ_HP_MAX));
+        ix_wb(VM, a1 + OBJ_LIVES, (uint8_t)(ix_rb(VM, a1 + OBJ_LIVES) - 1));
         ix_wb(VM, MOG_v_KnightsDown, ix_rb(VM, MOG_v_KnightsDown) | 2);
     }
 }
