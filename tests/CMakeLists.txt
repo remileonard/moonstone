@@ -131,3 +131,13 @@ add_executable(mog_game_shot mog_game_shot.c
 target_include_directories(mog_game_shot PRIVATE
     ${CMAKE_SOURCE_DIR}/game/include ${CMAKE_SOURCE_DIR}/game/data)
 target_link_libraries(mog_game_shot PRIVATE moon_assets)
+
+# Scènes de l'intro de program en C (tools/prog_lockstep.py)
+add_executable(prog_run prog_run.c
+    ${CMAKE_SOURCE_DIR}/game/src/ix_vm.c
+    ${CMAKE_SOURCE_DIR}/game/src/prog_intro.c
+    ${CMAKE_SOURCE_DIR}/game/src/prog_blit.c
+    ${CMAKE_SOURCE_DIR}/game/src/prog_gfx.c
+    ${CMAKE_SOURCE_DIR}/game/src/prog_vbl.c)
+target_include_directories(prog_run PRIVATE
+    ${CMAKE_SOURCE_DIR}/game/include ${CMAKE_SOURCE_DIR}/game/data)
