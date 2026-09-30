@@ -506,6 +506,27 @@ void moon_terrain_free(MoonTerrain *terrain);
  */
 uint8_t *moon_file_read(const char *name, size_t *out_size);
 
+/* Kind of a game file.  The game names its files by type: .cel, .ob, .c,
+ * .f and .font are CEL sprite sheets, .piv and .p (and "mindscape") PIV
+ * pictures, .cmp RNC-packed modules, .a sound banks, .t terrains; "test"
+ * is the container of the overworld pictures. */
+typedef enum {
+    MOON_KIND_UNKNOWN,
+    MOON_KIND_CEL,
+    MOON_KIND_PIV,
+    MOON_KIND_MOD,
+    MOON_KIND_STILE,
+    MOON_KIND_SFX,
+    MOON_KIND_TERRAIN,
+    MOON_KIND_TESTMAP,
+    MOON_KIND_HIT
+} MoonFileKind;
+
+/**
+ * moon_file_kind - kind of a game file, from its name (a path is allowed).
+ */
+MoonFileKind moon_file_kind(const char *name);
+
 /* ------------------------------------------------------------------ */
 /* Decompressors (also usable standalone)                              */
 /* ------------------------------------------------------------------ */

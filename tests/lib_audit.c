@@ -485,17 +485,6 @@ static void audit_hit(void)
 
 /* ------------------------------------------------------------------ */
 
-static int ext_is(const char *n, const char *e)
-{
-    const char *d = strrchr(n, '.');
-    if (!d)
-        return 0;
-    for (d++; *d && *e; d++, e++)
-        if (tolower((unsigned char)*d) != *e)
-            return 0;
-    return !*d && !*e;
-}
-
 static int cmp_names(const void *a, const void *b)
 {
     return strcmp(*(char *const *)a, *(char *const *)b);
@@ -528,32 +517,22 @@ int main(int argc, char **argv)
 
     for (int i = 0; i < n; i++) {
         const char *nm = names[i];
-        if (ext_is(nm, "cel") || ext_is(nm, "ob") || ext_is(nm, "c")
-            || ext_is(nm, "f") || ext_is(nm, "font"))
-            audit_cel(nm);
-        else if (ext_is(nm, "piv") || ext_is(nm, "p"))
-            audit_piv(nm);
-        else if (ext_is(nm, "cmp"))
-            audit_cmp(nm);
-        else if (ext_is(nm, "stile"))
-            audit_stile(nm);
-        else if (ext_is(nm, "a"))
-            audit_sfx(nm);
-        else if (ext_is(nm, "t"))
-            audit_terrain(nm);
-        else if (!strcasecmp(nm, "test"))
-            audit_testmap(nm);
-        else if (!strcasecmp(nm, "mindscape")) {
-            audit_piv(nm);
-        } else if (!strcasecmp(nm, "collide.hit"))
-            audit_hit();
-        else
+        switch (moon_file_kind(nm)) {
+        case MOON_KIND_CEL:     audit_cel(nm); break;
+        case MOON_KIND_PIV:     audit_piv(nm); break;
+        case MOON_KIND_MOD:     audit_cmp(nm); break;
+        case MOON_KIND_STILE:   audit_stile(nm); break;
+        case MOON_KIND_SFX:     audit_sfx(nm); break;
+        case MOON_KIND_TERRAIN: audit_terrain(nm); break;
+        case MOON_KIND_TESTMAP: audit_testmap(nm); break;
+        case MOON_KIND_HIT:     audit_hit(); break;
+        default:
             printf("%-8s %-18s non audité (format inconnu)\n", "?", nm);
+        }
     }
     /* flux LZSS seuls : le corps de chaque CEL */
     for (int i = 0; i < n; i++)
-        if (ext_is(names[i], "cel") || ext_is(names[i], "ob") || ext_is(names[i], "c")
-            || ext_is(names[i], "f") || ext_is(names[i], "font")) {
+        if (moon_file_kind(names[i]) == MOON_KIND_CEL) {
             size_t len;
             uint8_t *raw = moon_file_read(names[i], &len);
             if (raw && len > 10) {

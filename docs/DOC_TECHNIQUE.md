@@ -2338,42 +2338,34 @@ Le cache est optionnel — le moteur peut le bypasser pour les assets volatils (
 
 ---
 
-### 11.3 Suite d'outils de débogage (`moon-tools`)
+### 11.3 Outils d'inspection (`tools/`)
 
 Construite **au-dessus de `libmoon_assets`**, cette suite d'utilitaires en ligne de commande permet d'inspecter chaque fichier directement, sans lancer le jeu complet. Elle sert à valider les décompresseurs et à explorer les assets.
 
-#### Outils prévus
+#### Outils
+
+Chaque fichier est lu par la bibliothèque ; son genre vient de son nom
+(`moon_file_kind` : `.cel .ob .c .f .font` CEL, `.piv .p mindscape` PIV,
+`.cmp` module, `.stile`, `.a` sons, `.t` terrain, `test`, `collide.hit`).
 
 | Outil | Usage | Sortie |
 |-------|-------|--------|
-| `moon-info <fichier>` | Afficher métadonnées (magic, format, nb frames, taille compressée/décompressée) | texte |
-| `moon-view-cel <fichier.cel> [frame]` | Rendre une frame CEL en ASCII-art ou PNG | PNG / terminal |
-| `moon-view-piv <fichier.PIV>` | Décoder et afficher un fond d'écran | PNG |
-| `moon-dump <fichier> <out.bin>` | Décompresser brut vers fichier binaire | fichier |
-| `moon-palette <fichier.PIV>` | Afficher la palette en hexa + swatches ANSI | texte |
-| `moon-mod-info <fichier.cmp>` | Afficher les métadonnées du module (BPM, instruments, patterns) | texte |
+| `moon-info [-v] <fichier>...` | genre et contenu : frames d'une CEL, palette d'un PIV (pastilles de couleur dans un terminal), titre et instruments d'un module, terrain, sections de `collide.hit`, images de `test` ; `-v` détaille | texte |
+| `moon-dump <fichier> <sortie> [n]` | données décompactées : pixels d'une CEL, image d'un PIV (ou de l'image `n` de `test`), module `.mod` lisible par un tracker | fichier |
+| `moon-view <fichier> [--pal f.piv] [--index n] [--bmp sortie]` | fenêtre SDL : planche d'une CEL (couleurs du PIV donné), PIV, images de `test` (← →) ; `--bmp` écrit l'image au lieu d'ouvrir une fenêtre | fenêtre / BMP |
 
-#### Exemple d'invocation
+#### Exemples
 
 ```sh
-# Inspecter un fichier
-$ moon-info bg3.PIV
-Fichier : bg3.PIV  (20984 octets)
-Format  : PIV Mindscape propriétaire
-Plans   : 5 (32 couleurs)
-Raw     : ~40000 octets  →  ratio 0.52
-Algo    : LZSS (LAB_049C)
+$ moon-info music.cmp
+music.cmp  (88187 bytes) : module (RNC-packed)
+  title   : "introx5"
+  order   : 19 positions, 19 patterns
+  samples : 21 used
 
-# Extraire la frame 0 d'un sprite en PNG (pour comparaison émulateur)
-$ moon-view-cel au1.cel 0 --out frame0.png
-
-# Vérifier la palette d'un fond
-$ moon-palette bg8.PIV
-00: #000  01: #A75  02: #753  ...
-
-# Dumper le module audio décompressé pour l'injecter dans un tracker
-$ moon-dump music.cmp music_raw.mod
-Décompressé : 88187 → 141320 octets (RNC1)
+$ moon-dump music.cmp music.mod          # à ouvrir dans un tracker
+$ moon-view KN2.ob --pal bg1a.PIV       # chevalier aux couleurs d'un décor
+$ moon-view test --index 8 --bmp carte.bmp
 ```
 
 ---
@@ -2382,9 +2374,9 @@ Décompressé : 88187 → 141320 octets (RNC1)
 
 | Étape | Composant | Dépendances | Critère de validation |
 |-------|-----------|-------------|----------------------|
-| 1 | `rnc1.c` | aucune | `moon-dump music.cmp` produit un MOD jouable |
-| 2 | `lzss_cel.c` | aucune | `moon-view-cel au1.cel 0` produit la bonne image |
-| 3 | `piv.c` | aucune | `moon-view-piv bg1a.PIV` ≡ capture WinUAE |
+| 1 | `rnc1.c` | aucune | `moon-dump music.cmp music.mod` produit un MOD jouable |
+| 2 | `lzss_cel.c` | aucune | `moon-view au1.cel` produit la bonne image |
+| 3 | `piv.c` | aucune | `moon-view bg1a.PIV` ≡ capture WinUAE |
 | 4 | `tests/lib_audit.c` | étapes 1–3 | chaque fichier identique aux décodeurs vérifiés du portage |
 | 5 | `libmoon_assets` | étapes 1–4 | API complète + cache + `moon-info` fonctionnel |
 | 6 | Renderer planar | libmoon_assets + SDL2 | affichage d'un fond PIV + sprite CEL superposé |
@@ -2428,9 +2420,9 @@ Décompressé : 88187 → 141320 octets (RNC1)
 
 ## 12. Conventions et conseils méthodologiques
 
-1. **Commencer par `libmoon_assets`** (§11.2) — c'est le prérequis à tout le reste. Valider chaque décompresseur avec `moon-tools` (§11.3) avant d'attaquer le renderer.
+1. **Commencer par `libmoon_assets`** (§11.2) — c'est le prérequis à tout le reste. Valider chaque décompresseur avec les outils de `tools/` (§11.3) avant d'attaquer le renderer.
 2. **Ne jamais convertir les assets** — si une routine a besoin de pixels chunky, elle convertit en mémoire à partir des données PIV/CEL originales. Aucun fichier PNG/WAV ne doit exister dans le dépôt.
-3. **Tests de non-régression** : valider chaque décompresseur en comparant la sortie de `moon-view-*` pixel-par-pixel avec une capture émulateur WinUAE / FS-UAE sur le jeu original.
+3. **Tests de non-régression** : valider chaque décompresseur en comparant la sortie de `moon-view --bmp` pixel par pixel avec une capture émulateur WinUAE / FS-UAE sur le jeu original.
 4. **Réécrire par interfaces**, pas instruction par instruction — identifier les contrats d'API entre modules (§9) et réécrire chaque module en C idiomatique en respectant ces contrats.
 5. **Émulateur Amiga ouvert en permanence** pendant le portage — poser des breakpoints sur `LAB_04B5` (draw_cel) pour observer les paramètres réels passés au renderer, `LAB_04CF` pour les transitions d'état.
 6. **Loader de hunks et pilote disque** — supprimer (`SECSTRT_4`, `SECSTRT_13`) ; remplacés par `moon_init(asset_dir)` + `fopen`/`fread` internes.

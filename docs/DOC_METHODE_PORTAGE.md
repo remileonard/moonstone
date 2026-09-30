@@ -537,6 +537,7 @@ Les fichiers du jeu d'origine ne sont pas dans le dépôt. Le dossier
 | `game/include/mog_struct.h` | champs des enregistrements en mémoire émulée (§10 quater) |
 | `libmoon_assets/` | lecture des fichiers du jeu (CEL, PIV et `.p`, LZSS, RNC, MOD, stile, `.t`, `.a`, collide.hit) |
 | `tests/lib_audit.c`, `tests/lib_audit_ref.c` | audit de la bibliothèque : chaque fichier comparé aux décodeurs d'origine du portage, figés (§10 bis) |
+| `tools/moon_info.c`, `moon_dump.c`, `moon_view.c` | inspection des fichiers du jeu par la bibliothèque (`DOC_TECHNIQUE.md` §11.3) |
 
 L'ancienne version non fidèle (moteur de rendu et d'entités à part,
 modules par lieu) est supprimée. Les documents d'analyse écrits pour elle
@@ -665,6 +666,12 @@ combat.
 
 ## 11. Ce qui reste
 
+- **`mog_setupcheck.py`** : les 11 rencontres montrent de 17 à 151 octets
+  d'écart (tampons `LAB_0D21`, `LAB_0D29`, écran `LAB_0D4F`) et un message
+  « KNIGHT DAMAGE » côté C ; c'était déjà le cas avant les passes de
+  nommage et de structures (même résultat sur `c87f563`). Le banc
+  côte à côte (`mog_lockstep.py`), qui traverse les rencontres, reste la
+  référence ; ce banc isolé est à remettre d'accord.
 - **Essais réels** : la fenêtre SDL, le clavier, les manettes et le son
   n'ont été vérifiés que sans écran (captures, lancements courts) ; le
   paquet Windows n'a pas été essayé sur Windows.
