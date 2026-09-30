@@ -2,15 +2,19 @@
  * prog_run.c — une scène de l'intro de program en C (prog_intro.c) menée
  * VBL par VBL depuis une image mémoire, pour tools/prog_lockstep.py.
  *
- *   prog_run <mémoire> <scène> <fichier_image> [A1]
+ *   prog_run <mémoire> <scène> <fichier_image> [A1 [données fast]]
  *
  * <scène> : « 05a5 », « 001b », « 001c », « 0174 », « 001a », « 002c »,
- * « 002d », « 002f », « 002e » ; A1 (hexadécimal) : registre à l'entrée. À la fin de chaque VBL, la mémoire est écrite dans
+ * « 002d », « 002f », « 002e », « 0054 », « intro » (SECSTRT_0 entier :
+ * démarrage avec le bloc fast à <fast>, fichiers de <données>) ;
+ * A1 (hexadécimal) : registre à l'entrée. À la fin de chaque VBL, la mémoire est écrite dans
  * <fichier_image>, puis « V » sur stdout ; une ligne est lue sur stdin
  * (« Q » : arrêt). « M » : départ de la musique (SECSTRT_1) ; « END » : fin
  * de la scène (mémoire écrite).
  */
 #include "prog_intro.h"
+#include "ix_program_syms.h"
+#include "moon_assets.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,6 +48,8 @@ static void on_music(ProgIntro *p)
     printf("M\n");
 }
 
+static void scene_0054(ProgIntro *p) { prog_text_screen(p, PROGRAM_LAB_00AA); }
+
 int main(int argc, char **argv)
 {
     if (argc < 4) {
@@ -72,8 +78,17 @@ int main(int argc, char **argv)
         { "001c", prog_scene_001c }, { "0174", prog_scene_0174 },
         { "001a", prog_scene_001a }, { "002c", prog_scene_002c },
         { "002d", prog_scene_002d }, { "002f", prog_scene_002f },
-        { "002e", prog_scene_002e },
+        { "002e", prog_scene_002e }, { "0054", scene_0054 },
     };
+    if (!strcmp(argv[2], "intro")) {
+        if (argc < 7 || moon_init(argv[5]) != 0)
+            return 2;
+        prog_boot(&p, 0x8000, 0x6B000 - 0x8000, (uint32_t)strtoul(argv[6], NULL, 16), 0x60000);
+        prog_intro(&p);
+        dump();
+        printf("END\n");
+        return 0;
+    }
     size_t i = 0;
     while (i < sizeof sc / sizeof *sc && strcmp(sc[i].n, argv[2]))
         i++;

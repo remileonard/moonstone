@@ -44,7 +44,7 @@ def main():
             continue
         lines.append('#undef MOG_%s' % s)
         lines.append('#define MOG_%s PROGRAM_%s' % (s, p))
-    funcs = sorted(set(re.findall(r'^(?:[a-z_]+\s+\**)+(mog_\w+)\(', code, re.M)))
+    funcs = sorted(set(re.findall(r'^(?:[a-z_0-9]+\s+\*?)+(mog_\w+)\(', code, re.M)))
     for f in funcs:
         lines.append('#define %s prog_%s' % (f, f[4:]))
     if missing:

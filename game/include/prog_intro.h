@@ -42,4 +42,13 @@ void prog_scene_002d(ProgIntro *p);
 void prog_scene_002f(ProgIntro *p);
 void prog_scene_002e(ProgIntro *p);
 
+/* LAB_025F : fondu au noir (36 VBL) ; LAB_0054 : écran de texte a0 */
+void prog_fade_black(ProgIntro *p);
+void prog_text_screen(ProgIntro *p, uint32_t a0);
+
+/* SECSTRT_0 : démarrage (blocs du lanceur), puis l'intro jusqu'à mog */
+void prog_boot(ProgIntro *p, uint32_t chip, uint32_t chip_size, uint32_t fast, uint32_t fast_size);
+int prog_loading(ProgIntro *p);
+void prog_intro(ProgIntro *p);
+
 #endif /* PROG_INTRO_H */

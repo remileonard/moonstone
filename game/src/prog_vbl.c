@@ -8,9 +8,6 @@
 #include "prog_twin_vbl.h"
 #include "prog_vbl.h"
 
-#define mog_glow prog_glow
-#define mog_cycle prog_cycle
-
 /* Registres AUDxVOL écrits par LAB_0598 (musique de l'intro) */
 void (*prog_audvol_hook)(int voice, uint16_t vol);
 

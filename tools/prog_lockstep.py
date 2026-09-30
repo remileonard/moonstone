@@ -28,7 +28,7 @@ from prog_ref import ProgRef, STACK_SIZE, CHIP_BLOCK, FAST_SIZE, write_png  # no
 
 RUN = os.path.join(ROOT, 'build', 'tests', 'prog_run')
 SCENES = {k: 'LAB_' + k.upper() for k in
-          ('05a5', '001b', '001c', '0174', '001a', '002c', '002d', '002f', '002e')}
+          ('05a5', '001b', '001c', '0174', '001a', '002c', '002d', '002f', '002e', '0054')}
 
 
 class Bench:
@@ -54,6 +54,16 @@ class Bench:
             return
         self.stopped = True
         uc.emu_stop()
+
+    def boot(self):
+        """SECSTRT_0 depuis son entrée (registres du lanceur) ; fin : LAB_0000."""
+        ref = self.ref
+        ref.w('A1', CHIP_BLOCK)
+        ref.w('D1', 0x6B000 - CHIP_BLOCK)
+        ref.w('A0', ref.fast)
+        ref.w('D0', FAST_SIZE)
+        ref.uc.hook_add(U.UC_HOOK_CODE, lambda uc, a, sz, u: uc.emu_stop(), None,
+                        begin=ref.S['LAB_0000'], end=ref.S['LAB_0000'])
 
     def to_scene(self, label):
         ref = self.ref
@@ -81,7 +91,7 @@ class Bench:
             pc = ref.uc.reg_read(M.UC_M68K_REG_PC)
             raise SystemExit('erreur %s à %s' % (ex, ref.where(pc)))
         self.pc = ref.uc.reg_read(M.UC_M68K_REG_PC)
-        if not self.stopped:
+        if not self.stopped or self.pc == ref.S['LAB_0000']:
             return False
         self.skip = self.pc == self.rts
         return True
@@ -111,16 +121,20 @@ def main():
     ap.add_argument('--scene', default='05a5')
     ap.add_argument('--png', help='préfixe : image montrée toutes les 50 VBL')
     a = ap.parse_args()
-    label = SCENES[a.scene]
+    label = SCENES.get(a.scene)
 
     b = Bench(a.data)
-    b.to_scene(label)
     ref = b.ref
+    if a.scene == 'intro':
+        label = 'SECSTRT_0'
+        b.boot()
+    else:
+        b.to_scene(label)
     b.start(label)
     d = tempfile.mkdtemp()
     snap, cdump = os.path.join(d, 'm.bin'), os.path.join(d, 'c.bin')
     open(snap, 'wb').write(b.memory())
-    p = subprocess.Popen([RUN, snap, a.scene, cdump, '%x' % ref.r('A1')], stdin=subprocess.PIPE,
+    p = subprocess.Popen([RUN, snap, a.scene, cdump, '%x' % ref.r('A1'), a.data, '%x' % ref.fast], stdin=subprocess.PIPE,
                          stdout=subprocess.PIPE, text=True)
     vbl = 0
     cev = []

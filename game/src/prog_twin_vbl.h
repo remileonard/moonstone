@@ -13,5 +13,7 @@
 #define MOG_LAB_0E95 PROGRAM_LAB_05D4
 #undef MOG_SECSTRT_39
 #define MOG_SECSTRT_39 PROGRAM_LAB_05CF
+#define mog_cycle prog_cycle
+#define mog_glow prog_glow
 #define mog_screen prog_screen
 #define mog_vbl_colours prog_vbl_colours

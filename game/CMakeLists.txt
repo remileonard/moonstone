@@ -41,6 +41,8 @@ set(GAME_SOURCES
     src/mog_sound.c
     src/moon_mog.c
     src/mog_boot.c
+    src/mog_files.c
+    src/prog_files.c
     src/mog_loop.c
     src/prog_blit.c
     src/prog_gfx.c

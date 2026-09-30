@@ -1199,3 +1199,721 @@ void prog_scene_002e(ProgIntro *p)
     spawn_left(p, PROGRAM_LAB_00D3);
     run_until_end(p);
 }
+
+/* ------------------------------------------------------------- texte */
+
+/* Lettre c de la police rl(LAB_011A + 16) : frame (table LAB_00F8),
+ * largeur LAB_00F1 et hauteur LAB_00F2 */
+static uint16_t glyph(ProgIntro *p, uint8_t c)
+{
+    uint16_t f = ix_rb(VM, PROGRAM_LAB_00F8 + (uint8_t)(c - 0x20));
+    uint32_t e = rl(p, PROGRAM_LAB_011A + 16) + (uint32_t)(int32_t)(int16_t)(uint16_t)(f * 10);
+    ww(p, PROGRAM_LAB_00F1, rw(p, e + 14));
+    ww(p, PROGRAM_LAB_00F2, rw(p, e + 16));
+    return f;
+}
+
+/* LAB_0297 : largeur de la chaîne LAB_00F7 (lettres rapprochées de 2) */
+static uint16_t text_width(ProgIntro *p)
+{
+    ww(p, PROGRAM_LAB_029A, 0);
+    for (uint32_t a = rl(p, PROGRAM_LAB_00F7); ix_rb(VM, a); a++) {
+        glyph(p, ix_rb(VM, a));
+        ww(p, PROGRAM_LAB_029A, (uint16_t)(rw(p, PROGRAM_LAB_029A) + rw(p, PROGRAM_LAB_00F1) - 2));
+    }
+    return rw(p, PROGRAM_LAB_029A);
+}
+
+/* LAB_028F : enregistrements de texte (long chaîne, mot x, mot y, octet,
+ * octet drapeaux : bit 0 centré, bit 1 zone à restaurer ; long suivant),
+ * masque LAB_04DF levé */
+static void text_records(ProgIntro *p, uint32_t a0)
+{
+    ww(p, PROGRAM_LAB_04DF, 1);
+    if (a0) {
+        wl(p, PROGRAM_LAB_0296, a0);
+        do {
+            uint32_t a2 = rl(p, PROGRAM_LAB_0296);
+            wl(p, PROGRAM_LAB_00F7, rl(p, a2));
+            ww(p, PROGRAM_LAB_00F3, rw(p, a2 + 4));
+            ww(p, PROGRAM_LAB_00F5, rw(p, a2 + 4));
+            ww(p, PROGRAM_LAB_00F4, rw(p, a2 + 6));
+            ww(p, PROGRAM_LAB_00F6, rw(p, a2 + 6));
+            if (ix_rb(VM, a2 + 9) & 1) {
+                uint16_t x = (uint16_t)((uint16_t)(320 - text_width(p)) >> 1);
+                ww(p, PROGRAM_LAB_00F3, x);
+                ww(p, PROGRAM_LAB_00F5, x);
+            }
+            for (;;) {                                  /* LAB_0291 */
+                uint32_t a = rl(p, PROGRAM_LAB_00F7);
+                uint8_t c = ix_rb(VM, a);
+                if (!c)
+                    break;
+                wl(p, PROGRAM_LAB_00F7, a + 1);
+                uint16_t f = glyph(p, c);
+                uint16_t x = rw(p, PROGRAM_LAB_00F3), y = rw(p, PROGRAM_LAB_00F4);
+                if (ix_rb(VM, rl(p, PROGRAM_LAB_0296) + 9) & 2) {  /* LAB_02A0 */
+                    uint32_t a5 = rl(p, PROGRAM_LAB_027C);
+                    ww(p, a5, x);
+                    ww(p, a5 + 2, y);
+                    ww(p, a5 + 4, rw(p, PROGRAM_LAB_00F1));
+                    ww(p, a5 + 6, rw(p, PROGRAM_LAB_00F2));
+                    ww(p, a5 + 12, 0xFFFF);
+                    wl(p, PROGRAM_LAB_027C, a5 + 8);
+                }
+                prog_draw_cel(VM, &p->blt, rl(p, PROGRAM_LAB_011A + 16), f, x, y);
+                x = (uint16_t)(rw(p, PROGRAM_LAB_00F3) + rw(p, PROGRAM_LAB_00F1) - 2);
+                ww(p, PROGRAM_LAB_00F3, x);
+                if ((int16_t)x >= 320) {
+                    ww(p, PROGRAM_LAB_00F3, rw(p, PROGRAM_LAB_00F5));
+                    y = (uint16_t)(rw(p, PROGRAM_LAB_00F4) + rw(p, PROGRAM_LAB_00F2));
+                    ww(p, PROGRAM_LAB_00F4, y);
+                    if ((int16_t)y >= 200)
+                        ww(p, PROGRAM_LAB_00F4, rw(p, PROGRAM_LAB_00F6));
+                }
+            }
+            wl(p, PROGRAM_LAB_0296, rl(p, rl(p, PROGRAM_LAB_0296) + 10));
+        } while (rl(p, PROGRAM_LAB_0296));
+    }
+    ww(p, PROGRAM_LAB_04DF, 0);
+}
+
+/* LAB_03FC : PIV en a0 décodé (en place) vers les plans LAB_04D9 ;
+ * palette -> LAB_0506 (comme LAB_0C21 de mog) */
+static void piv_decode(ProgIntro *p, uint32_t a0)
+{
+    wl(p, PROGRAM_SECSTRT_20, a0);
+    uint32_t n = 32;
+    ww(p, PROGRAM_LAB_0434, rw(p, a0));
+    if (rw(p, a0) != 4)
+        n = 64;
+    uint32_t src = a0 + 6;
+    for (uint32_t i = 0; i < n; i++)
+        ix_wb(VM, PROGRAM_LAB_0506 + i, ix_rb(VM, src + i));
+    src += n;
+    for (uint32_t i = 0; i < n / 2; i++) {
+        uint16_t c = rw(p, PROGRAM_LAB_0506 + 2 * i);
+        c = c & 0x8000 ? (uint16_t)(c & 0x7FFF) : (uint16_t)(c << 1);
+        ww(p, PROGRAM_LAB_0506 + 2 * i, c);
+    }
+    uint32_t len = rl(p, a0 + 2);
+    uint32_t k = (uint32_t)(uint16_t)(len - 1) + 1;     /* DBF sur le mot */
+    for (uint32_t i = 0; i < k; i++)
+        ix_wb(VM, a0 + 2 + i, ix_rb(VM, src + i));
+    ww(p, PROGRAM_LAB_0528, 1);                         /* LAB_0406 */
+    prog_unpack(VM, a0 + 2, len, rl(p, PROGRAM_LAB_04D9));
+}
+
+/* LAB_054D : écran à zéro */
+static void clear_screen(ProgIntro *p, uint32_t a0)
+{
+    for (uint32_t i = 0; i < 5 * PLANE; i += 4)
+        wl(p, a0 + i, 0);
+}
+
+/* LAB_0260 : fondu vers a0 (vitesse LAB_0261), attente 16 × LAB_0261 */
+static void fade_wait(ProgIntro *p, uint32_t a0)
+{
+    fade_to(p, a0, (uint16_t)rl(p, PROGRAM_LAB_0261));
+    wait_vbls(p, rl(p, PROGRAM_LAB_0261) << 4);
+}
+
+/* LAB_025F : fondu au noir (LAB_026D), 36 VBL */
+void prog_fade_black(ProgIntro *p)
+{
+    fade_to(p, PROGRAM_LAB_026D, 2);
+    wait_vbls(p, 36);
+}
+
+/* LAB_0054 : écran de texte a0 sur le fond PIV rl(LAB_011A + 20) */
+void prog_text_screen(ProgIntro *p, uint32_t a0)
+{
+    wl(p, PROGRAM_SECSTRT_2, a0);
+    black(p);
+    clear_screen(p, rl(p, PROGRAM_SECSTRT_30));
+    set_planes(p, rl(p, PROGRAM_SECSTRT_30));
+    uint32_t src = rl(p, PROGRAM_LAB_011A + 20), dst = rl(p, PROGRAM_LAB_056C);
+    for (uint32_t i = 0; i < 0x10E7; i++)
+        ix_wb(VM, dst + i, ix_rb(VM, src + i));
+    piv_decode(p, rl(p, PROGRAM_LAB_056C));
+    text_records(p, rl(p, PROGRAM_SECSTRT_2));
+    static const uint16_t pal[5] = { 0x0800, 0x0600, 0x0400, 0x0000, 0x0200 };
+    for (int i = 0; i < 5; i++)
+        ww(p, PROGRAM_LAB_0506 + 2 + 2u * (unsigned)i, pal[i]);
+    fade_wait(p, PROGRAM_LAB_0506);
+}
+
+/* ---------------------------------------------------------- démarrage */
+
+/* LAB_0402 : image PIV `name` lue à a1 puis décodée vers les plans
+ * LAB_04D9 ; palette -> LAB_0506 */
+static void load_picture(ProgIntro *p, uint32_t name, uint32_t a1)
+{
+    MogFile f;
+    wl(p, PROGRAM_SECSTRT_20, a1);
+    prog_file_open(VM, name, &f);
+    prog_file_read(VM, &f, a1, 6);
+    uint32_t n = 32;
+    ww(p, PROGRAM_LAB_0434, rw(p, a1));
+    if (rw(p, a1) != 4)
+        n = 64;
+    prog_file_read(VM, &f, PROGRAM_LAB_0506, n);
+    for (uint32_t i = 0; i < n / 2; i++) {
+        uint16_t c = rw(p, PROGRAM_LAB_0506 + 2 * i);
+        c = c & 0x8000 ? (uint16_t)(c & 0x7FFF) : (uint16_t)(c << 1);
+        ww(p, PROGRAM_LAB_0506 + 2 * i, c);
+    }
+    uint32_t len = rl(p, a1 + 2);
+    prog_file_read(VM, &f, a1 + 2, len);
+    prog_file_close(&f);
+    ww(p, PROGRAM_LAB_0528, 1);                         /* LAB_0406 */
+    prog_unpack(VM, a1 + 2, len, rl(p, PROGRAM_LAB_04D9));
+}
+
+/* LAB_025B : palette LAB_0506 copiée en a0 */
+static void save_palette(ProgIntro *p, uint32_t a0)
+{
+    for (uint32_t i = 0; i < 32; i++)
+        ww(p, a0 + 2 * i, rw(p, PROGRAM_LAB_0506 + 2 * i));
+}
+
+/* LAB_01BE : quatre couleurs (a0 + 16) selon les drapeaux LAB_0005
+ * (écrits par mog en fin de partie, $3E0) */
+static void tint(ProgIntro *p, uint32_t a0)
+{
+    static const uint16_t t[4][4] = {
+        { 0x005D, 0x0028, 0x0016, 0x0003 }, { 0x0FA0, 0x0B40, 0x0930, 0x0710 },
+        { 0x0E00, 0x0900, 0x0600, 0x0300 }, { 0x00C5, 0x0082, 0x0061, 0x0040 },
+    };
+    static const uint8_t bit[4] = { 4, 5, 3, 6 };
+    uint16_t d0 = rw(p, PROGRAM_LAB_0005);
+    for (int k = 0; k < 4; k++)
+        if (d0 & (1u << bit[k])) {
+            for (int i = 0; i < 4; i++)
+                ww(p, a0 + 16 + 2u * (unsigned)i, t[k][i]);
+            return;
+        }
+}
+
+/* Unpack_Rnc1 : décompression RNC (méthode 2, à rebours) en place ; la
+ * fin du tampon source est remise à zéro. Tables lues dans program. */
+typedef struct { ProgIntro *p; uint32_t a6, a3; uint8_t d3; } Rnc;
+
+static int rnc_bit(Rnc *r)                               /* LAB_01A1 */
+{
+    int c = r->d3 >> 7;
+    r->d3 = (uint8_t)(r->d3 << 1);
+    if (r->d3)
+        return c;
+    uint8_t b = ix_rb(r->p->vm, --r->a6);
+    int c2 = b >> 7;
+    r->d3 = (uint8_t)((b << 1) | c);
+    return c2;
+}
+
+static uint16_t rnc_bits(Rnc *r, uint16_t v, int n)
+{
+    while (n--)
+        v = (uint16_t)((v << 1) | rnc_bit(r));
+    return v;
+}
+
+static uint32_t be32(ProgIntro *p, uint32_t a) { return rl(p, a); }
+
+static uint32_t rnc_unpack(ProgIntro *p, uint32_t a0)
+{
+    IxVM *vm = VM;
+    uint32_t a1 = a0, d0 = 0;
+    Rnc r = { p, 0, 0, 0 };
+    if (be32(p, a0) == 0x524E4301) {
+        uint32_t a4 = a0 + 12;
+        uint32_t a2 = a4 + be32(p, a0 + 4) + 0x100;
+        r.a3 = a2;
+        r.a6 = a4 + be32(p, a0 + 8);
+        r.d3 = ix_rb(vm, --r.a6);
+        for (;;) {
+            /* LAB_0198 : octets littéraux */
+            if (rnc_bit(&r)) {
+                uint16_t d5 = 0;
+                if (rnc_bit(&r)) {
+                    int16_t d1 = 3;
+                    for (;;) {
+                        int8_t nb = (int8_t)ix_rb(vm, PROGRAM_LAB_019F + (uint32_t)d1);
+                        uint16_t d2 = (uint16_t)~(uint16_t)(0xFFFF << nb);
+                        d5 = rnc_bits(&r, 0, nb);
+                        if (!d1 || d5 != d2)
+                            break;
+                        d1--;
+                    }
+                    d5 = (uint16_t)(d5 + (int8_t)ix_rb(vm, PROGRAM_LAB_01A0 + (uint32_t)d1));
+                }
+                for (uint32_t k = 0; k <= d5; k++)       /* LAB_019D */
+                    ix_wb(vm, --r.a3, ix_rb(vm, --r.a6));
+            }
+            if ((int32_t)(r.a6 - a4) <= 0)
+                break;
+            /* LAB_01A3 : longueur */
+            int16_t c = 3;
+            while (c >= 0 && rnc_bit(&r))
+                c--;
+            uint16_t i0 = (uint16_t)(c + 1);
+            uint16_t d6 = 0;
+            int8_t nb = (int8_t)ix_rb(vm, PROGRAM_LAB_01A8 + i0);
+            if (nb)
+                d6 = rnc_bits(&r, 0, nb);
+            d6 = (uint16_t)(d6 + (int8_t)ix_rb(vm, PROGRAM_L08_008B3 + i0));
+            /* LAB_01AA : distance */
+            uint16_t d7 = 0;
+            if (d6 == 2) {
+                int n = 6;
+                uint16_t add = 0;
+                if (rnc_bit(&r)) {
+                    n = 9;
+                    add = 64;
+                }
+                d7 = (uint16_t)(rnc_bits(&r, 0, n) + add);
+            } else {
+                int16_t e = 1;
+                while (e >= 0 && rnc_bit(&r))
+                    e--;
+                uint16_t j = (uint16_t)(e + 1);
+                int8_t m = (int8_t)ix_rb(vm, PROGRAM_LAB_01B0 + j);
+                d7 = rnc_bits(&r, 0, m + 1);
+                d7 = (uint16_t)(d7 + rw(p, PROGRAM_LAB_01B1 + 2u * j));
+            }
+            d6 = (uint16_t)(d6 - 1);
+            uint32_t src = r.a3 + (uint32_t)(int32_t)(int16_t)d7 + (uint32_t)(int32_t)(int16_t)d6;
+            if (!d7)
+                src = r.a3 + 1;
+            for (uint32_t k = 0; k <= d6; k++)           /* LAB_0192 */
+                ix_wb(vm, --r.a3, ix_rb(vm, --src));
+        }
+        d0 = a2 - r.a3;
+        a0 = r.a3;
+    }
+    /* LAB_01B2 */
+    uint32_t d2 = a0 - a1;
+    if (d0) {
+        for (uint32_t k = 0; k < d0; k++)
+            ix_wb(vm, a1++, ix_rb(vm, a0++));
+        do
+            ix_wb(vm, a1++, 0);
+        while (--d2);
+    }
+    return d0;
+}
+
+/* LAB_0325 (partie mémoire) : état de la souris, vecteurs d'interruption */
+static void interrupts_init(ProgIntro *p)
+{
+    prog_wait_vbl(p);
+    ix_wb(VM, PROGRAM_LAB_0368, 0);                     /* JOY0DAT */
+    ix_wb(VM, PROGRAM_LAB_0369, 0);
+    static const uint32_t v[6] = { PROGRAM_LAB_0326, PROGRAM_LAB_032A, PROGRAM_LAB_0331,
+                                   PROGRAM_LAB_0337, PROGRAM_LAB_033C, PROGRAM_LAB_033F };
+    for (uint32_t i = 0; i < 6; i++)
+        wl(p, 0x64 + 4 * i, v[i]);
+}
+
+/* SECSTRT_29 : mémoire chip à zéro, copper list (sprites vides), écrans */
+static void display_init(ProgIntro *p)
+{
+    for (uint32_t a = 0x6BEFA; a != 0x80000; a += 2)    /* EXT_000f */
+        ww(p, a, 0);
+    uint32_t a0 = 0x7F6AE, a1 = rl(p, PROGRAM_LAB_0570);
+    uint32_t d1 = PROGRAM_LAB_056F, d2 = d1 >> 16;
+    for (;;) {
+        uint32_t d0 = rl(p, a1);
+        a1 += 4;
+        if ((int32_t)d0 >= 0x01200000 && (int32_t)d0 < 0x01400000) {
+            d0 = (d0 & 0xFFFF0000u) | d2;
+            if (d0 & (1u << 17))
+                d0 = (d0 & 0xFFFF0000u) | (d1 & 0xFFFF);
+        }
+        wl(p, a0, d0);
+        a0 += 4;
+        if (d0 == 0xFFFFFFFEu)
+            break;
+    }
+    interrupts_init(p);
+    uint32_t s = rl(p, PROGRAM_SECSTRT_30);
+    for (uint32_t i = 0; i < 5; i++) {
+        ww(p, COPPER_BPL + 8 * i, (uint16_t)((s + i * PLANE) >> 16));
+        ww(p, COPPER_BPL + 8 * i + 4, (uint16_t)(s + i * PLANE));
+    }
+    clear_screen(p, rl(p, PROGRAM_LAB_056C));
+    clear_screen(p, rl(p, PROGRAM_SECSTRT_30));
+    prog_wait_vbl(p);
+    set_palette(p, PROGRAM_LAB_056E);
+}
+
+/* LAB_0044 : découpage des blocs chip (LAB_00C2) et fast (LAB_00C4) */
+static void buffers_init(ProgIntro *p)
+{
+    uint32_t d0 = rl(p, PROGRAM_LAB_00C2);
+    wl(p, PROGRAM_LAB_00C2, d0 + 0x4536C);
+    wl(p, PROGRAM_SECSTRT_3, d0);
+    wl(p, PROGRAM_LAB_00C6, d0);
+    wl(p, PROGRAM_LAB_00C7, d0);
+    d0 += 0x9C40;
+    wl(p, PROGRAM_SECSTRT_3 + 4, d0);
+    wl(p, PROGRAM_LAB_00C8, d0);
+    d0 += 0x9C40;
+    wl(p, PROGRAM_SECSTRT_3 + 8, d0);
+    wl(p, PROGRAM_LAB_00C9, d0);
+    d0 += 0x9C40;
+    wl(p, PROGRAM_SECSTRT_3 + 8, d0);
+    wl(p, PROGRAM_LAB_00CA, d0);
+    d0 += 0x9C40;
+    wl(p, PROGRAM_LAB_0124, d0);
+    d0 = rl(p, PROGRAM_LAB_00C4);
+    wl(p, PROGRAM_LAB_00C4, d0 + 0x58116);
+    wl(p, PROGRAM_LAB_0045, d0);
+    d0 += 0x7530;
+    wl(p, PROGRAM_LAB_011A + 0, d0);
+    d0 += 0x9C40;
+    wl(p, PROGRAM_LAB_011A + 4, d0);
+    d0 += 0x9C40;
+    wl(p, PROGRAM_LAB_011A + 20, d0);
+    d0 += 0x10E6;
+    wl(p, PROGRAM_LAB_011A + 16, d0);
+    d0 += 0x5F50;
+    static const uint32_t bg[5] = { PROGRAM_LAB_00CB, PROGRAM_LAB_00CC, PROGRAM_LAB_00CD,
+                                    PROGRAM_LAB_00CE, PROGRAM_LAB_00CF };
+    for (int i = 0; i < 5; i++, d0 += 0x9C40)
+        wl(p, bg[i], d0);
+}
+
+/* SECSTRT_10 : planches LAB_0281, commandes de script LAB_0288, listes */
+static void engine_init(ProgIntro *p)
+{
+    for (uint32_t i = 0; i < 7; i++)
+        wl(p, PROGRAM_LAB_0281 + 4 * i, PROGRAM_LAB_0276);
+    static const struct { uint32_t off, fn; } op[] = {
+        { 0, PROGRAM_LAB_0215 }, { 4, PROGRAM_LAB_0218 }, { 8, PROGRAM_LAB_021A },
+        { 12, PROGRAM_LAB_021E }, { 20, PROGRAM_LAB_021F }, { 24, PROGRAM_LAB_0220 },
+        { 28, PROGRAM_LAB_0220 }, { 36, PROGRAM_LAB_0221 }, { 32, PROGRAM_LAB_0222 },
+        { 48, PROGRAM_LAB_022C }, { 44, PROGRAM_LAB_022D }, { 52, PROGRAM_LAB_022F },
+        { 72, PROGRAM_LAB_0232 }, { 56, PROGRAM_LAB_0233 }, { 60, PROGRAM_LAB_0234 },
+        { 64, PROGRAM_LAB_0235 }, { 68, PROGRAM_LAB_0236 }, { 76, PROGRAM_LAB_0237 },
+        { 80, PROGRAM_LAB_023B }, { 84, PROGRAM_LAB_023F }, { 40, PROGRAM_LAB_0241 },
+    };
+    for (unsigned i = 0; i < sizeof op / sizeof op[0]; i++)
+        wl(p, PROGRAM_LAB_0288 + op[i].off, op[i].fn);
+    wl(p, PROGRAM_LAB_027A, PROGRAM_LAB_0286);
+    wl(p, PROGRAM_LAB_0279, PROGRAM_LAB_0287);
+}
+
+/* SECSTRT_25 (suite) : tables de conversion de pixels LAB_04E4 (LAB_0507),
+ * LAB_04EC (LAB_051D), LAB_04EE (LAB_051E) et masques LAB_046F */
+static void gfx_tables(ProgIntro *p)
+{
+    IxVM *vm = VM;
+    uint32_t a1 = rl(p, PROGRAM_LAB_0519);
+    for (uint32_t k = 0; k < 8; k++)
+        wl(p, PROGRAM_LAB_0508 + 4 * k, a1 + k * 0x200);
+    uint32_t a0 = PROGRAM_LAB_0507;
+    do {                                                /* LAB_04E4 */
+        uint32_t a2 = a0;
+        for (unsigned d0 = 0; d0 < 256; d0++) {
+            uint32_t q = a0;
+            uint8_t d7 = ix_rb(vm, q++), d6 = ix_rb(vm, q++), d2 = 0;
+            for (unsigned i = 0; i <= d7; i++) {
+                uint8_t d1 = ix_rb(vm, q++);
+                d2 = (uint8_t)(d2 >> 1);
+                if ((d0 >> (d1 & 31)) & 1)
+                    d2 |= 0x80;
+            }
+            ix_wb(vm, a1, d2);
+            d2 = 0;
+            for (unsigned i = 0; i <= d6; i++) {
+                uint8_t d1 = ix_rb(vm, q++);
+                d2 = (uint8_t)(d2 << 1);
+                if ((d0 >> (d1 & 31)) & 1)
+                    d2 |= 1;
+            }
+            int8_t n = (int8_t)(uint8_t)(d7 + d6 + 2);
+            if (n < 8)
+                d2 = (uint8_t)(d2 << (8 - n));
+            ix_wb(vm, a1 + 0x100, d2);
+            a1++;
+            a2 = q;
+        }
+        a1 += 0x100;
+        a0 = a2;
+    } while (ix_rb(vm, a0) != 0x63);
+    a0 = PROGRAM_LAB_051D;                              /* LAB_04EC */
+    a1 = rl(p, PROGRAM_LAB_0518);
+    for (;; a0 += 4) {
+        uint16_t d0 = rw(p, a0);
+        if (d0 == 0x63)
+            break;
+        ww(p, a1 + (uint32_t)(int32_t)(int16_t)(uint16_t)(d0 + d0), rw(p, a0 + 2));
+    }
+    a1 = rl(p, PROGRAM_LAB_051A);                       /* LAB_04EE */
+    for (uint32_t k = 0; k < 8; k++)
+        wl(p, PROGRAM_LAB_0510 + 4 * k, a1 + k * 0x200);
+    a0 = PROGRAM_LAB_051E;
+    uint16_t d6 = 9;
+    for (int d7 = 0; d7 < 8; d7++) {
+        for (unsigned d0 = 0; d0 < 256; d0++) {
+            uint16_t d2 = 0;
+            for (unsigned i = 0; i < d6; i++) {
+                uint8_t d1 = ix_rb(vm, a0 + i);
+                d2 = (uint16_t)(d2 << 1);
+                if ((d0 >> (d1 & 31)) & 1)
+                    d2 |= 1;
+            }
+            unsigned sh = (uint16_t)(16 - d6) & 63;
+            d2 = sh >= 16 ? 0 : (uint16_t)(d2 << sh);
+            ww(p, a1, d2);
+            a1 += 2;
+        }
+        a0 += (uint32_t)(int32_t)(int16_t)d6;
+        d6++;
+    }
+    a0 = PROGRAM_LAB_046C;                              /* LAB_046F */
+    for (uint16_t d1 = 0xF0; (int16_t)d1 <= 0xFF; d1 = (uint16_t)(d1 + 0xF))
+        for (int d0 = 7; d0 >= 0; d0--) {
+            uint16_t d2 = (uint16_t)((d1 >> d0) | (d1 << ((16 - d0) & 15)));
+            ix_wb(vm, a0++, (uint8_t)d2);
+            ix_wb(vm, a0++, (uint8_t)(d2 >> 8));
+        }
+    a0 = PROGRAM_LAB_046E;
+    for (int d0 = 7; d0 >= 0; d0--, a0 += 4)
+        wl(p, a0, d0 ? (0xFFFF0000u >> d0) | (0xFFFF0000u << (32 - d0)) : 0xFFFF0000u);
+}
+
+/* SECSTRT_0 jusqu'à l'intro : écran, graphismes, tampons, moteur,
+ * palette LAB_0274 (serveur LAB_057D), police et fond de texte (LAB_0051) */
+void prog_boot(ProgIntro *p, uint32_t chip, uint32_t chip_size, uint32_t fast, uint32_t fast_size)
+{
+    wl(p, PROGRAM_LAB_00C2, chip);
+    wl(p, PROGRAM_LAB_00C3, chip_size);
+    wl(p, PROGRAM_LAB_00C4, fast);
+    wl(p, PROGRAM_LAB_00C5, fast_size);
+    ww(p, PROGRAM_LAB_0005, rw(p, 0x3E0));              /* EXT_0007 : drapeaux de mog */
+    display_init(p);                                    /* SECSTRT_29 */
+    prog_boot_graphics(VM);                             /* SECSTRT_25 */
+    gfx_tables(p);
+    ww(p, PROGRAM_LAB_04DE, 4);                         /* LAB_0006 : SECSTRT_23 */
+    for (uint32_t i = 0; i < 256; i++) {                /*   LAB_04B0 */
+        uint8_t b = 0;
+        for (int k = 0; k < 8; k++)
+            if (i & (1u << k))
+                b |= (uint8_t)(0x80 >> k);
+        ix_wb(VM, PROGRAM_LAB_04B3 + i, b);
+    }
+    ww(p, PROGRAM_LAB_0502, 40);                        /*   LAB_04A7 */
+    ww(p, PROGRAM_LAB_0501, 200);
+    ww(p, PROGRAM_LAB_0503, 0);
+    swap_screens(p);
+    buffers_init(p);                                    /* LAB_0044 */
+    engine_init(p);                                     /* SECSTRT_10 */
+    wl(p, PROGRAM_LAB_05D2, PROGRAM_LAB_0274);          /* SECSTRT_31 */
+    uint32_t a = PROGRAM_LAB_0372;
+    while (rl(p, a))
+        a += 4;
+    wl(p, a, PROGRAM_LAB_057D);
+    wl(p, PROGRAM_LAB_011B, PROGRAM_LAB_0014);
+    prog_load_cel(VM, PROGRAM_LAB_0053, rl(p, PROGRAM_LAB_011A + 16));  /* LAB_0051 */
+    MogFile f;
+    prog_file_open(VM, PROGRAM_LAB_0052, &f);
+    prog_file_read(VM, &f, rl(p, PROGRAM_LAB_011A + 20), 0x10E6);
+    prog_file_close(&f);
+}
+
+/* ------------------------------------------------ chargement, générique */
+
+/* LAB_05A3 / LAB_05A4 : touche (SECSTRT_16) -> intro sautée (LAB_05E7) ;
+ * fondu vers LAB_01CB, zones de texte restaurées */
+static void credit_end(ProgIntro *p)
+{
+    if (rw(p, PROGRAM_SECSTRT_16))
+        ww(p, PROGRAM_LAB_05E7, 1);
+    wl(p, PROGRAM_LAB_0261, 2);
+    static const uint16_t c[5] = { 0x0000, 0x0FED, 0x0DC9, 0x0B95, 0x0842 };
+    static const uint8_t o[5] = { 10, 18, 20, 22, 24 };
+    for (int i = 0; i < 5; i++)
+        ww(p, PROGRAM_LAB_01CB + o[i], c[i]);
+    fade_to(p, PROGRAM_LAB_01CB, 2);
+    restore_areas(p);
+}
+
+static void credit_colours(ProgIntro *p, uint16_t v)
+{
+    static const uint8_t o[5] = { 10, 18, 20, 22, 24 };
+    for (int i = 0; i < 5; i++)
+        ww(p, PROGRAM_LAB_01CB + o[i], v);
+}
+
+/* LAB_059E : tuiles du haut du défilement (lune) comme fond */
+static void credits_start(ProgIntro *p)
+{
+    for (uint32_t i = 0; i < 0x80; i++)                 /* LAB_035E */
+        ix_wb(VM, PROGRAM_LAB_036D + i, 0);
+    ww(p, PROGRAM_SECSTRT_16, 0);
+    prog_fade_black(p);
+    fill_lists(p);
+    swap_screens(p);
+    clear_screen(p, rl(p, PROGRAM_SECSTRT_30));
+    clear_screen(p, rl(p, PROGRAM_LAB_056C));
+    clear_screen(p, rl(p, PROGRAM_LAB_00C6));
+    wl(p, PROGRAM_LAB_05D7, rl(p, PROGRAM_LAB_00C6));
+    wl(p, PROGRAM_LAB_05D6, rl(p, PROGRAM_LAB_00C8));
+    wl(p, PROGRAM_LAB_05D6 + 4, rl(p, PROGRAM_LAB_00C9));
+    wl(p, PROGRAM_LAB_05D6 + 8, rl(p, PROGRAM_LAB_00CA));
+    ww(p, PROGRAM_LAB_05B8, 0);
+    ww(p, PROGRAM_LAB_05BD, 0);
+    ww(p, PROGRAM_LAB_05BC, 8);
+    draw_rows(p);
+    show_background(p);
+    swap_screens(p);                                    /* LAB_05A2 */
+    credit_end(p);
+}
+
+/* LAB_059F : logo (frame $49 de la police) */
+static void credits_logo(ProgIntro *p)
+{
+    credit_colours(p, 0);
+    fade_to(p, PROGRAM_LAB_01CB, 0);
+    set_planes(p, rl(p, PROGRAM_LAB_056C));
+    ww(p, PROGRAM_LAB_04DF, 1);
+    prog_draw_cel(VM, &p->blt, rl(p, PROGRAM_LAB_011A + 16), 0x49, 9, 0x3C);
+    ww(p, PROGRAM_LAB_04DF, 0);
+    swap_screens(p);
+    wait_vbls(p, 8);
+    credit_end(p);
+}
+
+/* LAB_05A1 : texte suivant du générique (LAB_05B1[LAB_05B0], 6 textes) */
+static void credits_text(ProgIntro *p)
+{
+    credit_colours(p, 0x0FFF);
+    wl(p, PROGRAM_LAB_0261, 1);
+    fade_wait(p, PROGRAM_LAB_01CB);
+    set_planes(p, rl(p, PROGRAM_LAB_056C));
+    uint16_t n = rw(p, PROGRAM_LAB_05B0);
+    if ((int16_t)n < 6) {
+        text_records(p, rl(p, PROGRAM_LAB_05B1 + (uint32_t)(uint16_t)(n << 2)));
+        ww(p, PROGRAM_LAB_05B0, (uint16_t)(n + 1));
+        credit_colours(p, 0);
+        fade_to(p, PROGRAM_LAB_01CB, 0);
+    }
+    swap_screens(p);
+    credit_end(p);
+}
+
+/* LAB_05A0 : éclair blanc, fond remis, puis texte */
+static void credits_flash(ProgIntro *p)
+{
+    credit_colours(p, 0x0FFF);
+    wl(p, PROGRAM_LAB_0261, 1);
+    fade_wait(p, PROGRAM_LAB_01CB);
+    wait_vbls(p, 2);
+    credit_colours(p, 0);
+    fade_to(p, PROGRAM_LAB_01CB, 0);
+    swap_screens(p);
+    show_background(p);
+    credits_text(p);
+}
+
+static int skipped(ProgIntro *p) { return rw(p, PROGRAM_LAB_05E7) != 0; }
+
+/* LAB_0185 : chargement des décors, CEL et musique, générique par-dessus.
+ * Renvoie 1 si l'intro est sautée (LAB_05E7). */
+int prog_loading(ProgIntro *p)
+{
+    black(p);
+    set_planes(p, rl(p, PROGRAM_SECSTRT_30));
+    load_picture(p, PROGRAM_LAB_0184, rl(p, PROGRAM_LAB_00C9));     /* « mindscape » */
+    fade_wait(p, PROGRAM_LAB_0506);
+    set_planes(p, rl(p, PROGRAM_LAB_00C8));
+    load_picture(p, PROGRAM_LAB_017E, rl(p, PROGRAM_LAB_00C4));
+    save_palette(p, PROGRAM_LAB_01CB);
+    MogFile f;
+    prog_file_open(VM, PROGRAM_L08_00117, &f);                      /* intro.stile */
+    prog_file_read(VM, &f, PROGRAM_SECSTRT_33, 1000);
+    prog_file_close(&f);
+    credits_start(p);
+    set_planes(p, rl(p, PROGRAM_LAB_00C9));
+    load_picture(p, PROGRAM_L08_00105, rl(p, PROGRAM_LAB_00C4));
+    credits_logo(p);
+    if (skipped(p))
+        return 1;
+    set_planes(p, rl(p, PROGRAM_LAB_00CA));
+    load_picture(p, PROGRAM_LAB_0181, rl(p, PROGRAM_LAB_00C4));
+    credits_flash(p);
+    if (skipped(p))
+        return 1;
+    static const struct { uint32_t screen, name, pal; int tint; } bg[5] = {
+        { PROGRAM_LAB_00CB, PROGRAM_L08_0004B, PROGRAM_LAB_01CE, 0 },
+        { PROGRAM_LAB_00CC, PROGRAM_L08_00053, PROGRAM_LAB_01CF, 1 },
+        { PROGRAM_LAB_00CD, PROGRAM_LAB_016D, PROGRAM_LAB_01D0, 1 },
+        { PROGRAM_LAB_00CE, PROGRAM_L08_0006D, PROGRAM_LAB_01D1, 1 },
+        { PROGRAM_LAB_00CF, PROGRAM_LAB_016E, PROGRAM_LAB_01D2, 1 },
+    };
+    for (int i = 0; i < 5; i++) {
+        set_planes(p, rl(p, bg[i].screen));
+        load_picture(p, bg[i].name, rl(p, PROGRAM_LAB_00C4));
+        save_palette(p, bg[i].pal);
+        if (bg[i].tint)
+            tint(p, bg[i].pal);
+        credits_text(p);
+        if (skipped(p))
+            return 1;
+    }
+    /* planches de CEL LAB_0276 : 0, 1, 4, 2 à la suite dans le bloc chip */
+    static const struct { uint32_t name; uint32_t slot; } cel[4] = {
+        { PROGRAM_SECSTRT_8, 0 }, { PROGRAM_LAB_0163, 4 },
+        { PROGRAM_LAB_0164, 16 }, { PROGRAM_LAB_0166, 8 },
+    };
+    uint32_t a1 = rl(p, PROGRAM_LAB_00C2);
+    for (int i = 0; i < 4; i++) {
+        wl(p, PROGRAM_LAB_0276 + cel[i].slot, a1);
+        prog_load_cel(VM, cel[i].name, a1);
+        a1 = rl(p, PROGRAM_LAB_0276 + cel[i].slot) + prog_cel_size(VM, cel[i].name);
+        credits_text(p);
+        if (skipped(p))
+            return 1;
+    }
+    a1 = rl(p, PROGRAM_LAB_0045);
+    wl(p, PROGRAM_LAB_0276 + 12, a1);
+    prog_load_cel(VM, PROGRAM_LAB_0165, a1);
+    prog_cel_size(VM, PROGRAM_LAB_0165);
+    a1 = rl(p, PROGRAM_LAB_00CF) + 0x9C40;
+    wl(p, PROGRAM_LAB_0121, a1);
+    prog_load_cel(VM, PROGRAM_LAB_0167, a1);
+    prog_file_open(VM, PROGRAM_LAB_018D, &f);                       /* music.cmp */
+    prog_file_read(VM, &f, rl(p, PROGRAM_LAB_0124), 0x159D9);
+    prog_file_close(&f);
+    rnc_unpack(p, rl(p, PROGRAM_LAB_0124));
+    return 0;
+}
+
+/* SECSTRT_0 après le démarrage : l'intro entière, jusqu'au chargement de
+ * mog (LAB_0000). LAB_005B : serveur de la musique retiré. */
+void prog_intro(ProgIntro *p)
+{
+    wl(p, PROGRAM_LAB_0060, 0);
+    wl(p, PROGRAM_LAB_0123, 0);
+    wl(p, PROGRAM_LAB_00D0, 2);
+    prog_fade_black(p);
+    if (prog_loading(p) || skipped(p))
+        return;
+    prog_scene_05a5(p);
+    wl(p, PROGRAM_LAB_0123, 4);
+    prog_scene_001b(p);
+    prog_scene_001c(p);
+    prog_scene_0174(p);
+    prog_scene_001a(p);
+    prog_scene_002c(p);
+    prog_scene_002d(p);
+    prog_scene_002f(p);
+    prog_scene_002e(p);
+    prog_fade_black(p);
+    prog_text_screen(p, PROGRAM_LAB_00AA);
+    wait_vbls(p, 420);
+    prog_fade_black(p);
+    wl(p, rl(p, PROGRAM_LAB_0060), 0);                  /* LAB_005B */
+}
