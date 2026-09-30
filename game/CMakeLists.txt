@@ -7,20 +7,8 @@ cmake_minimum_required(VERSION 3.15)
 set(GAME_SOURCES
     src/main.c
     src/moon_hal.c
-    src/moon_render.c
-    src/moon_entity.c
     src/moon_game.c
-    src/moon_intro.c
-    src/moon_menu.c
-    src/moon_overworld.c
     src/moon_combat.c
-    src/moon_town.c
-    src/moon_shop.c
-    src/moon_wizard.c
-    src/moon_village.c
-    src/moon_stonehenge.c
-    src/moon_valley.c
-    src/moon_ending.c
     src/ix_vm.c
     src/ix_engine.c
     src/mog_ctl.c

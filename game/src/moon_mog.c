@@ -6,8 +6,9 @@
  * pendant le générique la saute (comme l'original), Entrée ou le bouton
  * de la manette la fait défiler sans attendre.
  *
- * Commandes : flèches (ou manette) = joystick, Espace / Ctrl / bouton de
- * la manette = feu ; clavier de l'Amiga : lettres et chiffres (nom des
+ * Commandes : flèches (ou manette) = joystick (port 1), Espace / Ctrl /
+ * bouton de la manette = feu ; W A S D + F (ou 2e manette) = joystick du
+ * port 0 (second chevalier humain d'un duel) ; clavier de l'Amiga : lettres et chiffres (nom des
  * chevaliers, E = fin du tour, 1-9 = choix d'un lieu, Q = abandon), Tab =
  * barre d'espace (inventaire sur la carte, pause en combat), Entrée,
  * retour arrière ; Échap = quitter.
@@ -65,17 +66,18 @@ static void host_vbl(void *user, MogGame *g, MogGameInput *out)
     if (j->up || down(in, SC_UP))       v |= MOG_JOY_UP;
     if (j->fire || down(in, SC_SPACE) || down(in, SC_LCTRL) || down(in, SC_RCTRL))
         v |= MOG_JOY_FIRE;
-    out->joy[0] = out->joy[1] = v;      /* chevalier 1 : port 1 (et 0) */
-    if (g->mode == 2) {                 /* entraînement : chevalier 2 au port 0 */
-        const MoonJoy *j2 = &in->joy[1];
-        uint16_t w = 0;
-        if (j2->right || down(in, SC_D)) w |= MOG_JOY_RIGHT;
-        if (j2->left || down(in, SC_A))  w |= MOG_JOY_LEFT;
-        if (j2->down || down(in, SC_S))  w |= MOG_JOY_DOWN;
-        if (j2->up || down(in, SC_W))    w |= MOG_JOY_UP;
-        if (j2->fire || down(in, SC_F))  w |= MOG_JOY_FIRE;
-        out->joy[0] = w;
-    }
+    out->joy[1] = v;                    /* port 1 (11 = 2) : les joueurs */
+    /* Port 0 (11 = 1) : second joystick de l'Amiga, pris par le second
+     * chevalier humain d'un duel (Combat_StartPvP, entraînement) et, après,
+     * pour son pointeur dans les écrans : 2e manette ou W A S D + F */
+    const MoonJoy *j2 = &in->joy[1];
+    uint16_t w = 0;
+    if (j2->right || down(in, SC_D)) w |= MOG_JOY_RIGHT;
+    if (j2->left || down(in, SC_A))  w |= MOG_JOY_LEFT;
+    if (j2->down || down(in, SC_S))  w |= MOG_JOY_DOWN;
+    if (j2->up || down(in, SC_W))    w |= MOG_JOY_UP;
+    if (j2->fire || down(in, SC_F))  w |= MOG_JOY_FIRE;
+    out->joy[0] = w;
 
     /* Clavier de l'Amiga : lettres et chiffres tels quels (noms des
      * chevaliers ; E fin du tour, Q abandon, 1-9 lieux), Tab = barre
