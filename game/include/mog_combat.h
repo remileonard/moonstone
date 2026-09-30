@@ -41,6 +41,9 @@ typedef struct {
     void (*idle)(void *user);
     /* Puce audio (mog_sound.c) ; NULL : pas de son, mémoire intacte. */
     struct MogAudio *audio;
+    /* COLOR00 écrit directement (éclair rouge de LAB_00CC) : $10000 | $0RGB,
+     * 0 : registre tenu par la palette */
+    uint32_t color00;
 } MogCombat;
 
 /* Prépare la structure sur une mémoire déjà chargée. `host` : dessin, sons,

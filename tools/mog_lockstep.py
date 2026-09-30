@@ -89,6 +89,48 @@ class CSide:
         self.p.wait()
 
 
+class MenuScript:
+    """Entrées du menu : joueurs 2 puis 1, « Gore » basculé, « Select
+    Knight » ; chevalier de droite, nom tapé (lettres, retour arrière,
+    Retour)."""
+    MENU = [0, 1, 0, 2, 0, 4, 0, 0x10, 0, 0x10, 0, 4, 0, 4, 0, 8, 0, 4, 0, 0x10]
+    KNIGHT = [0, 1, 0, 1, 0, 2, 0, 0x10]
+    NAME = [0x23, 0x18, 0x26, 0x20, 0x0E, 0x21, 0x1C]      # H O L D <- F Retour
+
+    SCRIPTS = {
+        'practice': [0, 4, 0, 4, 0, 0x10],
+        'players2': [0, 1, 0, 4, 0, 4, 0, 4, 0, 0x10],
+    }
+
+    def __init__(self, kind='game'):
+        self.i = {'menu': 0, 'knight': 0, 'name': 0}
+        self.MENU = self.SCRIPTS.get(kind, self.MENU)
+
+    def active(self, ref, pc):
+        S = ref.S
+        return pc in (S['LAB_00B5'], S['LAB_00D4'], S['LAB_00C9'], S['LAB_00CC'])
+
+    def step(self, ref, pc):
+        S = ref.S
+        if pc == S['LAB_00C9']:
+            return [0, 0], None
+        if pc == S['LAB_00CC']:
+            k = self.i['name']
+            self.i['name'] += 1
+            if k % 3:
+                return [0, 0], None
+            k //= 3
+            if k >= len(self.NAME):                     # nom suivant (2e joueur)
+                self.i['name'] = 0
+                k = len(self.NAME) - 1
+            return [0, 0], self.NAME[k]
+        seq, name = (self.MENU, 'menu') if pc == S['LAB_00B5'] else (self.KNIGHT, 'knight')
+        k = self.i[name]
+        self.i[name] += 1
+        v = seq[k] if k < len(seq) else 0x10
+        return [v, v], None
+
+
 def compare(ref, om, cm, what, lines):
     S = ref.S
     limit = ref.stack_top - STACK_SIZE
@@ -154,6 +196,9 @@ def main():
                     help='genre de lieu (LAB_069F) où poser le chevalier au départ')
     ap.add_argument('--wander', type=int, default=40)
     ap.add_argument('--replay', help='fichier .joy (MOG_SAVE) à rejouer')
+    ap.add_argument('--menu', choices=('game', 'practice', 'players2'),
+                    help='menu du début (Prot_CopylockCheck) : partie à un joueur, '
+                         'entraînement, ou partie à deux joueurs')
     a = ap.parse_args()
     rng = random.Random(a.seed)
 
@@ -163,7 +208,17 @@ def main():
                  log=(lambda s: print('orig : ' + s)) if os.environ.get('MOG_LOG') else None)
     ref.boot()
     S = ref.S
-    new_game_map(ref)
+    menu = MenuScript(a.menu) if a.menu else None
+    if a.menu:
+        # Prot_Copylock (chiffrée) : une disquette d'origine laisse LAB_029F
+        # sur la pile (relu dans LAB_0714) et reprend au menu
+        entry = S['Prot_CopylockCheck'] + 22           # après Hw_EnableInterrupts, MOVE #$2000,SR
+
+        import struct
+        ref.uc.mem_write(S['Prot_Copylock'], b'\x2f\x3c' + struct.pack('>I', S['LAB_029F'])
+                         + b'\x4e\xf9' + struct.pack('>I', entry))   # MOVE.L #,-(A7) ; JMP
+    else:
+        new_game_map(ref)
     for iv in a.inv:                                    # inventaire imposé
         i, v = (int(x, 0) for x in iv.split('='))
         ref.wb(ref.rl(S['LAB_0613'] + 96) + i, v)
@@ -177,11 +232,11 @@ def main():
             e += 6
         else:
             sys.exit('lieu %#x absent' % a.place)
-    c = CSide(ref.snapshot(), 'map', a.data)
+    c = CSide(ref.snapshot(), 'menu' if a.menu else 'map', a.data)
     if os.environ.get('MOG_SAVE'):
         open(os.environ['MOG_SAVE'] + '.in', 'wb').write(ref.snapshot())
         open(os.environ['MOG_SAVE'] + '.joy', 'w').close()
-    ref.run_frames(0, start=S['LAB_0DAB'])
+    ref.run_frames(0, start=S['LAB_0001'] + 12 if a.menu else S['LAB_0DAB'])
     fails = 0
     joy = 0
     frames = 0
@@ -202,7 +257,9 @@ def main():
         kinds[ref.where(pc)] = kinds.get(ref.where(pc), 0) + 1
         if pc == S['LAB_0E40']:                         # menu des lieux : « 1 »
             key = 2
-        if pc in (S['LAB_00EC'], S['LAB_00ED']):        # attente du feu : appui, relâché
+        if menu is not None and menu.active(ref, pc):
+            j, key = menu.step(ref, pc)
+        elif pc in (S['LAB_00EC'], S['LAB_00ED']):        # attente du feu : appui, relâché
             j = [0x10, 0x10] if pc == S['LAB_00EC'] else [0, 0]
         elif pc in (S['LAB_0457'], S['LAB_0458'], S['LAB_045D']):
             in_screen += 1                              # scène : feu après un temps

@@ -18,7 +18,8 @@ typedef struct MogGame MogGame;
 /* Entrées lues par l'hôte à chaque VBL */
 typedef struct {
     uint16_t joy[2];        /* bits MOG_JOY_* des ports 0 et 1          */
-    int      key;           /* caractère appuyé depuis la VBL d'avant (0) */
+    int      key;           /* caractère appuyé depuis la VBL d'avant (0) ;
+                               '\r' Retour, '\b' retour arrière */
     int      quit;          /* fermer le jeu                            */
 } MogGameInput;
 
@@ -36,6 +37,7 @@ struct MogGame {
     void    (*audio)(void *user, const int16_t *stereo, int frames);
     int       audio_rate;               /* Hz */
     int       audio_frac;
+    int       mode;                     /* ligne du menu : 2 entraînement, 3 partie */
 };
 
 /* Démarrage (SECSTRT_0 ... LAB_0152 / LAB_0156) et nouvelle partie à un

@@ -6,10 +6,11 @@
  * pendant le générique la saute (comme l'original), Entrée ou le bouton
  * de la manette la fait défiler sans attendre.
  *
- * Commandes : flèches (ou manette) = joystick, Espace / Ctrl / Z / bouton
- * de la manette = feu ; touches de l'Amiga : I ou Tab = barre d'espace
- * (inventaire sur la carte, pause en combat), E = fin du tour, 1-9 =
- * choix d'un lieu, Q = abandon de la partie ; Échap = quitter.
+ * Commandes : flèches (ou manette) = joystick, Espace / Ctrl / bouton de
+ * la manette = feu ; clavier de l'Amiga : lettres et chiffres (nom des
+ * chevaliers, E = fin du tour, 1-9 = choix d'un lieu, Q = abandon), Tab =
+ * barre d'espace (inventaire sur la carte, pause en combat), Entrée,
+ * retour arrière ; Échap = quitter.
  */
 #include "moon_game.h"
 #include "moon_hal.h"
@@ -25,7 +26,7 @@
 
 enum {                                  /* codes SDL_Scancode */
     SC_A = 4, SC_E = 8, SC_I = 12, SC_Q = 20, SC_Z = 29, SC_1 = 30, SC_9 = 38,
-    SC_RETURN = 40, SC_TAB = 43, SC_SPACE = 44, SC_RIGHT = 79, SC_LEFT = 80, SC_DOWN = 81,
+    SC_0 = 39, SC_RETURN = 40, SC_BACKSPACE = 42, SC_TAB = 43, SC_MINUS = 45, SC_SPACE = 44, SC_RIGHT = 79, SC_LEFT = 80, SC_DOWN = 81,
     SC_UP = 82, SC_LCTRL = 224, SC_RCTRL = 228
 };
 
@@ -66,16 +67,26 @@ static void host_vbl(void *user, MogGame *g, MogGameInput *out)
         v |= MOG_JOY_FIRE;
     out->joy[0] = out->joy[1] = v;      /* chevalier 1 : port 1 (et 0) */
 
+    /* Clavier de l'Amiga : lettres et chiffres tels quels (noms des
+     * chevaliers ; E fin du tour, Q abandon, 1-9 lieux), Tab = barre
+     * d'espace, Entrée, retour arrière */
     int key = 0;
-    if (pressed(in, SC_I) | pressed(in, SC_TAB))
-        key = ' ';
-    if (pressed(in, SC_E))
-        key = 'E';
-    if (pressed(in, SC_Q))
-        key = 'Q';
+    for (int sc = SC_A; sc <= SC_Z; sc++)
+        if (pressed(in, sc))
+            key = 'A' + (sc - SC_A);
     for (int sc = SC_1; sc <= SC_9; sc++)
         if (pressed(in, sc))
             key = '1' + (sc - SC_1);
+    if (pressed(in, SC_0))
+        key = '0';
+    if (pressed(in, SC_MINUS))
+        key = '-';
+    if (pressed(in, SC_TAB))
+        key = ' ';
+    if (pressed(in, SC_RETURN))
+        key = '\r';
+    if (pressed(in, SC_BACKSPACE))
+        key = '\b';
     out->key = key;
 }
 

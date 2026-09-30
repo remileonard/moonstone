@@ -18,6 +18,8 @@ void mog_new_game_players(MogCombat *m);
 /* LAB_0013 + LAB_0019 : PV maximum et défense du chevalier `obj` d'après
  * sa force, son armure et son inventaire. */
 void mog_update_knight(MogCombat *m, uint32_t obj);
+/* LAB_0002 + LAB_0165 : duel d'entraînement prêt (Combat_Run ensuite) */
+void mog_practice(MogCombat *m);
 void mog_knight_hp(MogCombat *m, uint32_t obj);         /* LAB_0013 */
 void mog_knight_defence(MogCombat *m, uint32_t obj);    /* LAB_0019 */
 

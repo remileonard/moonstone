@@ -38,6 +38,7 @@ set(GAME_SOURCES
     src/mog_screens.c
     src/mog_town.c
     src/mog_game.c
+    src/mog_menu.c
     src/mog_sound.c
     src/moon_mog.c
     src/mog_boot.c

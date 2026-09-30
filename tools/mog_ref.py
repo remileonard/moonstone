@@ -232,8 +232,9 @@ class MogRef:
         # l'interruption) : une VBL par tour (LAB_0D77 réel), puis rendez-vous.
         self.tramp_busy = False
         self.tramp_resume = None
-        tramp = self.stack_top - 0xF8
-        for lab in ('LAB_008C', 'LAB_0095', 'LAB_0496'):
+        tramp = self.stack_top - 0xF8                 # 7 × 12 octets, sous le code de VBL (-0x80)
+        # (+ menu du début : LAB_00B5, choix des chevaliers LAB_00D4, nom LAB_00C9 / LAB_00CC)
+        for lab in ('LAB_008C', 'LAB_0095', 'LAB_0496', 'LAB_00B5', 'LAB_00D4', 'LAB_00C9', 'LAB_00CC'):
             uc.mem_write(tramp, b'\x4e\xb9' + struct.pack('>I', S['LAB_0D77'])
                          + b'\x4e\xf9' + struct.pack('>I', S[lab]))
             uc.hook_add(U.UC_HOOK_CODE, self.h_vbl_loop, tramp,

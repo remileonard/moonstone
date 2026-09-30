@@ -9,6 +9,7 @@
  * (LAB_057D).
  */
 #include "mog_game.h"
+#include "mog_menu.h"
 #include "mog_boot.h"
 #include "mog_encounter.h"
 #include "mog_map.h"
@@ -102,6 +103,8 @@ static void vbl(void *u)
     uint32_t pal = ix_rl(VM, MOG_LAB_0E93);             /* registres couleur */
     for (int i = 0; i < 32; i++)
         g->colour[i] = ix_rw(VM, pal + 2u * (unsigned)i);
+    if (g->m.color00)                                   /* COLOR00 écrit à part */
+        g->colour[0] = (uint16_t)(g->m.color00 & 0x0FFF);
     sound_vbl(g);                                       /* LAB_0F73 */
     if (!g->vbl)
         return;
@@ -111,7 +114,7 @@ static void vbl(void *u)
     g->m.joy[0] = in.joy[0];
     g->m.joy[1] = in.joy[1];
     if (in.key) {                                       /* LAB_0B66 : touche appuyée */
-        int k = key_code(g, in.key);
+        int k = in.key == '\r' ? 0x1C : in.key == '\b' ? 0x0E : key_code(g, in.key);
         if (k) {
             ix_ww(VM, MOG_SECSTRT_21, (uint16_t)k);
             ix_wb(VM, MOG_LAB_0B91 + (uint32_t)k, 1);
@@ -170,12 +173,25 @@ int mog_game_boot(MogGame *g)
     mog_pointer_boot(&g->m);                            /* LAB_0572 */
 
     MogCombat *m = &g->m;
+    while (g->vbl) {                                    /* LAB_0001 */
+        g->mode = mog_menu(m);                          /* Prot_CopylockCheck */
+        if (g->mode != 2)
+            break;
+        mog_practice(m);                                /* LAB_0002 : entraînement */
+        mog_combat_run(m);                              /* Combat_Run */
+        ix_ww(VM, MOG_LAB_05C5, ix_rw(VM, MOG_LAB_05DB));
+        mog_boot_tables(VM);                            /* LAB_0152 / LAB_0156 */
+    }
     mog_new_game_full(m);                               /* LAB_01AE */
     for (uint32_t i = 0; i < 4; i++)                    /* LAB_0011 */
         mog_update_knight(m, MOG_LAB_0613 + i * IX_OBJECT_SIZE);
-    ix_wl(VM, MOG_LAB_06B4, MOG_LAB_06B6);              /* nom du chevalier 1 */
-    ix_wl(VM, MOG_LAB_0613 + 54, 0);                    /* chevalier 1 : joueur */
-    ix_wb(VM, MOG_LAB_0613 + 11, 2);                    /* joystick (port 1) */
+    if (g->vbl)
+        mog_choose_knights(m);                          /* LAB_00D3 */
+    else {                                              /* outils : un joueur */
+        ix_wl(VM, MOG_LAB_06B4, MOG_LAB_06B6);          /* nom du chevalier 1 */
+        ix_wl(VM, MOG_LAB_0613 + 54, 0);                /* chevalier 1 : joueur */
+        ix_wb(VM, MOG_LAB_0613 + 11, 2);                /* joystick (port 1) */
+    }
     mog_new_game_players(m);                            /* LAB_01BE */
     mog_boot_reactions(VM);                             /* LAB_020F */
     mog_fade_out(m);                                    /* LAB_03F1 */

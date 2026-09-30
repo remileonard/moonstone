@@ -16,6 +16,10 @@
 #include "mog_map.h"
 #include "mog_game.h"
 #include "mog_sound.h"
+#include "mog_menu.h"
+#include "mog_encounter.h"
+#include "mog_boot.h"
+#include "../game/src/mog_private.h"
 #include "moon_assets.h"
 #include "ix_mog_syms.h"
 
@@ -117,7 +121,27 @@ int main(int argc, char **argv)
         }
         return 0;
     }
-    if (!strcmp(argv[2], "map")) {
+    if (!strcmp(argv[2], "menu")) {
+        /* LAB_0001 après les tables : menu, choix des chevaliers, carte */
+        int row;
+        while ((row = mog_menu(&m)) == 2) {             /* LAB_0002 : entraînement */
+            printf("M menu %d\n", row);
+            mog_practice(&m);
+            mog_combat_run(&m);
+            ix_ww(&vm, MOG_LAB_05C5, ix_rw(&vm, MOG_LAB_05DB));
+            mog_boot_tables(&vm);
+        }
+        printf("M menu %d\n", row);
+        mog_new_game_full(&m);                          /* LAB_01AE */
+        for (uint32_t i = 0; i < 4; i++)                /* LAB_0011 */
+            mog_update_knight(&m, MOG_LAB_0613 + i * IX_OBJECT_SIZE);
+        mog_choose_knights(&m);                         /* LAB_00D3 */
+        mog_new_game_players(&m);                       /* LAB_01BE */
+        mog_boot_reactions(&vm);                        /* LAB_020F */
+        mog_fade_out(&m);                               /* LAB_03F1 */
+        mog_back_to_map(&m);                            /* SECSTRT_36 */
+    }
+    if (!strcmp(argv[2], "map") || !strcmp(argv[2], "menu")) {
         mog_map_enter(&m);
         for (;;) {
             int ev = mog_map_frame(&m);

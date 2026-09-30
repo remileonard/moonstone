@@ -5,7 +5,8 @@
  *   mog_game_shot <données> <préfixe> <script>
  *
  * Script, une commande par ligne : « n joy [touche] » (n VBL avec ce
- * joystick, touche appuyée à la première) ou « shot » (image).
+ * joystick, touche appuyée à la première ; ^ Retour, < retour arrière)
+ * ou « shot » (image).
  */
 #include "mog_game.h"
 #include "moon_assets.h"
@@ -184,7 +185,7 @@ static void vbl(void *u, MogGame *g, MogGameInput *in)
             continue;
         left = n;
         cur_joy = j;
-        cur_key = k == 'I' ? ' ' : k;          /* I : barre d'espace */
+        cur_key = k == 'I' ? ' ' : k == '^' ? '\r' : k == '<' ? '\b' : k;  /* I : espace */
     }
     left--;
     in->joy[0] = in->joy[1] = (uint16_t)cur_joy;

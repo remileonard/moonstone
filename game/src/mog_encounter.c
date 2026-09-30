@@ -1298,3 +1298,48 @@ void mog_new_game_players(MogCombat *m)
 {
     new_game_01be(m);                                   /* LAB_01BE */
 }
+
+/* LAB_0002 (sans Combat_Run) : entraînement du menu, duel entre les
+ * chevaliers 1 (joystick 2) et 2 (joystick 1), LAB_05C5 gardé dans
+ * LAB_05DB ; puis LAB_0165 (comme LAB_0164, l'adversaire au joystick). */
+void mog_practice(MogCombat *m)
+{
+    ww(m, MOG_LAB_05DB, rw(m, MOG_LAB_05C5));
+    ww(m, MOG_v_Combatants + 14, 2);
+    ww(m, MOG_LAB_05C5, 2);
+    mog_new_game_full(m);                               /* LAB_01AE */
+    wl(m, MOG_v_Combatants, MOG_LAB_0613);
+    wl(m, MOG_v_Combatants + 4, MOG_LAB_0614);
+    wb(m, MOG_LAB_0613 + 77, 0x0C);
+    wb(m, MOG_LAB_0613 + 11, 2);
+    wl(m, MOG_LAB_0613 + 54, 0);
+    wb(m, MOG_LAB_0614 + 77, 0x0C);
+    wb(m, MOG_LAB_0614 + 11, 1);
+    wl(m, MOG_LAB_0614 + 54, 2);
+    mog_boot_reactions(VM);                             /* LAB_020F */
+    loading_screen(m);                                  /* LAB_0134 */
+    wl(m, MOG_LAB_08C4, 12);
+    setup_scenery(m);                                   /* LAB_013C */
+    mog_new_game_players(m);                            /* LAB_01BE */
+    /* LAB_0165 */
+    reset_knights(m);                                   /* LAB_015F */
+    clear_objects(m);                                   /* LAB_02CE */
+    mog_reset_entities(m);                              /* LAB_0305 */
+    load_creature(m, MOG_LAB_0116);
+    wl(m, MOG_LAB_0633, MOG_LAB_0613);
+    player_enters(m);                                   /* LAB_01A4 */
+    uint32_t a1 = MOG_LAB_0614;
+    wl(m, MOG_LAB_0634, a1);
+    ww(m, a1 + 4, 0x1E);
+    ww(m, a1 + 6, 0);
+    wb(m, a1 + 10, 1);
+    knight_kit(m, a1);                                  /* LAB_0167 */
+    wl(m, a1 + 38, MOG_LAB_05E0);
+    wb(m, a1 + 11, 1);
+    mog_enter_object_with(m, a1, MOG_LAB_07FC);         /* LAB_01A9 */
+    opponents(m, 1, 1, MOG_LAB_0166, 0);
+    wl(m, MOG_LAB_08C4, 12);
+    set_palette(m, 12);                                 /* LAB_03F3 */
+    for (uint32_t i = 0; i < 4; i++)                    /* LAB_0011 */
+        mog_update_knight(m, MOG_LAB_0613 + i * IX_OBJECT_SIZE);
+}
