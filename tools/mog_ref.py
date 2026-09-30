@@ -209,6 +209,7 @@ class MogRef:
         uc.hook_add(U.UC_HOOK_CODE, self.h_frame, None,
                     begin=S['Combat_FrameStart'], end=S['Combat_FrameStart'])
         self.left_combat = False         # retour à la boucle principale (LAB_0001)
+        self.through_main_loop = False
         uc.hook_add(U.UC_HOOK_CODE, self.h_main_loop, None,
                     begin=S['LAB_0001'], end=S['LAB_0001'])
         # adresse de retour de Combat_Run lancé par start_encounter
@@ -396,6 +397,8 @@ class MogRef:
             self.tramp_resume = addr
 
     def h_main_loop(self, uc, addr, size, user):
+        if self.through_main_loop:              # menu : LAB_0001 est un passage normal
+            return
         if self.frame_limit is not None:        # pendant run_frames : combat fini
             self.left_combat = True
             uc.emu_stop()

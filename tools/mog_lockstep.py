@@ -210,6 +210,7 @@ def main():
     S = ref.S
     menu = MenuScript(a.menu) if a.menu else None
     if a.menu:
+        ref.through_main_loop = True
         # Prot_Copylock (chiffrée) : une disquette d'origine laisse LAB_029F
         # sur la pile (relu dans LAB_0714) et reprend au menu
         entry = S['Prot_CopylockCheck'] + 22           # après Hw_EnableInterrupts, MOVE #$2000,SR
@@ -327,6 +328,9 @@ def main():
             frames = f
             break
         ok = compare(ref, ref.snapshot(), c.memory(), 'image %d (joy %d)' % (f, joy), c.lines)
+        if not ok:
+            print('original au rendez-vous %s < %s' % (
+                ref.where(ref.uc.reg_read(M.UC_M68K_REG_PC)), ' < '.join(ref.backtrace(6))))
         fails += not ok
         if ref.vbl_trace is not None:
             print('VBL orig %d : %s' % (len(ref.vbl_trace), ' '.join(ref.vbl_trace)))
