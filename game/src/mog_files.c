@@ -56,36 +56,17 @@ void mog_file_close(MogFile *f)
     f->data = NULL;
 }
 
-/* LAB_0CC2 : décompression (LZSS Mindscape) de n octets de src vers dst ;
- * renvoie le nombre d'octets écrits. Un octet de contrôle pour 8 jetons
- * (bit à 1 : copie arrière de 34 - (mot >> 11) octets depuis sortie -
- * (mot & $7FF) ; bit à 0 : octet littéral) ; fin testée avant chaque jeton
- * (vérifié contre l'original par tools/mog_bootcheck.py). */
+/* LAB_0CC2 : décompression LZSS de `n` octets à `src` vers `dst` ;
+ * renvoie le nombre d'octets écrits. Décodeur de libmoon_assets, sur la
+ * mémoire même : les copies arrière peuvent lire avant `dst`, comme
+ * l'original (fenêtre = toute la mémoire sous `dst`). */
 uint32_t mog_unpack(IxVM *vm, uint32_t src, uint32_t n, uint32_t dst)
 {
-    uint32_t end = src + n, out = dst;
-    for (;;) {
-        uint8_t ctl = ix_rb(vm, src++);                 /* LAB_0CC3 */
-        int d3 = 8;                                     /* 8 jetons */
-        for (;;) {                                      /* LAB_0CC7 : DBCC */
-            if (!(src < end))
-                return out - dst;
-            if (--d3 == -1)
-                break;
-            int ref = ctl & 0x80;                       /* LAB_0CC4 */
-            ctl = (uint8_t)(ctl << 1);
-            if (!ref) {
-                ix_wb(vm, out++, ix_rb(vm, src++));     /* LAB_0CC6 */
-                continue;
-            }
-            uint16_t w = (uint16_t)(ix_rb(vm, src) << 8 | ix_rb(vm, src + 1));
-            src += 2;
-            uint32_t from = out - (w & 0x07FF);
-            unsigned len = 34u - (w >> 11);
-            for (unsigned k = 0; k < len; k++)
-                ix_wb(vm, out++, ix_rb(vm, from++));
-        }
-    }
+    if (!ix_vm_ok(vm, src, n) || !ix_vm_ok(vm, dst, 0))
+        return 0;
+    int r = moon_lzss_decompress_window(ix_vm_ptr(vm, src), n, vm->mem,
+                                        dst - vm->base, vm->size);
+    return r < 0 ? 0 : (uint32_t)r;
 }
 
 /* LAB_0CBB : charge la CEL `name` à `dest` : en-tête (10 octets), table

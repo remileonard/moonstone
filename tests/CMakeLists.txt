@@ -168,7 +168,7 @@ target_include_directories(prog_intro_shot PRIVATE
 target_link_libraries(prog_intro_shot PRIVATE moon_assets)
 
 # Audit de libmoon_assets contre les décodeurs du portage
-add_executable(lib_audit lib_audit.c
+add_executable(lib_audit lib_audit.c lib_audit_ref.c
     ${CMAKE_SOURCE_DIR}/game/src/ix_vm.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_boot.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_files.c

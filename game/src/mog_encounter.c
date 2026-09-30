@@ -13,6 +13,7 @@
 #include "mog_text.h"
 #include "ix_mog_syms.h"
 #include "mog_sound.h"
+#include "moon_assets.h"
 
 #include <stdio.h>
 
@@ -115,14 +116,8 @@ void mog_piv_decode(MogCombat *m, uint32_t a0)
     uint32_t src = a0 + 6;
     copy(m, MOG_LAB_0D2B, src, n);
     src += n;
-    for (uint32_t i = 0; i < n / 2; i++) {
-        uint16_t c = rw(m, MOG_LAB_0D2B + 2 * i);
-        if (c & 0x8000)
-            c &= 0x7FFF;
-        else
-            c = (uint16_t)(c << 1);
-        ww(m, MOG_LAB_0D2B + 2 * i, c);
-    }
+    for (uint32_t i = 0; i < n / 2; i++)
+        ww(m, MOG_LAB_0D2B + 2 * i, moon_piv_colour(rw(m, MOG_LAB_0D2B + 2 * i)));
     uint32_t len = rl(m, a0 + 2);
     uint32_t k = (uint32_t)(uint16_t)(len - 1) + 1;     /* DBF sur le mot */
     for (uint32_t i = 0; i < k; i++)
@@ -153,14 +148,8 @@ void mog_load_picture(MogCombat *m, uint32_t name, uint32_t a1)
     if (rw(m, a1) != 4)
         n = 64;
     mog_file_read(VM, &f, MOG_LAB_0D2B, n);
-    for (uint32_t i = 0; i < n / 2; i++) {
-        uint16_t c = rw(m, MOG_LAB_0D2B + 2 * i);
-        if (c & 0x8000)
-            c &= 0x7FFF;
-        else
-            c = (uint16_t)(c << 1);
-        ww(m, MOG_LAB_0D2B + 2 * i, c);
-    }
+    for (uint32_t i = 0; i < n / 2; i++)
+        ww(m, MOG_LAB_0D2B + 2 * i, moon_piv_colour(rw(m, MOG_LAB_0D2B + 2 * i)));
     uint32_t len = rl(m, a1 + 2);
     mog_file_read(VM, &f, a1 + 2, len);
     mog_file_close(&f);

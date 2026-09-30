@@ -134,6 +134,13 @@ MoonPiv *moon_piv_load(const char *name);
  */
 MoonPiv *moon_piv_load_from_buffer(const uint8_t *buf, size_t len);
 
+/**
+ * moon_piv_colour - colour register value of a stored palette word: a word
+ * with bit 15 set is used as it is (bit 15 cleared), any other is shifted
+ * left once (LAB_03F4 / LAB_03FF).
+ */
+uint16_t moon_piv_colour(uint16_t stored);
+
 /** moon_piv_free - release a MoonPiv. */
 void moon_piv_free(MoonPiv *piv);
 
@@ -315,6 +322,13 @@ typedef struct {
  * The caller must free the result with moon_hit_free().
  */
 MoonHit *moon_hit_load(const char *name);
+
+/**
+ * moon_hit_parse - parse collide.hit text already in memory.
+ * @buf: the text; @len: its byte count.
+ * Returns a newly allocated MoonHit (free with moon_hit_free()), or NULL.
+ */
+MoonHit *moon_hit_parse(const uint8_t *buf, size_t len);
 
 /**
  * moon_hit_find - look up a sprite by name within a MoonHit.

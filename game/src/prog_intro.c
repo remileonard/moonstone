@@ -11,8 +11,11 @@
 #include "prog_vbl.h"
 #include "ix_program_syms.h"
 #include "ix_data.h"
+#include "moon_assets.h"
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #define VM (p->vm)
 #define PLANE 8000u                     /* $1F40 : un plan de 320 × 200 */
@@ -1310,11 +1313,8 @@ static void piv_decode(ProgIntro *p, uint32_t a0)
     for (uint32_t i = 0; i < n; i++)
         ix_wb(VM, PROGRAM_LAB_0506 + i, ix_rb(VM, src + i));
     src += n;
-    for (uint32_t i = 0; i < n / 2; i++) {
-        uint16_t c = rw(p, PROGRAM_LAB_0506 + 2 * i);
-        c = c & 0x8000 ? (uint16_t)(c & 0x7FFF) : (uint16_t)(c << 1);
-        ww(p, PROGRAM_LAB_0506 + 2 * i, c);
-    }
+    for (uint32_t i = 0; i < n / 2; i++)
+        ww(p, PROGRAM_LAB_0506 + 2 * i, moon_piv_colour(rw(p, PROGRAM_LAB_0506 + 2 * i)));
     uint32_t len = rl(p, a0 + 2);
     uint32_t k = (uint32_t)(uint16_t)(len - 1) + 1;     /* DBF sur le mot */
     for (uint32_t i = 0; i < k; i++)
@@ -1377,11 +1377,8 @@ static void load_picture(ProgIntro *p, uint32_t name, uint32_t a1)
     if (rw(p, a1) != 4)
         n = 64;
     prog_file_read(VM, &f, PROGRAM_LAB_0506, n);
-    for (uint32_t i = 0; i < n / 2; i++) {
-        uint16_t c = rw(p, PROGRAM_LAB_0506 + 2 * i);
-        c = c & 0x8000 ? (uint16_t)(c & 0x7FFF) : (uint16_t)(c << 1);
-        ww(p, PROGRAM_LAB_0506 + 2 * i, c);
-    }
+    for (uint32_t i = 0; i < n / 2; i++)
+        ww(p, PROGRAM_LAB_0506 + 2 * i, moon_piv_colour(rw(p, PROGRAM_LAB_0506 + 2 * i)));
     uint32_t len = rl(p, a1 + 2);
     prog_file_read(VM, &f, a1 + 2, len);
     prog_file_close(&f);
@@ -1414,115 +1411,28 @@ static void tint(ProgIntro *p, uint32_t a0)
         }
 }
 
-/* Unpack_Rnc1 : décompression RNC (méthode 2, à rebours) en place ; la
- * fin du tampon source est remise à zéro. Tables lues dans program. */
-typedef struct { ProgIntro *p; uint32_t a6, a3; uint8_t d3; } Rnc;
-
-static int rnc_bit(Rnc *r)                               /* LAB_01A1 */
-{
-    int c = r->d3 >> 7;
-    r->d3 = (uint8_t)(r->d3 << 1);
-    if (r->d3)
-        return c;
-    uint8_t b = ix_rb(r->p->vm, --r->a6);
-    int c2 = b >> 7;
-    r->d3 = (uint8_t)((b << 1) | c);
-    return c2;
-}
-
-static uint16_t rnc_bits(Rnc *r, uint16_t v, int n)
-{
-    while (n--)
-        v = (uint16_t)((v << 1) | rnc_bit(r));
-    return v;
-}
-
-static uint32_t be32(ProgIntro *p, uint32_t a) { return rl(p, a); }
-
+/* Unpack_Rnc1 : décompression RNC en place à a0 (décodeur de
+ * libmoon_assets). L'original écrit la sortie à rebours sous a0 + 12 +
+ * taille + $100, la recopie en a0 puis met à zéro le reste jusqu'à cette
+ * limite ; renvoie la taille (0 si ce n'est pas un fichier RNC). */
 static uint32_t rnc_unpack(ProgIntro *p, uint32_t a0)
 {
     IxVM *vm = VM;
-    uint32_t a1 = a0, d0 = 0;
-    Rnc r = { p, 0, 0, 0 };
-    if (be32(p, a0) == 0x524E4301) {
-        uint32_t a4 = a0 + 12;
-        uint32_t a2 = a4 + be32(p, a0 + 4) + 0x100;
-        r.a3 = a2;
-        r.a6 = a4 + be32(p, a0 + 8);
-        r.d3 = ix_rb(vm, --r.a6);
-        for (;;) {
-            /* LAB_0198 : octets littéraux */
-            if (rnc_bit(&r)) {
-                uint16_t d5 = 0;
-                if (rnc_bit(&r)) {
-                    int16_t d1 = 3;
-                    for (;;) {
-                        int8_t nb = (int8_t)ix_rb(vm, PROGRAM_LAB_019F + (uint32_t)d1);
-                        uint16_t d2 = (uint16_t)~(uint16_t)(0xFFFF << nb);
-                        d5 = rnc_bits(&r, 0, nb);
-                        if (!d1 || d5 != d2)
-                            break;
-                        d1--;
-                    }
-                    d5 = (uint16_t)(d5 + (int8_t)ix_rb(vm, PROGRAM_LAB_01A0 + (uint32_t)d1));
-                }
-                for (uint32_t k = 0; k <= d5; k++)       /* LAB_019D */
-                    ix_wb(vm, --r.a3, ix_rb(vm, --r.a6));
-            }
-            if ((int32_t)(r.a6 - a4) <= 0)
-                break;
-            /* LAB_01A3 : longueur */
-            int16_t c = 3;
-            while (c >= 0 && rnc_bit(&r))
-                c--;
-            uint16_t i0 = (uint16_t)(c + 1);
-            uint16_t d6 = 0;
-            int8_t nb = (int8_t)ix_rb(vm, PROGRAM_LAB_01A8 + i0);
-            if (nb)
-                d6 = rnc_bits(&r, 0, nb);
-            d6 = (uint16_t)(d6 + (int8_t)ix_rb(vm, PROGRAM_L08_008B3 + i0));
-            /* LAB_01AA : distance */
-            uint16_t d7 = 0;
-            if (d6 == 2) {
-                int n = 6;
-                uint16_t add = 0;
-                if (rnc_bit(&r)) {
-                    n = 9;
-                    add = 64;
-                }
-                d7 = (uint16_t)(rnc_bits(&r, 0, n) + add);
-            } else {
-                int16_t e = 1;
-                while (e >= 0 && rnc_bit(&r))
-                    e--;
-                uint16_t j = (uint16_t)(e + 1);
-                int8_t m = (int8_t)ix_rb(vm, PROGRAM_LAB_01B0 + j);
-                d7 = rnc_bits(&r, 0, m + 1);
-                d7 = (uint16_t)(d7 + rw(p, PROGRAM_LAB_01B1 + 2u * j));
-            }
-            d6 = (uint16_t)(d6 - 1);
-            uint32_t src = r.a3 + (uint32_t)(int32_t)(int16_t)d7 + (uint32_t)(int32_t)(int16_t)d6;
-            if (!d7)
-                src = r.a3 + 1;
-            for (uint32_t k = 0; k <= d6; k++)           /* LAB_0192 */
-                ix_wb(vm, --r.a3, ix_rb(vm, --src));
-        }
-        d0 = a2 - r.a3;
-        a0 = r.a3;
+    if (rl(p, a0) != 0x524E4301)
+        return 0;
+    uint32_t unpacked = rl(p, a0 + 4), packed = rl(p, a0 + 8);
+    uint32_t end = a0 + 12 + unpacked + 0x100;
+    if (!ix_vm_ok(vm, a0, end - a0) || !ix_vm_ok(vm, a0, 12 + packed))
+        return 0;
+    uint8_t *out = malloc(unpacked ? unpacked : 1);
+    int n = out ? moon_rnc1_decompress(ix_vm_ptr(vm, a0), 12 + packed, out, unpacked) : -1;
+    if (n > 0) {
+        memcpy(ix_vm_ptr(vm, a0), out, (size_t)n);
+        memset(ix_vm_ptr(vm, a0 + (uint32_t)n), 0, end - (a0 + (uint32_t)n));
     }
-    /* LAB_01B2 */
-    uint32_t d2 = a0 - a1;
-    if (d0) {
-        for (uint32_t k = 0; k < d0; k++)
-            ix_wb(vm, a1++, ix_rb(vm, a0++));
-        do
-            ix_wb(vm, a1++, 0);
-        while (--d2);
-    }
-    return d0;
+    free(out);
+    return n > 0 ? (uint32_t)n : 0;
 }
-
-uint32_t prog_rnc_unpack(ProgIntro *p, uint32_t a0) { return rnc_unpack(p, a0); }
 
 /* LAB_0325 (partie mémoire) : état de la souris, vecteurs d'interruption */
 static void interrupts_init(ProgIntro *p)

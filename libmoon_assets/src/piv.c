@@ -29,6 +29,11 @@ static uint16_t be16(const uint8_t *p)
     return (uint16_t)((p[0] << 8) | p[1]);
 }
 
+uint16_t moon_piv_colour(uint16_t stored)
+{
+    return stored & 0x8000u ? (uint16_t)(stored & 0x7FFFu) : (uint16_t)(stored << 1);
+}
+
 MoonPiv *moon_piv_load_from_buffer(const uint8_t *buf, size_t len)
 {
     if (!buf || len < 6)
@@ -49,11 +54,8 @@ MoonPiv *moon_piv_load_from_buffer(const uint8_t *buf, size_t len)
     piv->planes = planes;
     piv->width  = 320;
     piv->height = 200;
-    for (int i = 0; i < pal_count; i++) {
-        uint16_t raw = be16(buf + 6 + i * 2);
-        piv->palette[i] = raw & 0x8000u ? (uint16_t)(raw & 0x7FFFu)
-                                        : (uint16_t)(raw << 1);
-    }
+    for (int i = 0; i < pal_count; i++)
+        piv->palette[i] = moon_piv_colour(be16(buf + 6 + i * 2));
 
     size_t bitmap_size = (size_t)planes * 8000;
     piv->bitmap = (uint8_t *)calloc(1, bitmap_size);

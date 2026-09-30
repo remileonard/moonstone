@@ -5,17 +5,18 @@
  *
  *   lib_audit <données>
  *
- * Références (portage) :
- *   LZSS         mog_unpack (LAB_0CC2 / Unpack_Lzss)
- *   CEL, OB, .c  mog_load_cel (LAB_0CBB)
+ * Références : les décodeurs du portage d'avant la bibliothèque, figés
+ * dans lib_audit_ref.c (vérifiés contre l'original sur les bancs) :
+ *   LZSS         ref_unpack (LAB_0CC2 / Unpack_Lzss)
+ *   CEL, OB, .c  LAB_0CBB : en-tête, table des frames, ref_unpack
  *   PIV, .p      LAB_0402 / LAB_0C27 : en-tête, palette (bit 15), LZSS
  *   Test         PIV à la suite (LAB_013A)
- *   RNC (.cmp)   prog_rnc_unpack (Unpack_Rnc1 de program)
+ *   RNC (.cmp)   ref_rnc_unpack (Unpack_Rnc1 de program)
  *   MOD          octets décompressés, lus comme le lecteur (LAB_0061)
  *   stile        octets bruts (LAB_0185 : LAB_03B2 sans décodage)
  *   terrain .t   LAB_0A6D : long taille, LZSS, obstacles, objets
  *   .a           octets bruts (LAB_0AB5)
- *   collide.hit  mog_load_hit_cel (Col_LoadHitData)
+ *   collide.hit  ref_hit_parse (Col_LoadHitData)
  *
  * N'écrit rien : rapport des écarts sur la sortie standard.
  */
@@ -24,6 +25,7 @@
 #include "moon_testmap.h"
 #include "mog_boot.h"
 #include "prog_intro.h"
+#include "lib_audit_ref.h"
 #include "ix_mog_syms.h"
 
 #include <ctype.h>
@@ -120,12 +122,16 @@ static void audit_cel(const char *name)
         free(raw);
         return;
     }
+    clear_vm();                                         /* référence */
+    uint16_t n = be16(raw);
+    uint32_t table = 10 + (uint32_t)n * 10, packed = be32(raw + 2);
+    uint32_t pix = DST_AT + table;
+    put_bytes(DST_AT, raw, len < table ? len : table);
+    if (table + packed <= len) {
+        put_bytes(SRC_AT, raw + table, packed);
+        ref_unpack(&s_vm, SRC_AT, packed, pix);
+    }
     free(raw);
-    clear_vm();
-    put_name(&s_vm, NAME_AT, name);
-    mog_load_cel(&s_vm, NAME_AT, DST_AT);               /* référence */
-    uint16_t n = ix_rw(&s_vm, DST_AT);
-    uint32_t pix = ix_rl(&s_vm, DST_AT + 2);
     MoonCel *c = moon_cel_load(name);
     if (!c) {
         verdict("CEL", name, 0, "bibliothèque : échec du chargement (%u frames)", n);
@@ -167,7 +173,7 @@ static void audit_lzss(const char *kind, const char *name, const uint8_t *stream
 {
     clear_vm();
     put_bytes(SRC_AT, stream, n);
-    uint32_t ref = mog_unpack(&s_vm, SRC_AT, (uint32_t)n, DST_AT);
+    uint32_t ref = ref_unpack(&s_vm, SRC_AT, (uint32_t)n, DST_AT);
     size_t cap = (size_t)ref + 65536;
     uint8_t *out = calloc(1, cap);
     int got = moon_lzss_decompress(stream, n, out, cap);
@@ -199,7 +205,7 @@ static size_t ref_piv(const uint8_t *buf, size_t len, size_t off, uint16_t pal[3
     }
     clear_vm();
     put_bytes(SRC_AT, buf + off + 6 + n, body);
-    *out_len = mog_unpack(&s_vm, SRC_AT, body, DST_AT);
+    *out_len = ref_unpack(&s_vm, SRC_AT, body, DST_AT);
     *planes = pl;
     return 6 + n + body;
 }
@@ -278,7 +284,6 @@ static void audit_testmap(const char *name)
 /* ------------------------------------------------------------- RNC, MOD */
 
 static IxVM s_pvm;
-static ProgIntro s_prog;
 static uint32_t s_fast;
 
 static void audit_cmp(const char *name)
@@ -291,7 +296,7 @@ static void audit_cmp(const char *name)
     uint32_t a0 = s_fast;
     for (size_t i = 0; i < len; i++)
         ix_wb(&s_pvm, a0 + (uint32_t)i, raw[i]);
-    uint32_t ref = prog_rnc_unpack(&s_prog, a0);
+    uint32_t ref = ref_rnc_unpack(&s_pvm, a0);
     size_t cap = (size_t)ref + 65536;
     uint8_t *out = calloc(1, cap);
     int got = moon_rnc1_decompress(raw, len, out, cap);
@@ -378,7 +383,7 @@ static void audit_terrain(const char *name)
     }
     clear_vm();
     put_bytes(SRC_AT, raw + 4, body);
-    uint32_t got = mog_unpack(&s_vm, SRC_AT, body, DST_AT);
+    uint32_t got = ref_unpack(&s_vm, SRC_AT, body, DST_AT);
     uint16_t n = ix_rw(&s_vm, DST_AT);
     MoonTerrain *t = moon_terrain_load(name);
     char why[256] = "";
@@ -438,7 +443,7 @@ static void audit_hit(void)
         const MoonHitSprite *sp = &h->sprites[s];
         uint32_t start = ix_rl(&mvm, MOG_LAB_0A4D);
         put_name(&mvm, MOG_CHIP_BLOCK + 0x100, sp->name);
-        if (mog_load_hit_cel(&mvm, MOG_CHIP_BLOCK + 0x100, MOG_CHIP_BLOCK + 0x1000) < 0) {
+        if (ref_hit_parse(&mvm, MOG_CHIP_BLOCK + 0x100, MOG_CHIP_BLOCK + 0x1000) < 0) {
             verdict("HIT", sp->name, 0, "absent pour l'original");
             ok_all = 0;
             continue;
@@ -508,7 +513,6 @@ int main(int argc, char **argv)
     s_vm.size = s_vm.heap = VM_SIZE;
     if (prog_boot_memory(&s_pvm, &s_fast) < 0)
         return 1;
-    s_prog.vm = &s_pvm;
 
     DIR *d = opendir(argv[1]);
     if (!d)

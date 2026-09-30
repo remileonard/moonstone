@@ -363,79 +363,47 @@ void mog_hit_init(IxVM *vm)
     ix_wl(vm, MOG_SECSTRT_10, ix_rl(vm, MOG_L23_0000E));
 }
 
-/* LAB_03D8 / LAB_03D9 : nombre décimal à 3 / 2 chiffres (ADD.B : l'octet
- * de poids faible est ajouté sans retenue). */
-static uint32_t digits(IxVM *vm, uint32_t *a2, int n)
-{
-    uint32_t d0 = (uint32_t)ix_rb(vm, (*a2)++);
-    d0 = (d0 & 0xFFFF0000u) | (uint16_t)(d0 - 0x30);
-    for (int i = 1; i < n; i++) {
-        d0 = (uint32_t)(uint16_t)d0 * 10u;
-        d0 = (d0 & 0xFFFFFF00u) | (uint8_t)(d0 + ix_rb(vm, (*a2)++));
-        d0 = (d0 & 0xFFFF0000u) | (uint16_t)(d0 - 0x30);
-    }
-    return d0;
-}
-
 /* Col_LoadHitData [LAB_03CE] : points d'impact de la CEL `name` (lus dans
- * collide.hit) rangés pour la poignée `dest`, puis chargement de la CEL
- * à `dest` (LAB_0CBB). Renvoie -1 si le nom est absent de collide.hit. */
+ * collide.hit, en mémoire à LAB_05B9 + 84) rangés pour la poignée `dest`,
+ * puis chargement de la CEL à `dest` (LAB_0CBB). Renvoie -1 si le nom est
+ * absent de collide.hit. Le texte est lu par libmoon_assets
+ * (moon_hit_parse) ; les octets rangés sont ceux de LAB_03D2 :
+ * [n] ou [n][type][max x][max y][x y]... par frame. */
 int mog_load_hit_cel(IxVM *vm, uint32_t name, uint32_t dest)
 {
-    uint32_t a2 = ix_rl(vm, MOG_LAB_05B9 + 84);
-    int32_t d7 = (int32_t)ix_rl(vm, MOG_SECSTRT_10);
-    for (;;) {                                          /* LAB_03CF */
-        if (--d7 < 0)
-            return -1;
-        uint32_t a3 = name;
-        int found = 0;
-        for (;;) {                                      /* LAB_03D0 */
-            uint8_t c = ix_rb(vm, a3++);
-            if (!c) {
-                found = ix_rb(vm, a2++) == 0x0A;        /* LAB_03D1 */
-                break;
-            }
-            if (c != ix_rb(vm, a2++))
-                break;
-            if (--d7 < 0)
-                return -1;
-        }
-        if (found)
-            break;
+    uint32_t text = ix_rl(vm, MOG_LAB_05B9 + 84);
+    uint32_t len = ix_rl(vm, MOG_SECSTRT_10);
+    char key[64];
+    unsigned i;
+    for (i = 0; i < sizeof key - 1 && ix_rb(vm, name + i); i++)
+        key[i] = (char)ix_rb(vm, name + i);
+    key[i] = 0;
+    if (!ix_vm_ok(vm, text, len))
+        return -1;
+    MoonHit *hit = moon_hit_parse(ix_vm_ptr(vm, text), len);
+    const MoonHitSprite *sp = moon_hit_find(hit, key);
+    if (!sp) {
+        moon_hit_free(hit);
+        return -1;
     }
     uint32_t a3 = ix_rl(vm, MOG_LAB_0A4D), a4 = ix_rl(vm, MOG_LAB_0A4E);
     ix_wl(vm, a4, dest);
     ix_wl(vm, a4 + 4, a3);
     ix_wl(vm, MOG_LAB_0A4E, a4 + 8);
-    for (;;) {                                          /* LAB_03D2 */
-        uint32_t d0 = digits(vm, &a2, 2);
-        if ((uint16_t)d0 == 0x63)
-            break;
-        ix_wb(vm, a3++, (uint8_t)d0);
-        a2++;
-        if (!(uint16_t)d0)
+    for (int f = 0; f < sp->frame_count; f++) {
+        const MoonHitFrame *fr = &sp->frames[f];
+        ix_wb(vm, a3++, fr->n_points);
+        if (!fr->n_points)
             continue;
-        uint16_t count = (uint16_t)d0;
-        d0 = digits(vm, &a2, 2);
-        a2++;
-        ix_wb(vm, a3++, (uint8_t)d0);
-        uint32_t ext = a3;
-        a3 += 2;
-        uint16_t mx = 0, my = 0;
-        for (uint32_t k = 0; k <= (uint16_t)(count - 1); k++) {   /* DBF */
-            d0 = digits(vm, &a2, 3);
-            ix_wb(vm, a3++, (uint8_t)d0);
-            if ((int16_t)d0 > (int16_t)mx)
-                mx = (uint16_t)d0;
-            d0 = digits(vm, &a2, 3);
-            ix_wb(vm, a3++, (uint8_t)d0);
-            if ((int16_t)d0 > (int16_t)my)
-                my = (uint16_t)d0;
+        ix_wb(vm, a3++, fr->type);
+        ix_wb(vm, a3++, fr->max_dx);
+        ix_wb(vm, a3++, fr->max_dy);
+        for (int k = 0; k < fr->n_points; k++) {
+            ix_wb(vm, a3++, fr->points[k].dx);
+            ix_wb(vm, a3++, fr->points[k].dy);
         }
-        a2++;
-        ix_wb(vm, ext, (uint8_t)mx);
-        ix_wb(vm, ext + 1, (uint8_t)my);
     }
+    moon_hit_free(hit);
     ix_wl(vm, MOG_LAB_0A4D, a3);                        /* LAB_03D6 */
     mog_load_cel(vm, name, dest);
     return 0;

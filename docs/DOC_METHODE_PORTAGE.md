@@ -534,7 +534,7 @@ Les fichiers du jeu d'origine ne sont pas dans le dépôt. Le dossier
 | `tests/mog_run.c`, `tests/prog_run.c` | côté C des comparaisons |
 | `tests/mog_game_shot.c`, `tests/prog_intro_shot.c` | jeu et intro sans écran (PNG, WAV) |
 | `libmoon_assets/` | lecture des fichiers du jeu (CEL, PIV et `.p`, LZSS, RNC, MOD, stile, `.t`, `.a`, collide.hit) |
-| `tests/lib_audit.c` | audit de la bibliothèque : chaque fichier comparé aux décodeurs du portage (§10 bis) |
+| `tests/lib_audit.c`, `tests/lib_audit_ref.c` | audit de la bibliothèque : chaque fichier comparé aux décodeurs d'origine du portage, figés (§10 bis) |
 
 L'ancienne version non fidèle (moteur de rendu et d'entités à part,
 modules par lieu) est supprimée. Les documents d'analyse écrits pour elle
@@ -565,6 +565,27 @@ sont identiques. L'audit a corrigé :
 Code mort retiré (blocs jamais atteints de l'original) : le codeur à bits
 `LAB_0408`, le RLE `Unpack_StileRle` (`LAB_0448`), la variante IFF/PackBits
 (`LAB_0434`) et l'outil `moon-view-stile` qui s'appuyait sur ce RLE.
+
+Le jeu décode par la bibliothèque, directement dans la mémoire émulée :
+
+| Routine du portage | Original | Bibliothèque |
+|---|---|---|
+| `mog_unpack` (et `prog_unpack`, son jumeau) : CEL, PIV, `.p`, `.t` | `LAB_0CC2` / `LAB_049C` | `moon_lzss_decompress_window` (fenêtre = mémoire sous la sortie) |
+| `rnc_unpack` (`prog_intro.c`) : `music.cmp`, `vmusic.cmp` | `Unpack_Rnc1` | `moon_rnc1_decompress`, puis recopie en place et mise à zéro comme l'original |
+| `mog_load_hit_cel` (`mog_boot.c`) : collide.hit | `LAB_03CE` / `LAB_03D2` | `moon_hit_parse` + `moon_hit_find` |
+| palettes des PIV (`mog_encounter.c`, `prog_intro.c`) | `LAB_03F4` / `LAB_03FF` | `moon_piv_colour` |
+
+La lecture des fichiers en mémoire (`mog_file_read`) reste celle de
+l'original : elle fait partie de l'état comparé. Seule différence connue :
+l'original cherche le nom d'une CEL n'importe où dans collide.hit (suivi
+d'un saut de ligne), la bibliothèque compare des lignes entières ; les
+noms du jeu sont tous des lignes entières.
+
+Les décodeurs d'avant la bibliothèque restent, figés, dans
+`tests/lib_audit_ref.c` : ils servent de référence indépendante à
+`lib_audit`. Vérifications après le passage : `mog_bootcheck.py`,
+`mog_gamecheck.py` (mêmes résultats qu'avant), lockstep de l'intro, de la
+fin et d'un combat Practice.
 
 ---
 

@@ -172,28 +172,32 @@ MoonHit *moon_hit_load(const char *name)
     uint8_t *raw       = moon_file_read(name, &file_size);
     if (!raw)
         return NULL;
+    MoonHit *hit = moon_hit_parse(raw, file_size);
+    free(raw);
+    return hit;
+}
 
-    const uint8_t *buf = raw;
+MoonHit *moon_hit_parse(const uint8_t *buf, size_t file_size)
+{
+    if (!buf)
+        return NULL;
     const uint8_t *end = buf + file_size;
     const uint8_t *p   = buf;
 
     /* ---- Pass 1: count sprite sections ---- */
     int n_sprites = count_sprites_in_file(p, end);
     if (n_sprites <= 0) {
-        free(raw);
         return NULL;
     }
 
     /* ---- Allocate top-level structure ---- */
     MoonHit *hit = calloc(1, sizeof(*hit));
     if (!hit) {
-        free(raw);
         return NULL;
     }
     hit->sprites = calloc((size_t)n_sprites, sizeof(MoonHitSprite));
     if (!hit->sprites) {
         free(hit);
-        free(raw);
         return NULL;
     }
 
@@ -223,8 +227,7 @@ MoonHit *moon_hit_load(const char *name)
             if (!sp->frames) {
                 hit->sprite_count = si;
                 moon_hit_free(hit);
-                free(raw);
-                return NULL;
+                        return NULL;
             }
         }
 
@@ -254,8 +257,7 @@ MoonHit *moon_hit_load(const char *name)
             if (!fr->points) {
                 hit->sprite_count = si + 1;
                 moon_hit_free(hit);
-                free(raw);
-                return NULL;
+                        return NULL;
             }
 
             /* max_dx / max_dy compare the signed words (LAB_03D2) */
@@ -283,7 +285,6 @@ MoonHit *moon_hit_load(const char *name)
     }
 
     hit->sprite_count = si;
-    free(raw);
     return hit;
 }
 

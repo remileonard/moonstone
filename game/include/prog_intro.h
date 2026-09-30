@@ -68,8 +68,6 @@ int prog_boot_memory(IxVM *vm, uint32_t *fast);
 /* SECSTRT_0 : démarrage (blocs du lanceur), puis l'intro jusqu'à mog */
 void prog_boot(ProgIntro *p, uint32_t chip, uint32_t chip_size, uint32_t fast, uint32_t fast_size);
 int prog_loading(ProgIntro *p);
-/* Unpack_Rnc1 : décompression RNC en place à a0 ; renvoie la taille */
-uint32_t prog_rnc_unpack(ProgIntro *p, uint32_t a0);
 /* LAB_0001 : la fin (mog gagné : EXT_0007 = $3E0, bit 7), prog_intro y va
  * d'elle-même */
 void prog_ending(ProgIntro *p);
