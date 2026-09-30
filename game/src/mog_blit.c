@@ -7,6 +7,7 @@
 #include "mog_blit.h"
 #include "mog_boot.h"
 #include "ix_mog_names.h"
+#include "mog_struct.h"
 
 #define BUF 0x12C0u             /* tampon d'un plan dans LAB_0D40 */
 
@@ -119,14 +120,14 @@ void mog_draw_cel(IxVM *vm, MogBlitter *b, uint32_t cel, uint16_t d0, uint16_t d
 {
     if (!ix_rw(vm, MOG_v_GfxReady))
         mog_boot_graphics(vm);                          /* SECSTRT_30 */
-    if (sw(d0) < 0 || sw(d0) >= sw(ix_rw(vm, cel)))
+    if (sw(d0) < 0 || sw(d0) >= sw(ix_rw(vm, cel + CEL_FRAMES)))
         return;
-    uint32_t a0 = cel + 10 + (uint32_t)(uint16_t)(d0 * 10);
-    uint32_t a2 = ix_rl(vm, cel + 2) + ix_rl(vm, a0);
-    uint16_t d5 = (uint16_t)(((ix_rw(vm, a0 + 4) + 15) & 0xFFF0) >> 4);
-    uint16_t d4 = ix_rw(vm, a0 + 6);
-    d1 = (uint16_t)(d1 - (ix_rb(vm, a0 + 8) >> 4));
-    uint8_t planes = ix_rb(vm, a0 + 9);
+    uint32_t a0 = cel + CEL_TABLE + (uint32_t)(uint16_t)(d0 * CEL_ENTRY_SIZE);
+    uint32_t a2 = ix_rl(vm, cel + CEL_PIXELS) + ix_rl(vm, a0 + CELF_OFFSET);
+    uint16_t d5 = (uint16_t)(((ix_rw(vm, a0 + CELF_W) + 15) & 0xFFF0) >> 4);
+    uint16_t d4 = ix_rw(vm, a0 + CELF_H);
+    d1 = (uint16_t)(d1 - (ix_rb(vm, a0 + CELF_FLAGS) >> 4));
+    uint8_t planes = ix_rb(vm, a0 + CELF_PLANES);
     ix_wb(vm, MOG_v_CelPlaneMask, planes);
     ix_wl(vm, MOG_v_CelSkipLeft, 0);
     ix_wl(vm, MOG_v_CelSkipRight, 0);

@@ -4,14 +4,28 @@
  * format NoiseTracker, 31 instruments) traduit de amiga_asm/program.asm,
  * état dans la mémoire d'origine ; Paula réduite à ce que le lecteur
  * utilise (DMA, LC / LEN / PER / VOL latchés, sans interruption).
- *
- * Voie (28 octets, LAB_009D...) : +0 note (4 octets du motif), +4 début
- * de l'échantillon, +8 longueur (mots), +10 boucle, +14 longueur de
- * boucle, +16 période, +18 volume, +20 bit DMA, +22 sens de la glissade,
- * +23 vitesse, +24 période visée, +26 vibrato, +27 phase.
  */
 #include "prog_intro.h"
 #include "ix_program_names.h"
+
+/* Voie du lecteur (28 octets, v_Chan0-3) */
+enum {
+    CH_NOTE         = 0,    /* w  période et instrument (motif, 4 octets)        */
+    CH_CMD          = 2,    /* b  instrument (4-7), commande (0-3) ; w : + param. */
+    CH_PARAM        = 3,    /* b  paramètre de la commande                       */
+    CH_SAMPLE       = 4,    /* l  début de l'échantillon                         */
+    CH_LENGTH       = 8,    /* w  longueur (mots)                                */
+    CH_LOOP         = 10,   /* l  début de la boucle                             */
+    CH_LOOP_LEN     = 14,   /* w  longueur de la boucle (mots)                   */
+    CH_PERIOD       = 16,   /* w                                                 */
+    CH_VOLUME       = 18,   /* w                                                 */
+    CH_DMA          = 20,   /* w  bit DMA de la voie                             */
+    CH_SLIDE_DOWN   = 22,   /* b  sens de la glissade vers la note               */
+    CH_SLIDE_SPEED  = 23,   /* b                                                 */
+    CH_SLIDE_TARGET = 24,   /* w  période visée                                  */
+    CH_VIBRATO      = 26,   /* b  vitesse (bits 4-7) et amplitude (bits 0-3)     */
+    CH_VIB_PHASE    = 27    /* b                                                 */
+};
 
 #define VM (p->vm)
 #define PAULA_CLOCK 3546895.0                           /* PAL */
@@ -146,12 +160,12 @@ static void arpeggio(ProgIntro *p, uint32_t a6, int v)
 {
     unsigned m = rb(p, PROGRAM_v_MusicTick) % 3;
     if (m == 0) {
-        aud_per(p, v, rw(p, a6 + 16));
+        aud_per(p, v, rw(p, a6 + CH_PERIOD));
         return;
     }
-    uint16_t d0 = m == 2 ? (uint16_t)(rb(p, a6 + 3) & 0x0F) : (uint16_t)(rb(p, a6 + 3) >> 4);
+    uint16_t d0 = m == 2 ? (uint16_t)(rb(p, a6 + CH_PARAM) & 0x0F) : (uint16_t)(rb(p, a6 + CH_PARAM) >> 4);
     d0 = (uint16_t)(d0 * 2);
-    int16_t d1 = (int16_t)rw(p, a6 + 16);
+    int16_t d1 = (int16_t)rw(p, a6 + CH_PERIOD);
     uint32_t a0 = PROGRAM_t_Periods;
     for (int d7 = 36; d7 >= 0; d7--, a0 += 2) {
         uint16_t d2 = rw(p, a0 + d0);
@@ -165,120 +179,120 @@ static void arpeggio(ProgIntro *p, uint32_t a6, int v)
 /* LAB_0077 : glissade vers la note (cible +24, sens +22) */
 static void porta_target(ProgIntro *p, uint32_t a6)
 {
-    uint16_t d2 = (uint16_t)(rw(p, a6) & 0x0FFF);
-    ww(p, a6 + 24, d2);
-    uint16_t d0 = rw(p, a6 + 16);
-    wb(p, a6 + 22, 0);
+    uint16_t d2 = (uint16_t)(rw(p, a6 + CH_NOTE) & 0x0FFF);
+    ww(p, a6 + CH_SLIDE_TARGET, d2);
+    uint16_t d0 = rw(p, a6 + CH_PERIOD);
+    wb(p, a6 + CH_SLIDE_DOWN, 0);
     if (d0 == d2)
-        ww(p, a6 + 24, 0);
+        ww(p, a6 + CH_SLIDE_TARGET, 0);
     else if ((int16_t)d2 < (int16_t)d0)
-        wb(p, a6 + 22, 1);
+        wb(p, a6 + CH_SLIDE_DOWN, 1);
 }
 
 /* LAB_007A */
 static void porta(ProgIntro *p, uint32_t a6, int v)
 {
-    uint8_t s = rb(p, a6 + 3);
+    uint8_t s = rb(p, a6 + CH_PARAM);
     if (s) {
-        wb(p, a6 + 23, s);
-        wb(p, a6 + 3, 0);
+        wb(p, a6 + CH_SLIDE_SPEED, s);
+        wb(p, a6 + CH_PARAM, 0);
     }
-    if (!rw(p, a6 + 24))
+    if (!rw(p, a6 + CH_SLIDE_TARGET))
         return;
-    uint16_t d0 = rb(p, a6 + 23);
-    int16_t target = (int16_t)rw(p, a6 + 24);
-    if (!rb(p, a6 + 22)) {
-        ww(p, a6 + 16, (uint16_t)(rw(p, a6 + 16) + d0));
-        if (!(target > (int16_t)rw(p, a6 + 16))) {
-            ww(p, a6 + 16, (uint16_t)target);
-            ww(p, a6 + 24, 0);
+    uint16_t d0 = rb(p, a6 + CH_SLIDE_SPEED);
+    int16_t target = (int16_t)rw(p, a6 + CH_SLIDE_TARGET);
+    if (!rb(p, a6 + CH_SLIDE_DOWN)) {
+        ww(p, a6 + CH_PERIOD, (uint16_t)(rw(p, a6 + CH_PERIOD) + d0));
+        if (!(target > (int16_t)rw(p, a6 + CH_PERIOD))) {
+            ww(p, a6 + CH_PERIOD, (uint16_t)target);
+            ww(p, a6 + CH_SLIDE_TARGET, 0);
         }
     } else {
-        ww(p, a6 + 16, (uint16_t)(rw(p, a6 + 16) - d0));
-        if (!(target < (int16_t)rw(p, a6 + 16))) {
-            ww(p, a6 + 16, (uint16_t)target);
-            ww(p, a6 + 24, 0);
+        ww(p, a6 + CH_PERIOD, (uint16_t)(rw(p, a6 + CH_PERIOD) - d0));
+        if (!(target < (int16_t)rw(p, a6 + CH_PERIOD))) {
+            ww(p, a6 + CH_PERIOD, (uint16_t)target);
+            ww(p, a6 + CH_SLIDE_TARGET, 0);
         }
     }
-    aud_per(p, v, rw(p, a6 + 16));
+    aud_per(p, v, rw(p, a6 + CH_PERIOD));
 }
 
 /* LAB_007E : vibrato (table LAB_0094) */
 static void vibrato(ProgIntro *p, uint32_t a6, int v)
 {
-    uint8_t s = rb(p, a6 + 3);
+    uint8_t s = rb(p, a6 + CH_PARAM);
     if (s)
-        wb(p, a6 + 26, s);
-    uint8_t ph = rb(p, a6 + 27);
+        wb(p, a6 + CH_VIBRATO, s);
+    uint8_t ph = rb(p, a6 + CH_VIB_PHASE);
     uint16_t d2 = rb(p, PROGRAM_t_Vibrato + ((ph >> 2) & 0x1F));
-    d2 = (uint16_t)((uint16_t)(d2 * (rb(p, a6 + 26) & 0x0F)) >> 6);
-    uint16_t d0 = rw(p, a6 + 16);
+    d2 = (uint16_t)((uint16_t)(d2 * (rb(p, a6 + CH_VIBRATO) & 0x0F)) >> 6);
+    uint16_t d0 = rw(p, a6 + CH_PERIOD);
     d0 = (int8_t)ph < 0 ? (uint16_t)(d0 - d2) : (uint16_t)(d0 + d2);
     aud_per(p, v, d0);
-    wb(p, a6 + 27, (uint8_t)(ph + ((rb(p, a6 + 26) >> 2) & 0x3C)));
+    wb(p, a6 + CH_VIB_PHASE, (uint8_t)(ph + ((rb(p, a6 + CH_VIBRATO) >> 2) & 0x3C)));
 }
 
 /* LAB_0083 : effets entre deux lignes */
 static void effects(ProgIntro *p, uint32_t a6, int v)
 {
-    if (!(rw(p, a6 + 2) & 0x0FFF)) {                    /* LAB_0082 */
-        aud_per(p, v, rw(p, a6 + 16));
+    if (!(rw(p, a6 + CH_CMD) & 0x0FFF)) {                    /* LAB_0082 */
+        aud_per(p, v, rw(p, a6 + CH_PERIOD));
         return;
     }
-    uint8_t cmd = rb(p, a6 + 2) & 0x0F, x = rb(p, a6 + 3);
+    uint8_t cmd = rb(p, a6 + CH_CMD) & 0x0F, x = rb(p, a6 + CH_PARAM);
     switch (cmd) {
     case 0: arpeggio(p, a6, v); return;
     case 1:                                             /* LAB_0088 */
-        ww(p, a6 + 16, (uint16_t)(rw(p, a6 + 16) - x));
-        if ((int16_t)((rw(p, a6 + 16) & 0x0FFF) - 0x71) < 0)
-            ww(p, a6 + 16, (uint16_t)((rw(p, a6 + 16) & 0xF000) | 0x71));
-        aud_per(p, v, rw(p, a6 + 16) & 0x0FFF);
+        ww(p, a6 + CH_PERIOD, (uint16_t)(rw(p, a6 + CH_PERIOD) - x));
+        if ((int16_t)((rw(p, a6 + CH_PERIOD) & 0x0FFF) - 0x71) < 0)
+            ww(p, a6 + CH_PERIOD, (uint16_t)((rw(p, a6 + CH_PERIOD) & 0xF000) | 0x71));
+        aud_per(p, v, rw(p, a6 + CH_PERIOD) & 0x0FFF);
         return;
     case 2:                                             /* LAB_008A */
-        ww(p, a6 + 16, (uint16_t)(rw(p, a6 + 16) + x));
-        if ((int16_t)((rw(p, a6 + 16) & 0x0FFF) - 0x358) >= 0)
-            ww(p, a6 + 16, (uint16_t)((rw(p, a6 + 16) & 0xF000) | 0x358));
-        aud_per(p, v, rw(p, a6 + 16) & 0x0FFF);
+        ww(p, a6 + CH_PERIOD, (uint16_t)(rw(p, a6 + CH_PERIOD) + x));
+        if ((int16_t)((rw(p, a6 + CH_PERIOD) & 0x0FFF) - 0x358) >= 0)
+            ww(p, a6 + CH_PERIOD, (uint16_t)((rw(p, a6 + CH_PERIOD) & 0xF000) | 0x358));
+        aud_per(p, v, rw(p, a6 + CH_PERIOD) & 0x0FFF);
         return;
     case 3: porta(p, a6, v); return;
     case 4: vibrato(p, a6, v); return;
     }
-    aud_per(p, v, rw(p, a6 + 16));
+    aud_per(p, v, rw(p, a6 + CH_PERIOD));
     if (cmd != 0x0A)
         return;
     uint16_t d0 = x >> 4;                               /* LAB_0084 */
     if (d0) {
-        ww(p, a6 + 18, (uint16_t)(rw(p, a6 + 18) + d0));
-        if ((int16_t)(rw(p, a6 + 18) - 0x40) >= 0)
-            ww(p, a6 + 18, 0x40);
+        ww(p, a6 + CH_VOLUME, (uint16_t)(rw(p, a6 + CH_VOLUME) + d0));
+        if ((int16_t)(rw(p, a6 + CH_VOLUME) - 0x40) >= 0)
+            ww(p, a6 + CH_VOLUME, 0x40);
     } else {
-        ww(p, a6 + 18, (uint16_t)(rw(p, a6 + 18) - (x & 0x0F)));
-        if ((int16_t)rw(p, a6 + 18) < 0)
-            ww(p, a6 + 18, 0);
+        ww(p, a6 + CH_VOLUME, (uint16_t)(rw(p, a6 + CH_VOLUME) - (x & 0x0F)));
+        if ((int16_t)rw(p, a6 + CH_VOLUME) < 0)
+            ww(p, a6 + CH_VOLUME, 0);
     }
-    prog_music_volume(p, v, rw(p, a6 + 18));
+    prog_music_volume(p, v, rw(p, a6 + CH_VOLUME));
 }
 
 /* LAB_008C : commandes de ligne (B saut, D fin du motif, C volume,
  * F vitesse) */
 static void row_command(ProgIntro *p, uint32_t a6, int v)
 {
-    uint8_t cmd = rb(p, a6 + 2) & 0x0F;
+    uint8_t cmd = rb(p, a6 + CH_CMD) & 0x0F;
     switch (cmd) {
     case 0x0D:
         wb(p, PROGRAM_v_MusicFilter, (uint8_t)~rb(p, PROGRAM_v_MusicFilter));
         break;
     case 0x0B:
-        wb(p, PROGRAM_v_MusicPosition, (uint8_t)(rb(p, a6 + 3) - 1));
+        wb(p, PROGRAM_v_MusicPosition, (uint8_t)(rb(p, a6 + CH_PARAM) - 1));
         wb(p, PROGRAM_v_MusicFilter, (uint8_t)~rb(p, PROGRAM_v_MusicFilter));
         break;
     case 0x0C:
-        if ((int8_t)rb(p, a6 + 3) > 0x40)
-            wb(p, a6 + 3, 0x40);
-        prog_music_volume(p, v, rb(p, a6 + 3));        /* écriture d'un octet */
+        if ((int8_t)rb(p, a6 + CH_PARAM) > 0x40)
+            wb(p, a6 + CH_PARAM, 0x40);
+        prog_music_volume(p, v, rb(p, a6 + CH_PARAM));        /* écriture d'un octet */
         break;
     case 0x0F: {
-        uint8_t d0 = rb(p, a6 + 3) & 0x1F;
+        uint8_t d0 = rb(p, a6 + CH_PARAM) & 0x1F;
         if (d0) {
             wb(p, PROGRAM_v_MusicTick, 0);
             wb(p, PROGRAM_v_MusicSpeed, d0);
@@ -293,32 +307,32 @@ static void new_note(ProgIntro *p, uint32_t a6, int v, uint32_t a0, uint32_t a3,
 {
     wl(p, a6, rl(p, a0 + *d1));
     *d1 += 4;
-    uint32_t d2 = (uint32_t)(((rb(p, a6 + 2) & 0xF0) >> 4) | (rb(p, a6) & 0xF0));
+    uint32_t d2 = (uint32_t)(((rb(p, a6 + CH_CMD) & 0xF0) >> 4) | (rb(p, a6 + CH_NOTE) & 0xF0));
     if (d2) {
         uint32_t d4 = (uint32_t)(uint16_t)d2 * 30u;
-        wl(p, a6 + 4, rl(p, PROGRAM_t_SampleStarts + (d2 - 1) * 4));
-        ww(p, a6 + 8, rw(p, a3 + d4));
-        ww(p, a6 + 18, rw(p, a3 + d4 + 2));
+        wl(p, a6 + CH_SAMPLE, rl(p, PROGRAM_t_SampleStarts + (d2 - 1) * 4));
+        ww(p, a6 + CH_LENGTH, rw(p, a3 + d4));
+        ww(p, a6 + CH_VOLUME, rw(p, a3 + d4 + 2));
         uint16_t d3 = rw(p, a3 + d4 + 4);
         if (d3) {
-            wl(p, a6 + 10, rl(p, a6 + 4) + (uint16_t)(d3 << 1));
-            ww(p, a6 + 8, (uint16_t)(d3 + rw(p, a3 + d4 + 6)));
+            wl(p, a6 + CH_LOOP, rl(p, a6 + CH_SAMPLE) + (uint16_t)(d3 << 1));
+            ww(p, a6 + CH_LENGTH, (uint16_t)(d3 + rw(p, a3 + d4 + 6)));
         } else
-            wl(p, a6 + 10, rl(p, a6 + 4));
-        ww(p, a6 + 14, rw(p, a3 + d4 + 6));
-        prog_music_volume(p, v, rw(p, a6 + 18));
+            wl(p, a6 + CH_LOOP, rl(p, a6 + CH_SAMPLE));
+        ww(p, a6 + CH_LOOP_LEN, rw(p, a3 + d4 + 6));
+        prog_music_volume(p, v, rw(p, a6 + CH_VOLUME));
     }
-    if (rw(p, a6) & 0x0FFF) {
-        if ((rb(p, a6 + 2) & 0x0F) == 3)
+    if (rw(p, a6 + CH_NOTE) & 0x0FFF) {
+        if ((rb(p, a6 + CH_CMD) & 0x0F) == 3)
             porta_target(p, a6);
         else {                                          /* LAB_0071 */
-            ww(p, a6 + 16, (uint16_t)(rw(p, a6) & 0x0FFF));
-            dmacon(p, rw(p, a6 + 20));
-            wb(p, a6 + 27, 0);
-            aud_lc(p, v, rl(p, a6 + 4));
-            aud_len(p, v, rw(p, a6 + 8));
-            aud_per(p, v, rw(p, a6 + 16) & 0x0FFF);
-            ww(p, PROGRAM_v_MusicDmaOn, (uint16_t)(rw(p, PROGRAM_v_MusicDmaOn) | rw(p, a6 + 20)));
+            ww(p, a6 + CH_PERIOD, (uint16_t)(rw(p, a6 + CH_NOTE) & 0x0FFF));
+            dmacon(p, rw(p, a6 + CH_DMA));
+            wb(p, a6 + CH_VIB_PHASE, 0);
+            aud_lc(p, v, rl(p, a6 + CH_SAMPLE));
+            aud_len(p, v, rw(p, a6 + CH_LENGTH));
+            aud_per(p, v, rw(p, a6 + CH_PERIOD) & 0x0FFF);
+            ww(p, PROGRAM_v_MusicDmaOn, (uint16_t)(rw(p, PROGRAM_v_MusicDmaOn) | rw(p, a6 + CH_DMA)));
         }
     }
     row_command(p, a6, v);

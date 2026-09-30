@@ -308,7 +308,7 @@ void mog_combat_run(MogCombat *m)
     mog_fade_out(m);                                    /* LAB_03F1 */
     mog_reset_entities(m);                              /* LAB_0305 */
     if (ix_rl(VM, MOG_v_TerrainMode) == 2)
-        ix_ww(VM, ix_rl(VM, MOG_v_Lair) + 6, ix_rw(VM, MOG_v_FoesToBeat));
+        ix_ww(VM, ix_rl(VM, MOG_v_Lair) + LAIR_FOES, ix_rw(VM, MOG_v_FoesToBeat));
     m->planes = planes;
 }
 

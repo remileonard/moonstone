@@ -55,9 +55,9 @@ static uint32_t key_char(MogCombat *m)
 }
 
 /* Zone modèle LAB_0A58 : champs x, y, l, h, texte, identifiant, genre, case */
-static void zone_xy(MogCombat *m, uint16_t x, uint16_t y) { ww(m, MOG_t_ZoneTemplate + 12, x); ww(m, MOG_t_ZoneTemplate + 14, y); }
-static void zone_wh(MogCombat *m, uint16_t w, uint16_t h) { ww(m, MOG_t_ZoneTemplate + 4, w); ww(m, MOG_t_ZoneTemplate + 6, h); }
-static void zone_id(MogCombat *m, uint32_t id) { wl(m, MOG_t_ZoneTemplate + 16, id); }
+static void zone_xy(MogCombat *m, uint16_t x, uint16_t y) { ww(m, MOG_t_ZoneTemplate + ZONE_X, x); ww(m, MOG_t_ZoneTemplate + ZONE_Y, y); }
+static void zone_wh(MogCombat *m, uint16_t w, uint16_t h) { ww(m, MOG_t_ZoneTemplate + ZONE_W, w); ww(m, MOG_t_ZoneTemplate + ZONE_H, h); }
+static void zone_id(MogCombat *m, uint32_t id) { wl(m, MOG_t_ZoneTemplate + ZONE_ID, id); }
 
 /* LAB_0F8C sur les quatre canaux : sons n .. n + 3 */
 static void voices(MogCombat *m, int n)
@@ -110,23 +110,23 @@ static uint16_t offer(MogCombat *m, uint16_t d0)
     mog_clear_zones(m);                                 /* LAB_044E */
     zone_xy(m, 0x90, 0xA9);
     zone_wh(m, 0x0E, 8);
-    wl(m, MOG_t_ZoneTemplate + 8, 0);
+    wl(m, MOG_t_ZoneTemplate + ZONE_TEXT, 0);
     zone_id(m, 1);
-    ww(m, MOG_t_ZoneTemplate + 20, 4);
-    ww(m, MOG_t_ZoneTemplate + 22, 0x4A);
+    ww(m, MOG_t_ZoneTemplate + ZONE_KIND, 4);
+    ww(m, MOG_t_ZoneTemplate + ZONE_SLOT, OBJ_GOLD);
     mog_add_zone(m);
-    ww(m, MOG_t_ZoneTemplate + 12, 0xA2);
-    ww(m, MOG_t_ZoneTemplate + 20, 5);
+    ww(m, MOG_t_ZoneTemplate + ZONE_X, 0xA2);
+    ww(m, MOG_t_ZoneTemplate + ZONE_KIND, 5);
     mog_add_zone(m);
     zone_xy(m, 0x83, 0xB9);
     zone_wh(m, 0x14, 8);
-    ww(m, MOG_t_ZoneTemplate + 20, 3);
-    ww(m, MOG_t_ZoneTemplate + 22, 0x4A);
+    ww(m, MOG_t_ZoneTemplate + ZONE_KIND, 3);
+    ww(m, MOG_t_ZoneTemplate + ZONE_SLOT, OBJ_GOLD);
     mog_add_zone(m);
     zone_xy(m, 0xAD, 0xB9);
     zone_wh(m, 0x20, 8);
-    ww(m, MOG_t_ZoneTemplate + 20, 2);
-    ww(m, MOG_t_ZoneTemplate + 22, 0x4A);
+    ww(m, MOG_t_ZoneTemplate + ZONE_KIND, 2);
+    ww(m, MOG_t_ZoneTemplate + ZONE_SLOT, OBJ_GOLD);
     mog_add_zone(m);
     wl(m, MOG_v_Combatants + CMB_FONT, rl(m, MOG_t_FontBank));
     ww(m, MOG_v_BlitByCpu, 1);
@@ -136,7 +136,7 @@ static uint16_t offer(MogCombat *m, uint16_t d0)
         uint32_t z = mog_zone_at(m, rw(m, MOG_v_PointerX), rw(m, MOG_v_PointerY));
         if (!(uint16_t)z || rw(m, MOG_v_PointerOn))
             continue;
-        uint16_t k = rw(m, z + 20);
+        uint16_t k = rw(m, z + ZONE_KIND);
         switch (k) {
         case 2:                                         /* LAB_0497 */
             ww(m, MOG_v_GoldOffered, 0);
@@ -380,8 +380,8 @@ int mog_gamble_ctl(MogCombat *m, uint32_t a0, CtlResult *out)
     if (mog_read_joy(m) & MOG_JOY_FIRE) {               /* LAB_04AE */
         uint32_t z = mog_zone_at(m, rw(m, MOG_v_PointerX), rw(m, MOG_v_PointerY));
         if ((uint16_t)z) {
-            if (rl(m, z + 16) == 1) {                   /* LAB_04B0 */
-                ww(m, MOG_v_Bet, rw(m, z + 20));
+            if (rl(m, z + ZONE_ID) == 1) {                   /* LAB_04B0 */
+                ww(m, MOG_v_Bet, rw(m, z + ZONE_KIND));
                 uint32_t k = rl(m, MOG_v_GambleKnight);
                 uint16_t bet = rw(m, MOG_v_Bet);
                 if (!((int16_t)bet > (int16_t)rw(m, k + OBJ_GOLD))) {
@@ -391,7 +391,7 @@ int mog_gamble_ctl(MogCombat *m, uint32_t a0, CtlResult *out)
                     *out = mog_set_script(m, MOG_x_CroupierTake);
                     return 1;
                 }
-            } else if (rl(m, z + 16) == 2) {
+            } else if (rl(m, z + ZONE_ID) == 2) {
                 ww(m, MOG_v_GambleBet, 1);
             }
         }
@@ -489,21 +489,21 @@ static void gamble(MogCombat *m)
     mog_clear_zones(m);                                 /* LAB_044E */
     zone_xy(m, 0x10C, 0x26);
     zone_wh(m, 0x2B, 0x18);
-    wl(m, MOG_t_ZoneTemplate + 8, 0);
+    wl(m, MOG_t_ZoneTemplate + ZONE_TEXT, 0);
     zone_id(m, 1);
-    ww(m, MOG_t_ZoneTemplate + 20, 1);
-    ww(m, MOG_t_ZoneTemplate + 22, 0x4A);
+    ww(m, MOG_t_ZoneTemplate + ZONE_KIND, 1);
+    ww(m, MOG_t_ZoneTemplate + ZONE_SLOT, OBJ_GOLD);
     mog_add_zone(m);
     static const uint16_t ys[4] = { 0x42, 0x5E, 0x79, 0x93 };
     for (int i = 0; i < 4; i++) {
-        ww(m, MOG_t_ZoneTemplate + 14, ys[i]);
-        ww(m, MOG_t_ZoneTemplate + 20, (uint16_t)(i + 2));
+        ww(m, MOG_t_ZoneTemplate + ZONE_Y, ys[i]);
+        ww(m, MOG_t_ZoneTemplate + ZONE_KIND, (uint16_t)(i + 2));
         mog_add_zone(m);
     }
     zone_xy(m, 0x10C, 0xB5);
     zone_wh(m, 0x2D, 0x10);
     zone_id(m, 2);
-    ww(m, MOG_t_ZoneTemplate + 22, 0x4A);
+    ww(m, MOG_t_ZoneTemplate + ZONE_SLOT, OBJ_GOLD);
     mog_add_zone(m);
     mog_fade_black(m);                                  /* LAB_03F0 */
     ww(m, MOG_v_GambleBet, 0);
@@ -599,12 +599,12 @@ static void town_zones(MogCombat *m, int kind)
     mog_clear_zones(m);                                 /* LAB_044E */
     zone_xy(m, kind ? 0 : 0x100, ys[kind][0]);
     zone_wh(m, 0x40, 0x10);
-    wl(m, MOG_t_ZoneTemplate + 8, 0);
-    ww(m, MOG_t_ZoneTemplate + 20, 1);
-    ww(m, MOG_t_ZoneTemplate + 22, 0x4A);
+    wl(m, MOG_t_ZoneTemplate + ZONE_TEXT, 0);
+    ww(m, MOG_t_ZoneTemplate + ZONE_KIND, 1);
+    ww(m, MOG_t_ZoneTemplate + ZONE_SLOT, OBJ_GOLD);
     for (int i = 0; i < 5; i++) {
-        ww(m, MOG_t_ZoneTemplate + 14, ys[kind][i]);
-        ww(m, MOG_t_ZoneTemplate + 6, hs[kind][i]);
+        ww(m, MOG_t_ZoneTemplate + ZONE_Y, ys[kind][i]);
+        ww(m, MOG_t_ZoneTemplate + ZONE_H, hs[kind][i]);
         zone_id(m, (uint32_t)i + 1);
         mog_add_zone(m);                                /* LAB_0448 */
     }
@@ -646,7 +646,7 @@ static int town_menu(MogCombat *m, int kind)
             busy_tick(m);
             uint32_t z = mog_zone_at(m, rw(m, MOG_v_PointerX), rw(m, MOG_v_PointerY));
             if ((uint16_t)z && (mog_read_joy(m) & MOG_JOY_FIRE)) {   /* TST.W D0 */
-                id = rl(m, z + 16);
+                id = rl(m, z + ZONE_ID);
                 if (id >= 1 && id <= 5)
                     break;
             }
@@ -709,14 +709,14 @@ static int demon_reward(MogCombat *m)
     mog_select_knight(m);                               /* LAB_0DBD */
     uint32_t d0 = mog_random(m) & 3;                    /* LAB_04A1 */
     uint32_t a0 = rl(m, CUR + OBJ_INVENTORY);
-    wb(m, a0 + 22, (uint8_t)(rb(m, a0 + 22) | (1u << d0)));
+    wb(m, a0 + INV_MOONSTONES, (uint8_t)(rb(m, a0 + INV_MOONSTONES) | (1u << d0)));
     return (int)d0;
 }
 
 /* LAB_009D : repaire du Démon (objet 20 = $0F requis) */
 static int demon_lair(MogCombat *m)
 {
-    if (rb(m, rl(m, CUR + OBJ_INVENTORY) + 20) != 0x0F) {
+    if (rb(m, rl(m, CUR + OBJ_INVENTORY) + INV_KEYS) != 0x0F) {
         mog_message_screen(m, MOG_t_DemonKeyMessage, 0);         /* LAB_0136 */
         mog_wait_fire(m);                               /* LAB_00EC */
         mog_back_to_map(m);                             /* LAB_00B3 : SECSTRT_36 */
@@ -737,7 +737,7 @@ static int demon_lair(MogCombat *m)
     }
     uint32_t a0 = CUR;                                  /* LAB_00A0 */
     ww(m, a0 + OBJ_EXPERIENCE, (uint16_t)(rw(m, a0 + OBJ_EXPERIENCE) + 3));
-    wb(m, rl(m, a0 + OBJ_INVENTORY) + 20, 0);
+    wb(m, rl(m, a0 + OBJ_INVENTORY) + INV_KEYS, 0);
     mog_message_screen(m, MOG_t_DemonLairMessage, 1);             /* LAB_0137 */
     mog_wait_fire(m);
     mog_wait_vbls(m, 10);
@@ -821,7 +821,7 @@ static int temple(MogCombat *m)
 {
     uint16_t d0 = rw(m, MOG_v_Combatants + CMB_MOON);
     uint32_t a1 = rl(m, MOG_v_Combatants);
-    uint8_t d1 = rb(m, rl(m, a1 + OBJ_INVENTORY) + 22);
+    uint8_t d1 = rb(m, rl(m, a1 + OBJ_INVENTORY) + INV_MOONSTONES);
     int win = ((d1 & 4) && d0 == 0x2E) || ((d1 & 8) && d0 == 0x2E)
            || ((d1 & 2) && d0 == 0x2D) || ((d1 & 1) && d0 == 0x31);
     if (win) {                                          /* LAB_00A8 */

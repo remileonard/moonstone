@@ -734,7 +734,7 @@ static void scale_opponents(MogCombat *m)
         ww(m, MOG_v_FoesToBeat, (uint16_t)(rw(m, MOG_v_FoesToBeat) + 1));
     }
     if (rl(m, MOG_v_TerrainMode) == 2)
-        ww(m, MOG_v_FoesToBeat, rw(m, rl(m, MOG_v_Lair) + 6));
+        ww(m, MOG_v_FoesToBeat, rw(m, rl(m, MOG_v_Lair) + LAIR_FOES));
     if (rl(m, MOG_v_NextFoeFn) == MOG_Next_Balok)
         ww(m, MOG_v_FoesAtOnce, 1);
     if (rl(m, MOG_v_NextFoeFn) == MOG_Next_EntriesC2)
@@ -1089,9 +1089,9 @@ void mog_knight_hp(MogCombat *m, uint32_t a0)
 {
     uint16_t d1 = (uint16_t)(rb(m, a0 + OBJ_CONSTITUTION) * 10);
     uint32_t a1 = rl(m, a0 + OBJ_INVENTORY);
-    if (rb(m, a1 + 4))
+    if (rb(m, a1 + INV_SHARP_SWORD))
         wl(m, a0 + OBJ_WEAPON, 0x19);
-    d1 = (uint16_t)(d1 + rb(m, a1 + 6) * 20);
+    d1 = (uint16_t)(d1 + rb(m, a1 + INV_RINGS) * 20);
     uint32_t armour = rl(m, a0 + OBJ_ARMOUR);
     if (armour == 0x1C) d1 = (uint16_t)(d1 + 10);
     if (armour == 0x1D) d1 = (uint16_t)(d1 + 20);
@@ -1250,7 +1250,7 @@ void mog_new_game_full(MogCombat *m)
         wb(m, MOG_t_ShopInventory + i, 0);
     for (int i = 0; i < 6; i++)                         /* LAB_01B0 */
         mog_find_item(m, 2);
-    wb(m, MOG_t_ShopInventory + 8, (uint8_t)(rb(m, MOG_t_ShopInventory + 8) + 2));
+    wb(m, MOG_t_ShopInventory + INV_TALISMANS, (uint8_t)(rb(m, MOG_t_ShopInventory + INV_TALISMANS) + 2));
     uint32_t inv = rl(m, MOG_t_FastBuffers + 72), lairs = rl(m, MOG_t_FastBuffers + 68);
     for (uint32_t i = 0; i < 0x240; i++)
         wb(m, inv + i, 0);
@@ -1258,29 +1258,29 @@ void mog_new_game_full(MogCombat *m)
         wb(m, lairs + i, 0);
     wl(m, MOG_v_Lair, lairs);
     for (uint32_t i = 0; i < 24; i++) {                 /* LAB_01B3 */
-        wl(m, lairs + 20 * i, inv + 24 * i);
-        ww(m, lairs + 20 * i + 8, 0);
+        wl(m, lairs + LAIR_SIZE * i + LAIR_INVENTORY, inv + INV_SIZE * i);
+        ww(m, lairs + LAIR_SIZE * i + LAIR_GOLD, 0);
     }
     uint32_t d0;                                        /* LAB_01B4 : les quatre clés */
     do
         d0 = mog_random(m) & 7;
     while ((int8_t)d0 > 5);
-    d0 *= 20;
+    d0 *= LAIR_SIZE;
     static const uint8_t key[4] = { 8, 4, 2, 1 };
     for (uint32_t g = 0; g < 4; g++)
-        wb(m, rl(m, lairs + 120 * g + d0) + INV_KEYS, key[g]);
+        wb(m, rl(m, lairs + 6 * LAIR_SIZE * g + d0 + LAIR_INVENTORY) + INV_KEYS, key[g]);
     for (int i = 0; i < 24; i++) {                      /* LAB_01B5 */
         lair_treasure(m);
-        wl(m, MOG_v_Lair, rl(m, MOG_v_Lair) + 20);
+        wl(m, MOG_v_Lair, rl(m, MOG_v_Lair) + LAIR_SIZE);
     }
     wl(m, MOG_v_Lair, lairs);                         /* LAB_01B6 */
     for (uint32_t i = 0; i < 24; i++) {
-        uint32_t a0 = lairs + 20 * i;
-        wl(m, a0 + 4, rl(m, MOG_t_LairCreature + 4 * i));
-        ww(m, a0 + 10, rw(m, MOG_t_LairPos + 4 * i));
-        ww(m, a0 + 12, rw(m, MOG_t_LairPos + 4 * i + 2));
-        ww(m, a0 + 14, rw(m, MOG_t_LairPlace + 2 * i));
-        wl(m, a0 + 16, rl(m, MOG_t_LairTerrain + 4 * i));
+        uint32_t a0 = lairs + LAIR_SIZE * i;
+        wl(m, a0 + LAIR_CREATURE, rl(m, MOG_t_LairCreature + 4 * i));
+        ww(m, a0 + LAIR_X, rw(m, MOG_t_LairPos + 4 * i));
+        ww(m, a0 + LAIR_Y, rw(m, MOG_t_LairPos + 4 * i + 2));
+        ww(m, a0 + LAIR_PLACE, rw(m, MOG_t_LairPlace + 2 * i));
+        wl(m, a0 + LAIR_TERRAIN, rl(m, MOG_t_LairTerrain + 4 * i));
     }
 }
 

@@ -277,7 +277,7 @@ void mog_check_parry(MogCombat *m, uint32_t a1)
 /* LAB_0204 : D0 >> 8(96(objet)) */
 static uint16_t scale_down(MogCombat *m, uint32_t a1, uint16_t d0)
 {
-    unsigned s = ix_rb(VM, ix_rl(VM, a1 + OBJ_INVENTORY) + 8) & 63u;
+    unsigned s = ix_rb(VM, ix_rl(VM, a1 + OBJ_INVENTORY) + INV_TALISMANS) & 63u;
     return s >= 16 ? 0 : (uint16_t)(d0 >> s);
 }
 
@@ -294,7 +294,7 @@ uint16_t mog_knight_damage(MogCombat *m, uint32_t a0)
     if (k == 0x20)
         d0 = (uint16_t)(d0 << 1);
     uint16_t d2 = ix_rw(VM, MOG_v_Combatants + CMB_MOON);
-    uint8_t d1 = ix_rb(VM, ix_rl(VM, a0 + OBJ_INVENTORY) + 22);
+    uint8_t d1 = ix_rb(VM, ix_rl(VM, a0 + OBJ_INVENTORY) + INV_MOONSTONES);
     if (d1) {
         int dbl = 0;
         if ((d1 & 1) && d2 == 0x2E) dbl = 1;

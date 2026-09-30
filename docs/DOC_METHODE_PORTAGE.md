@@ -534,6 +534,7 @@ Les fichiers du jeu d'origine ne sont pas dans le dépôt. Le dossier
 | `tests/mog_run.c`, `tests/prog_run.c` | côté C des comparaisons |
 | `tests/mog_game_shot.c`, `tests/prog_intro_shot.c` | jeu et intro sans écran (PNG, WAV) |
 | `game/data/*_names.txt`, `tools/ix_names.py` | noms des labels utilisés par le C (§10 ter) |
+| `game/include/mog_struct.h` | champs des enregistrements en mémoire émulée (§10 quater) |
 | `libmoon_assets/` | lecture des fichiers du jeu (CEL, PIV et `.p`, LZSS, RNC, MOD, stile, `.t`, `.a`, collide.hit) |
 | `tests/lib_audit.c`, `tests/lib_audit_ref.c` | audit de la bibliothèque : chaque fichier comparé aux décodeurs d'origine du portage, figés (§10 bis) |
 
@@ -623,6 +624,42 @@ et les bancs de comparaison continuent de s'y référer par ses labels ; la
 table fait le lien. Un renommage ne change pas le code : chaque lot a été
 vérifié en comparant le code objet de tout le jeu avant et après
 (identique octet pour octet).
+
+
+### 10 quater. Structures
+
+Les données du jeu restent dans la mémoire émulée, à leurs adresses
+d'origine (les bancs de comparaison lisent cette mémoire) ; ce sont les
+décalages qui sont nommés. `game/include/mog_struct.h` décrit chaque
+enregistrement par un `enum` (taille du champ en commentaire : b, w, l) :
+
+| Préfixe | Enregistrement |
+|---|---|
+| `OBJ_` | objet combattant (132 octets : position, scripts, caractéristiques, inventaire, IA, carte) |
+| `INV_` | inventaire (24 octets : un compte par objet, clés et pierres de lune en bits) |
+| `LAIR_` | repaire de la carte (20 octets) |
+| `CMB_` | `v_Combatants` (joueur, adversaire, police, lune, jour) |
+| `ENT_`, `CTX_` | entité et contexte du moteur IMAGEXCEL (ceux de program aussi, avec `PENT_`, `PCTX_`) |
+| `TRAJ_`, `FLY_` | demande de vol et vols en cours (`t_Trajectory`, `t_Trajectories`) |
+| `CEL_`, `CELF_` | en-tête d'un fichier CEL et entrée de frame |
+| `ZONE_`, `TXT_` | zone d'un écran à pointeur, enregistrement de texte |
+| `SCR_`, `DL_` | zone à restaurer, frame dessinée (listes de corps et de frappe) |
+| `VOX_`, `INS_`, `ENV_`, `AUD_`, `HW_` | pilote son : voie, instrument, enveloppe, registres de Paula |
+
+Le lecteur de modules de program garde sa voie (`CH_`) dans
+`prog_music.c`. Les tailles servent aux pas des boucles (`LAIR_SIZE`,
+`INV_SIZE`, `ZONE_SIZE`...) et les numéros de champ passés comme données
+reçoivent aussi leur nom (case d'une zone d'écran : `OBJ_GOLD`,
+`INV_KEYS` ; objets du butin : `INV_MOONSTONES`...).
+
+Comme pour les noms de labels, chaque lot a été vérifié par le code objet
+de tout le jeu (identique) ; un décalage mal attribué (même nombre, autre
+enregistrement) ne se voit pas ainsi : les variables ont été classées
+par leur origine (`me(m)`, `rl(v_CurObj)`, `+ OBJ_INVENTORY`...) et les
+cas ambigus relus un par un. Les réutilisations d'origine restent
+visibles : champs de l'objet écrits dans l'entité par le Dragon
+(`mog_ai.c`), `OBJ_MAP_X` / `OBJ_MAP_Y` servant de cible du saut en
+combat.
 
 ---
 

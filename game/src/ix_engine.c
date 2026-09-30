@@ -640,31 +640,31 @@ void ix_step(IxEngine *e, uint32_t en)
                 if (sw(n) > 0x2D) {
                     msg(e, "***** Scrap pile has reached maximum *******");
                 } else {
-                    ix_ww(VM, sp + 0, ix_rw(VM, en + ENT_DRAW_X));
-                    ix_ww(VM, sp + 2, ix_rw(VM, en + ENT_DRAW_Y));
-                    ix_ww(VM, sp + 4, ix_rw(VM, en + ENT_W));
-                    ix_ww(VM, sp + 6, ix_rw(VM, en + ENT_H));
-                    ix_ww(VM, sp + 12, 0xFFFF);
-                    ix_wl(VM, l->scrap_ptr, sp + 8);
+                    ix_ww(VM, sp + SCR_X, ix_rw(VM, en + ENT_DRAW_X));
+                    ix_ww(VM, sp + SCR_Y, ix_rw(VM, en + ENT_DRAW_Y));
+                    ix_ww(VM, sp + SCR_W, ix_rw(VM, en + ENT_W));
+                    ix_ww(VM, sp + SCR_H, ix_rw(VM, en + ENT_H));
+                    ix_ww(VM, sp + SCR_SIZE + SCR_W, 0xFFFF);
+                    ix_wl(VM, l->scrap_ptr, sp + SCR_SIZE);
                 }
             }
             if (fl & 0x02) {                            /* LAB_033C */
                 uint32_t a = ix_rl(VM, l->list_strike);
-                ix_wl(VM, a, cel);
-                ix_ww(VM, a + 4, frame);
-                ix_ww(VM, a + 6, (uint16_t)d1);
-                ix_ww(VM, a + 8, (uint16_t)d2);
-                ix_wl(VM, a + 10, 0);
-                ix_wl(VM, l->list_strike, a + 10);
+                ix_wl(VM, a + DL_CEL, cel);
+                ix_ww(VM, a + DL_FRAME, frame);
+                ix_ww(VM, a + DL_X, (uint16_t)d1);
+                ix_ww(VM, a + DL_Y, (uint16_t)d2);
+                ix_wl(VM, a + DL_SIZE + DL_CEL, 0);
+                ix_wl(VM, l->list_strike, a + DL_SIZE);
             }
             if (fl & 0x01) {                            /* LAB_033D */
                 uint32_t a = ix_rl(VM, l->list_body);
-                ix_wl(VM, a, cel);
-                ix_ww(VM, a + 4, frame);
-                ix_ww(VM, a + 6, (uint16_t)d1);
-                ix_ww(VM, a + 8, (uint16_t)d2);
-                ix_wl(VM, a + 10, 0);
-                ix_wl(VM, l->list_body, a + 10);
+                ix_wl(VM, a + DL_CEL, cel);
+                ix_ww(VM, a + DL_FRAME, frame);
+                ix_ww(VM, a + DL_X, (uint16_t)d1);
+                ix_ww(VM, a + DL_Y, (uint16_t)d2);
+                ix_wl(VM, a + DL_SIZE + DL_CEL, 0);
+                ix_wl(VM, l->list_body, a + DL_SIZE);
             }
             if (e->host && e->host->draw)               /* LAB_033E */
                 e->host->draw(e->host->user, cel, frame, d1, d2, flipped, 0);

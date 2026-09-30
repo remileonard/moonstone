@@ -90,7 +90,8 @@ enum {
     INV_WYRM        = 16,   /* b  parchemins du Wyrm                             */
     INV_PROTECTION  = 18,   /* b  parchemins de protection (fuite possible)      */
     INV_KEYS        = 20,   /* b  clés (bits 0-3) ; $0F : le repaire du Démon     */
-    INV_MOONSTONES  = 22    /* b  pierres de lune (bits : nouvelle, pleine, demi) */
+    INV_MOONSTONES  = 22,   /* b  pierres de lune (bits : nouvelle, pleine, demi) */
+    INV_SIZE        = 24
 };
 
 /* ------------------------------------------------------------------ */
@@ -104,7 +105,8 @@ enum {
     LAIR_X          = 10,   /* w  position (-1 : plus de créature)               */
     LAIR_Y          = 12,   /* w                                                 */
     LAIR_PLACE      = 14,   /* w  type de lieu du combat                         */
-    LAIR_TERRAIN    = 16    /* l  fichier .t                                     */
+    LAIR_TERRAIN    = 16,   /* l  fichier .t                                     */
+    LAIR_SIZE       = 20
 };
 
 /* ------------------------------------------------------------------ */
@@ -135,6 +137,7 @@ enum {
     ENT_DRAW_Y      = 14,   /* w                                                 */
     ENT_W           = 16,   /* w  taille de la frame                             */
     ENT_H           = 18,   /* w                                                 */
+    ENT_FLAGS       = 20,   /* b  drapeaux de la frame (program)                 */
     ENT_FRAME       = 21,   /* b                                                 */
     ENT_DIR         = 22,   /* b  bit 1 : tourné à gauche                        */
     ENT_OBJ         = 24,   /* l  objet                                          */
@@ -227,6 +230,119 @@ enum {
     FLY_DEPTH       = 16,   /* w                                                 */
     FLY_HEIGHT      = 18,   /* w                                                 */
     FLY_SIZE        = 20
+};
+
+/* Zone à restaurer (v_RestoreNext, 8 octets ; largeur $FFFF : fin) */
+enum {
+    SCR_X           = 0,    /* w                                                 */
+    SCR_Y           = 2,    /* w                                                 */
+    SCR_W           = 4,    /* w  $FFFF : fin de la liste                        */
+    SCR_H           = 6,    /* w                                                 */
+    SCR_SIZE        = 8
+};
+
+/* Frame dessinée (v_ListBody / v_ListStrike, 10 octets ; cel 0 : fin) */
+enum {
+    DL_CEL          = 0,    /* l                                                 */
+    DL_FRAME        = 4,    /* w                                                 */
+    DL_X            = 6,    /* w                                                 */
+    DL_Y            = 8,    /* w                                                 */
+    DL_SIZE         = 10
+};
+
+/* Entité et contexte de program : mêmes champs que ENT_ / CTX_ jusqu'à
+ * +36, puis : */
+enum {
+    PENT_HIDDEN     = 40,   /* w  cachée                                         */
+    PENT_SIZE       = 42,
+    PCTX_EXTRA      = 42,   /* b  bloc non repris (message si non nul)           */
+    PCTX_SIZE       = 0x30
+};
+
+/* ------------------------------------------------------------------ */
+/* Pilote son (mog_sound.c)                                            */
+/* ------------------------------------------------------------------ */
+
+/* Voie (v_Voice0-3, 148 octets) */
+enum {
+    VOX_DMA_ON      = 0,    /* w  DMACON : $8000 | bit de la voie                */
+    VOX_DMA_OFF     = 2,    /* w  DMACON : bit de la voie                        */
+    VOX_INT_ON      = 4,    /* w  INTENA : $8000 | bit                           */
+    VOX_INT_OFF     = 6,    /* w  INTENA / INTREQ : bit                          */
+    VOX_REGS        = 8,    /* l  registres AUDx ($DFF0A0 + 16 × voie)           */
+    VOX_BLOCKS      = 14,   /* w  blocs restants (interruption)                  */
+    VOX_PERIODS     = 16,   /* l  table des périodes de l'instrument             */
+    VOX_ENVELOPE    = 20,   /* l  enveloppe (0 : aucune)                         */
+    VOX_STACK       = 24,   /* l  pile des appels et boucles                     */
+    VOX_SAMPLE      = 28,   /* l  échantillon                                    */
+    VOX_SAMPLE2     = 32,   /* l  (initialisé, jamais lu)                        */
+    VOX_LOOP        = 36,   /* w  < 0 : partie bouclée                           */
+    VOX_LOOP_START  = 38,   /* w  début de la boucle (octets)                    */
+    VOX_LENGTH      = 40,   /* w  longueur (mots)                                */
+    VOX_NOTE        = 42,   /* w                                                 */
+    VOX_VOLUME      = 44,   /* w  volume courant                                 */
+    VOX_TRIGGER     = 46,   /* w  note à lancer (octet fort à $FF)               */
+    VOX_ENV_WAIT    = 48,   /* b  attente de l'étape d'enveloppe                 */
+    VOX_ENV_ON      = 50,   /* w  note tenue (octet fort à $FF) ; 0 : relâche    */
+    VOX_ENV_PHASE   = 52,   /* w  0 attaque, 1 déclin, 2 maintien                */
+    VOX_PROGRAM     = 54,   /* l  début du programme                             */
+    VOX_PC          = 58,   /* l  position dans le programme (0 : arrêtée)       */
+    VOX_WAIT        = 62,   /* w  VBL avant la commande suivante                 */
+    VOX_DURATION    = 64,   /* w  durée des notes                                */
+    VOX_BASE_VOLUME = 68,   /* w                                                 */
+    VOX_PERIOD      = 70,   /* w  période de la note                             */
+    VOX_OUT_PERIOD  = 72,   /* w  période écrite (note + vibrato)                */
+    VOX_TREM_WAIT   = 74,   /* 2 w  trémolo : attentes                           */
+    VOX_TREM_COUNT  = 78,   /* 2 w  trémolo : pas restants                       */
+    VOX_VIB_WAIT    = 82,   /* 3 w  vibrato : attentes                           */
+    VOX_VIB_COUNT   = 88,   /* 3 w  vibrato : pas restants                       */
+    VOX_MOD         = 94,   /* 15 w  modulations (t_SndInstruments) :            */
+    VOX_TREM_COUNTS = 94,   /*   2 w  nombres de pas du trémolo                  */
+    VOX_VIB_COUNTS  = 98,   /*   3 w  nombres de pas du vibrato                  */
+    VOX_TREM_STEPS  = 104,  /*   2 w  pas du trémolo                             */
+    VOX_VIB_STEPS   = 108,  /*   3 w  pas du vibrato (octet bas lu)              */
+    VOX_TREM_WAITS  = 114,  /*   2 w  attentes du trémolo                        */
+    VOX_VIB_WAITS   = 118,  /*   3 w  attentes du vibrato                        */
+    VOX_TREM        = 134,  /* w  écart de volume du trémolo                     */
+    VOX_VIB         = 136,  /* w  écart de période du vibrato                    */
+    VOX_MOD_FLAGS   = 138,  /* b  bit 0 : trémolo répété, bit 1 : vibrato répété */
+    VOX_TRANSPOSE   = 140,  /* w                                                 */
+    VOX_ATTENUATION = 142,  /* w  retranché au volume                            */
+    VOX_SIZE        = 148
+};
+
+/* Instrument (14 octets : t_SndSilence, t_SndSamples*) */
+enum {
+    INS_LOOP        = 0,    /* w  -> VOX_LOOP                                    */
+    INS_LOOP_START  = 2,    /* w                                                 */
+    INS_LENGTH      = 4,    /* w                                                 */
+    INS_SAMPLE      = 6,    /* l  (décalage dans la banque avant relocation)     */
+    INS_PERIODS     = 10,   /* l                                                 */
+    INS_SIZE        = 14
+};
+
+/* Enveloppe (8 octets, t_SndEnvelopes) : pas et attente de chaque phase */
+enum {
+    ENV_ATTACK      = 0,    /* b                                                 */
+    ENV_ATTACK_WAIT = 1,    /* b                                                 */
+    ENV_DECAY       = 2,    /* b                                                 */
+    ENV_DECAY_WAIT  = 3,    /* b                                                 */
+    ENV_SUSTAIN     = 4,    /* b  volume de maintien                             */
+    ENV_HOLD        = 5,    /* b  maintien jusqu'à ce reste de VOX_WAIT          */
+    ENV_RELEASE     = 6,    /* b                                                 */
+    ENV_RELEASE_WAIT = 7    /* b                                                 */
+};
+
+/* Registres de Paula */
+enum {
+    HW_DMACON       = 0xDFF096,
+    HW_INTENA       = 0xDFF09A,
+    HW_INTREQ       = 0xDFF09C,
+    HW_AUD0         = 0xDFF0A0, /* + 16 × voie                                   */
+    AUD_LC          = 0,    /* l  adresse de l'échantillon                       */
+    AUD_LEN         = 4,    /* w  longueur (mots)                                */
+    AUD_PER         = 6,    /* w  période                                        */
+    AUD_VOL         = 8     /* w  volume                                         */
 };
 
 #endif /* MOG_STRUCT_H */

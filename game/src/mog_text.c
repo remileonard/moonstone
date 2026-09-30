@@ -45,12 +45,12 @@ uint16_t mog_text_width(MogCombat *m, uint8_t flags)
 static void note_scrap(MogCombat *m, uint16_t x, uint16_t y)
 {
     uint32_t a5 = ix_rl(VM, MOG_v_RestoreNext);
-    ww(m, a5, x);
-    ww(m, a5 + 2, y);
-    ww(m, a5 + 4, rw(m, MOG_v_GlyphWidth));
-    ww(m, a5 + 6, rw(m, MOG_v_GlyphHeight));
-    ww(m, a5 + 12, 0xFFFF);
-    ix_wl(VM, MOG_v_RestoreNext, a5 + 8);
+    ww(m, a5 + SCR_X, x);
+    ww(m, a5 + SCR_Y, y);
+    ww(m, a5 + SCR_W, rw(m, MOG_v_GlyphWidth));
+    ww(m, a5 + SCR_H, rw(m, MOG_v_GlyphHeight));
+    ww(m, a5 + SCR_SIZE + SCR_W, 0xFFFF);
+    ix_wl(VM, MOG_v_RestoreNext, a5 + SCR_SIZE);
 }
 
 void mog_text_records(MogCombat *m, uint32_t a0)
@@ -61,13 +61,13 @@ void mog_text_records(MogCombat *m, uint32_t a0)
         do {
             uint32_t a2 = ix_rl(VM, MOG_v_TextRecord);     /* LAB_0433 */
             if (ix_rl(VM, MOG_v_Combatants + CMB_FONT) == ix_rl(VM, MOG_t_FontBank + 16))
-                ix_wb(VM, a2 + 9, ix_rb(VM, a2 + 9) | 8);       /* LAB_043B */
-            ix_wl(VM, MOG_v_TextChar, ix_rl(VM, a2));
-            ww(m, MOG_v_TextX, rw(m, a2 + 4));
-            ww(m, MOG_v_TextLineX, rw(m, a2 + 4));
-            ww(m, MOG_v_TextY, rw(m, a2 + 6));
-            ww(m, MOG_v_TextTopY, rw(m, a2 + 6));
-            uint8_t fl = ix_rb(VM, a2 + 9);
+                ix_wb(VM, a2 + TXT_FLAGS, ix_rb(VM, a2 + TXT_FLAGS) | 8);       /* LAB_043B */
+            ix_wl(VM, MOG_v_TextChar, ix_rl(VM, a2 + TXT_STRING));
+            ww(m, MOG_v_TextX, rw(m, a2 + TXT_X));
+            ww(m, MOG_v_TextLineX, rw(m, a2 + TXT_X));
+            ww(m, MOG_v_TextY, rw(m, a2 + TXT_Y));
+            ww(m, MOG_v_TextTopY, rw(m, a2 + TXT_Y));
+            uint8_t fl = ix_rb(VM, a2 + TXT_FLAGS);
             if (fl & 1) {
                 uint16_t w = mog_text_width(m, fl);
                 uint16_t d1 = (uint16_t)((uint16_t)(rw(m, MOG_v_TextRight) - rw(m, MOG_v_TextRightMargin) - w) >> 1);
@@ -88,9 +88,9 @@ void mog_text_records(MogCombat *m, uint32_t a0)
                 uint16_t f = glyph(m, c);
                 uint16_t x = rw(m, MOG_v_TextX), y = rw(m, MOG_v_TextY);
                 a2 = ix_rl(VM, MOG_v_TextRecord);
-                if (ix_rb(VM, a2 + 9) & 2)
+                if (ix_rb(VM, a2 + TXT_FLAGS) & 2)
                     note_scrap(m, x, y);
-                if (ix_rb(VM, a2 + 9) & 8)
+                if (ix_rb(VM, a2 + TXT_FLAGS) & 8)
                     ww(m, MOG_v_GlyphWidth, (uint16_t)(rw(m, MOG_v_GlyphWidth) - 3));
                 mog_draw_cel(VM, &m->blt, ix_rl(VM, MOG_v_Combatants + CMB_FONT), f, x, y);
                 x = (uint16_t)(rw(m, MOG_v_TextX) + rw(m, MOG_v_GlyphWidth));
@@ -103,7 +103,7 @@ void mog_text_records(MogCombat *m, uint32_t a0)
                         ww(m, MOG_v_TextY, rw(m, MOG_v_TextTopY));
                 }
             }
-            ix_wl(VM, MOG_v_TextRecord, ix_rl(VM, ix_rl(VM, MOG_v_TextRecord) + 10));  /* LAB_0439 */
+            ix_wl(VM, MOG_v_TextRecord, ix_rl(VM, ix_rl(VM, MOG_v_TextRecord) + TXT_NEXT));  /* LAB_0439 */
         } while (ix_rl(VM, MOG_v_TextRecord));
     }
     ww(m, MOG_v_BlitByCpu, 0);
@@ -112,10 +112,10 @@ void mog_text_records(MogCombat *m, uint32_t a0)
 void mog_text(MogCombat *m, uint32_t str, uint16_t x, uint16_t y, uint16_t flags)
 {
     uint32_t a1 = MOG_t_TextRecord;                         /* LAB_0431 */
-    ix_wl(VM, a1, str);
-    ww(m, a1 + 4, x);
-    ww(m, a1 + 6, y);
-    ww(m, a1 + 8, flags);
-    ix_wl(VM, a1 + 10, 0);
+    ix_wl(VM, a1 + TXT_STRING, str);
+    ww(m, a1 + TXT_X, x);
+    ww(m, a1 + TXT_Y, y);
+    ww(m, a1 + TXT_FLAGS_WORD, flags);
+    ix_wl(VM, a1 + TXT_NEXT, 0);
     mog_text_records(m, a1);
 }

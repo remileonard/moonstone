@@ -10,6 +10,7 @@
 #include "prog_blit.h"
 #include "prog_vbl.h"
 #include "ix_program_names.h"
+#include "mog_struct.h"
 #include "ix_data.h"
 #include "moon_assets.h"
 
@@ -417,27 +418,24 @@ static void show_background(ProgIntro *p)
 
 /* ------------------------------------------------------------ entités */
 
-/* 40 entités de 42 octets (LAB_0282) : +0 active, +1 script en cours,
- * +2 script, +6/+8/+10 x / y / profondeur, +12/+14 position à l'écran,
- * +16/+18 taille, +20 drapeaux, +21 frame, +22 sens (1 ou 3), +24 A1 de
- * l'appelant, +28 planches, +32 contrôleur, +36 bloc de travail (48
- * octets, LAB_0284), +40 cachée. */
-#define ENT 42u
+/* 40 entités de 42 octets (LAB_0282) : champs ENT_ du moteur de mog
+ * (mog_struct.h ; ENT_OBJ est ici l'A1 de l'appelant), puis PENT_HIDDEN ;
+ * contextes de 48 octets (LAB_0284) : champs CTX_, puis PCTX_EXTRA. */
 #define NENT 40u
 
-static uint32_t ent_addr(unsigned i) { return PROGRAM_t_Entities + i * ENT; }
+static uint32_t ent_addr(unsigned i) { return PROGRAM_t_Entities + i * PENT_SIZE; }
 
 /* LAB_01E4 : entités effacées, blocs de travail attachés */
 static void ent_reset(ProgIntro *p)
 {
-    for (uint32_t i = 0; i < 0x690; i++)
+    for (uint32_t i = 0; i < NENT * PENT_SIZE; i++)
         ix_wb(VM, PROGRAM_t_Entities + i, 0);
-    for (uint32_t i = 0; i < 0x30; i++)
+    for (uint32_t i = 0; i < PCTX_SIZE; i++)
         ix_wb(VM, PROGRAM_t_Contexts + i, 0);
     fill_lists(p);
     for (unsigned i = 0; i < NENT; i++)
-        wl(p, ent_addr(i) + 36, PROGRAM_t_Contexts + i * 0x30u);
-    p->a1 = PROGRAM_t_Contexts + NENT * 0x30u;
+        wl(p, ent_addr(i) + ENT_CTX, PROGRAM_t_Contexts + i * PCTX_SIZE);
+    p->a1 = PROGRAM_t_Contexts + NENT * PCTX_SIZE;
 }
 
 /* LAB_01DA : première entité libre (sinon LAB_0277 = 2) */
@@ -446,21 +444,21 @@ static void ent_spawn(ProgIntro *p, uint32_t script, uint32_t banks, uint16_t x,
 {
     for (unsigned i = 0; i < NENT; i++) {
         uint32_t a6 = ent_addr(i);
-        if (ix_rb(VM, a6))
+        if (ix_rb(VM, a6 + ENT_ACTIVE))
             continue;
-        uint32_t a5 = rl(p, a6 + 36);
-        for (uint32_t k = 0; k < 0x30; k++)
+        uint32_t a5 = rl(p, a6 + ENT_CTX);
+        for (uint32_t k = 0; k < PCTX_SIZE; k++)
             ix_wb(VM, a5 + k, 0);
-        wl(p, a6 + 2, script);
-        wl(p, a6 + 24, p->a1);
-        wl(p, a6 + 28, banks);
-        ww(p, a6 + 6, x);
-        ww(p, a6 + 8, y);
-        ww(p, a6 + 10, depth);
-        ix_wb(VM, a6 + 22, dir);
-        ix_wb(VM, a6 + 32, ctl);
-        ix_wb(VM, a6 + 0, 1);
-        ix_wb(VM, a6 + 1, 1);
+        wl(p, a6 + ENT_PC, script);
+        wl(p, a6 + ENT_OBJ, p->a1);
+        wl(p, a6 + ENT_BANKS, banks);
+        ww(p, a6 + ENT_X, x);
+        ww(p, a6 + ENT_HEIGHT, y);
+        ww(p, a6 + ENT_DEPTH, depth);
+        ix_wb(VM, a6 + ENT_DIR, dir);
+        ix_wb(VM, a6 + ENT_CTL, ctl);
+        ix_wb(VM, a6 + ENT_ACTIVE, 1);
+        ix_wb(VM, a6 + ENT_BUSY, 1);
         return;
     }
     ww(p, PROGRAM_v_NoFreeEntity, 2);
@@ -486,13 +484,13 @@ static void ent_controllers(ProgIntro *p)
 {
     for (unsigned i = 0; i < NENT; i++) {
         uint32_t a6 = ent_addr(i);
-        if (!ix_rb(VM, a6) || ix_rb(VM, a6 + 1))
+        if (!ix_rb(VM, a6 + ENT_ACTIVE) || ix_rb(VM, a6 + ENT_BUSY))
             continue;
-        uint32_t fn = rl(p, PROGRAM_t_Controllers + ix_rb(VM, a6 + 32));
+        uint32_t fn = rl(p, PROGRAM_t_Controllers + ix_rb(VM, a6 + ENT_CTL));
         p->a1 = fn;
         if (fn == PROGRAM_Ctl_ScriptEnd) {
             ww(p, PROGRAM_v_ScriptEnded, 1);
-            ww(p, a6, 0);
+            ww(p, a6 + ENT_ACTIVE, 0);
         } else
             fprintf(stderr, "prog : contrôleur inconnu %06X\n", fn);
     }
@@ -507,14 +505,14 @@ static void ent_sort(ProgIntro *p)
         swapped = 0;
         for (unsigned k = 0; k < NENT - 1; k++) {
             uint32_t a0 = ent_addr(k);
-            if (rw(p, a0 + ENT + 10) >= rw(p, a0 + 10))
+            if (rw(p, a0 + PENT_SIZE + ENT_DEPTH) >= rw(p, a0 + ENT_DEPTH))
                 continue;
-            for (uint32_t b = 0; b < ENT; b++)
+            for (uint32_t b = 0; b < PENT_SIZE; b++)
                 ix_wb(VM, PROGRAM_b_EntitySwap + b, ix_rb(VM, a0 + b));
-            for (uint32_t b = 0; b < ENT; b++)
-                ix_wb(VM, a0 + b, ix_rb(VM, a0 + ENT + b));
-            for (uint32_t b = 0; b < ENT; b++)
-                ix_wb(VM, a0 + ENT + b, ix_rb(VM, PROGRAM_b_EntitySwap + b));
+            for (uint32_t b = 0; b < PENT_SIZE; b++)
+                ix_wb(VM, a0 + b, ix_rb(VM, a0 + PENT_SIZE + b));
+            for (uint32_t b = 0; b < PENT_SIZE; b++)
+                ix_wb(VM, a0 + PENT_SIZE + b, ix_rb(VM, PROGRAM_b_EntitySwap + b));
             swapped = 1;
         }
     } while (swapped);
@@ -523,20 +521,20 @@ static void ent_sort(ProgIntro *p)
 /* LAB_04A8 (Cel_FlipFrame, comme ix_engine.c) : frame retournée en place */
 static void flip_frame(ProgIntro *p, uint32_t cel, unsigned frame)
 {
-    if ((int)frame >= (int16_t)rw(p, cel))
+    if ((int)frame >= (int16_t)rw(p, cel + CEL_FRAMES))
         return;
-    uint32_t fe = cel + 10 + frame * 10;
-    uint32_t a2 = rl(p, cel + 2) + rl(p, fe);
-    uint16_t w = rw(p, fe + 4);
+    uint32_t fe = cel + CEL_TABLE + frame * CEL_ENTRY_SIZE;
+    uint32_t a2 = rl(p, cel + CEL_PIXELS) + rl(p, fe + CELF_OFFSET);
+    uint16_t w = rw(p, fe + CELF_W);
     uint16_t wr = (uint16_t)((w + 15) & 0xFFF0);
     uint16_t pad = (uint16_t)(wr - w);
     uint16_t bpr = (uint16_t)(wr >> 3);
-    uint16_t h = rw(p, fe + 6);
-    if (ix_rb(VM, fe + 8) & 1)
-        ix_wb(VM, fe + 8, (uint8_t)(pad << 4));
+    uint16_t h = rw(p, fe + CELF_H);
+    if (ix_rb(VM, fe + CELF_FLAGS) & 1)
+        ix_wb(VM, fe + CELF_FLAGS, (uint8_t)(pad << 4));
     else
-        ix_wb(VM, fe + 8, 1);
-    uint8_t planes = ix_rb(VM, fe + 9);
+        ix_wb(VM, fe + CELF_FLAGS, 1);
+    uint8_t planes = ix_rb(VM, fe + CELF_PLANES);
     wl(p, PROGRAM_v_CelPlaneSize, (uint32_t)(uint16_t)(bpr << 1) * h);
     uint32_t tmp = rl(p, PROGRAM_v_CelPlanesBuf);
     for (int pl = 0; pl < 5; pl++) {
@@ -554,13 +552,13 @@ static void flip_frame(ProgIntro *p, uint32_t cel, unsigned frame)
 /* LAB_020B : taille de la frame ; retournée si son sens diffère */
 static void frame_info(ProgIntro *p, uint32_t cel, uint16_t frame, uint32_t a1)
 {
-    uint32_t f = cel + (uint32_t)(int32_t)(int16_t)(uint16_t)(frame * 10);
-    ww(p, a1 + 16, rw(p, f + 14));
-    ww(p, a1 + 18, rw(p, f + 16));
-    uint8_t d3 = ix_rb(VM, f + 18);
+    uint32_t f = cel + (uint32_t)(int32_t)(int16_t)(uint16_t)(frame * CEL_ENTRY_SIZE);
+    ww(p, a1 + ENT_W, rw(p, f + CEL_TABLE + CELF_W));
+    ww(p, a1 + ENT_H, rw(p, f + CEL_TABLE + CELF_H));
+    uint8_t d3 = ix_rb(VM, f + CEL_TABLE + CELF_FLAGS);
     if (d3 != 1)
         d3 = 3;
-    if (d3 != ix_rb(VM, a1 + 22))
+    if (d3 != ix_rb(VM, a1 + ENT_DIR))
         flip_frame(p, cel, frame);                      /* LAB_026E */
 }
 
@@ -630,22 +628,22 @@ static void script_call(ProgIntro *p, uint32_t fn)
 static void ent_command(ProgIntro *p, uint32_t a1, uint32_t a6, uint8_t op)
 {
     uint32_t h = rl(p, PROGRAM_t_IxOpcodes + op);
-    uint32_t a5 = rl(p, a1 + 36);
+    uint32_t a5 = rl(p, a1 + ENT_CTX);
     uint8_t b1 = ix_rb(VM, a6 + 1);
     if (h == PROGRAM_IxOp80_SetDir) {                        /* sens */
         if (b1 == 0xFF)
-            ix_wb(VM, a1 + 22, (uint8_t)(ix_rb(VM, a1 + 22) ^ 2));
+            ix_wb(VM, a1 + ENT_DIR, (uint8_t)(ix_rb(VM, a1 + ENT_DIR) ^ 2));
         else
-            ix_wb(VM, a1 + 22, b1);
-        wl(p, a1 + 2, a6 + 2);
+            ix_wb(VM, a1 + ENT_DIR, b1);
+        wl(p, a1 + ENT_PC, a6 + 2);
     } else if (h == PROGRAM_IxOp84_Jump) {                 /* saut / suite */
         if (b1 == 3) {
-            wl(p, a1 + 2, rl(p, a6 + 2));
+            wl(p, a1 + ENT_PC, rl(p, a6 + 2));
             return;
         }
-        wl(p, a5 + 12, rl(p, a6 + 2));
-        ix_wb(VM, a5 + 16, 1);
-        wl(p, a1 + 2, a6 + 6);
+        wl(p, a5 + CTX_JUMP_PC, rl(p, a6 + 2));
+        ix_wb(VM, a5 + CTX_JUMP_ON, 1);
+        wl(p, a1 + ENT_PC, a6 + 6);
     } else if (h == PROGRAM_IxOp88_Hold) {                 /* répétition du groupe */
         uint8_t n = b1;
         if (!n) {
@@ -653,59 +651,59 @@ static void ent_command(ProgIntro *p, uint32_t a1, uint32_t a6, uint8_t op)
             if (!n)
                 n = 1;
         }
-        ix_wb(VM, a5, n);
-        ix_wb(VM, a5 + 1, 1);
-        wl(p, a1 + 2, a6 + 2);
-        wl(p, a5 + 2, a6 + 2);
+        ix_wb(VM, a5 + CTX_HOLD_N, n);
+        ix_wb(VM, a5 + CTX_HOLD_ON, 1);
+        wl(p, a1 + ENT_PC, a6 + 2);
+        wl(p, a5 + CTX_HOLD_PC, a6 + 2);
     } else if (h == PROGRAM_IxOp8C_Skip) {
-        wl(p, a1 + 2, a6 + 8);
+        wl(p, a1 + ENT_PC, a6 + 8);
     } else if (h == PROGRAM_IxOp94_Loop) {                 /* boucle */
-        ix_wb(VM, a5 + 6, b1);
-        ix_wb(VM, a5 + 7, 1);
-        wl(p, a1 + 2, a6 + 2);
-        wl(p, a5 + 8, a6 + 2);
+        ix_wb(VM, a5 + CTX_LOOP_N, b1);
+        ix_wb(VM, a5 + CTX_LOOP_ON, 1);
+        wl(p, a1 + ENT_PC, a6 + 2);
+        wl(p, a5 + CTX_LOOP_PC, a6 + 2);
     } else if (h == PROGRAM_IxOpA4_Sound) {
-        wl(p, a1 + 2, a6 + 4);
+        wl(p, a1 + ENT_PC, a6 + 4);
     } else if (h == PROGRAM_IxOpA0_Move) {                 /* déplacement */
         if (b1 & 0x40) {
-            ww(p, a1 + 6, rw(p, a6 + 2));
-            ww(p, a1 + 8, rw(p, a6 + 4));
-            ww(p, a1 + 10, rw(p, a6 + 6));
+            ww(p, a1 + ENT_X, rw(p, a6 + 2));
+            ww(p, a1 + ENT_HEIGHT, rw(p, a6 + 4));
+            ww(p, a1 + ENT_DEPTH, rw(p, a6 + 6));
         } else {
             uint16_t d0 = rw(p, a6 + 2);
-            int add = ix_rb(VM, a1 + 22) == 3 ? !(b1 & 1) : (b1 & 1);
-            ww(p, a1 + 6, (uint16_t)(add ? rw(p, a1 + 6) + d0 : rw(p, a1 + 6) - d0));
+            int add = ix_rb(VM, a1 + ENT_DIR) == 3 ? !(b1 & 1) : (b1 & 1);
+            ww(p, a1 + ENT_X, (uint16_t)(add ? rw(p, a1 + ENT_X) + d0 : rw(p, a1 + ENT_X) - d0));
             d0 = rw(p, a6 + 4);
-            ww(p, a1 + 8, (uint16_t)(b1 & 8 ? rw(p, a1 + 8) - d0 : rw(p, a1 + 8) + d0));
+            ww(p, a1 + ENT_HEIGHT, (uint16_t)(b1 & 8 ? rw(p, a1 + ENT_HEIGHT) - d0 : rw(p, a1 + ENT_HEIGHT) + d0));
             d0 = rw(p, a6 + 6);
-            ww(p, a1 + 10, (uint16_t)(b1 & 0x20 ? rw(p, a1 + 10) - d0 : rw(p, a1 + 10) + d0));
+            ww(p, a1 + ENT_DEPTH, (uint16_t)(b1 & 0x20 ? rw(p, a1 + ENT_DEPTH) - d0 : rw(p, a1 + ENT_DEPTH) + d0));
         }
-        wl(p, a1 + 2, a6 + 8);
+        wl(p, a1 + ENT_PC, a6 + 8);
     } else if (h == PROGRAM_IxOpB4_Call) {                 /* appel */
         if (b1)
             fprintf(stderr, "prog : LAB_0280[%u] non repris\n", b1);
         else
             script_call(p, rl(p, a6 + 2));
-        wl(p, a1 + 2, rl(p, a1 + 2) + 6);
+        wl(p, a1 + ENT_PC, rl(p, a1 + ENT_PC) + 6);
     } else if (h == PROGRAM_IxOpC8_Skip6 || h == PROGRAM_IxOpB8_Skip6 || h == PROGRAM_IxOpBC_Skip6) {
-        wl(p, a1 + 2, a6 + 6);
+        wl(p, a1 + ENT_PC, a6 + 6);
     } else if (h == PROGRAM_IxOpC0_End) {                 /* fin de l'entité */
-        ww(p, a1, 0);
-        wl(p, a1 + 2, a6 + 2);
+        ww(p, a1 + ENT_ACTIVE, 0);
+        wl(p, a1 + ENT_PC, a6 + 2);
     } else if (h == PROGRAM_IxOpC4_SetBank) {                 /* planches */
-        wl(p, a1 + 28, rl(p, PROGRAM_t_EntSheets + (uint32_t)(uint16_t)((b1 - 1) << 2)));
-        wl(p, a1 + 2, a6 + 2);
+        wl(p, a1 + ENT_BANKS, rl(p, PROGRAM_t_EntSheets + (uint32_t)(uint16_t)((b1 - 1) << 2)));
+        wl(p, a1 + ENT_PC, a6 + 2);
     } else if (h == PROGRAM_IxOpCC_IfZero || h == PROGRAM_IxOpD0_IfNonZero) {    /* test */
-        uint32_t a = rl(p, a1 + 24) + (uint32_t)(int32_t)(int16_t)rw(p, a6 + 2);
+        uint32_t a = rl(p, a1 + ENT_OBJ) + (uint32_t)(int32_t)(int16_t)rw(p, a6 + 2);
         uint32_t v = b1 & 1 ? ix_rb(VM, a) : b1 & 2 ? rw(p, a) : rl(p, a);
         if ((h == PROGRAM_IxOpCC_IfZero) == !v)
-            wl(p, a1 + 2, rl(p, a6 + 4));
+            wl(p, a1 + ENT_PC, rl(p, a6 + 4));
         else
-            wl(p, a1 + 2, a6 + 8);
+            wl(p, a1 + ENT_PC, a6 + 8);
     } else if (h == PROGRAM_IxOpD4_Reset) {
-        for (uint32_t k = 0; k < 0x30; k++)
+        for (uint32_t k = 0; k < PCTX_SIZE; k++)
             ix_wb(VM, a5 + k, 0);
-        wl(p, a1 + 2, a6 + 2);
+        wl(p, a1 + ENT_PC, a6 + 2);
     } else {
         fprintf(stderr, "prog : commande de script %02X (%06X) sans effet\n", op | 0x80, h);
         wl(p, a1, 0);                   /* l'original boucle sans fin */
@@ -715,124 +713,124 @@ static void ent_command(ProgIntro *p, uint32_t a1, uint32_t a6, uint8_t op)
 /* LAB_0201 : fin d'un groupe de frames ($FF) : répétitions, retours */
 static void ent_group_end(ProgIntro *p, uint32_t a1, uint32_t a6, uint16_t d1, uint16_t d2)
 {
-    uint32_t a5 = rl(p, a1 + 36);
-    if (ix_rb(VM, a5 + 1)) {
-        uint8_t c = (uint8_t)(ix_rb(VM, a5) - 1);
-        ix_wb(VM, a5, c);
+    uint32_t a5 = rl(p, a1 + ENT_CTX);
+    if (ix_rb(VM, a5 + CTX_HOLD_ON)) {
+        uint8_t c = (uint8_t)(ix_rb(VM, a5 + CTX_HOLD_N) - 1);
+        ix_wb(VM, a5 + CTX_HOLD_N, c);
         if (c) {
-            wl(p, a1 + 2, rl(p, a5 + 2));
+            wl(p, a1 + ENT_PC, rl(p, a5 + CTX_HOLD_PC));
             return;
         }
     }
-    ix_wb(VM, a5 + 1, 0);
-    if (ix_rb(VM, a5 + 26)) {
-        uint8_t c = (uint8_t)(ix_rb(VM, a5 + 27) - 1);
-        ix_wb(VM, a5 + 27, c);
+    ix_wb(VM, a5 + CTX_HOLD_ON, 0);
+    if (ix_rb(VM, a5 + CTX_PHY_ON)) {
+        uint8_t c = (uint8_t)(ix_rb(VM, a5 + CTX_PHY_N) - 1);
+        ix_wb(VM, a5 + CTX_PHY_N, c);
         if (!(c & 0x80))
             return;                                     /* LAB_022E : RTS */
     } else {
-        ix_wb(VM, a5 + 26, 0);
-        if (ix_rb(VM, a5 + 42)) {
+        ix_wb(VM, a5 + CTX_PHY_ON, 0);
+        if (ix_rb(VM, a5 + PCTX_EXTRA)) {
             fprintf(stderr, "prog : bloc +42 non repris\n");
-            ww(p, a1 + 6, d1);
-            ww(p, a1 + 10, d2);
+            ww(p, a1 + ENT_X, d1);
+            ww(p, a1 + ENT_DEPTH, d2);
             if (!(uint16_t)a5)
                 return;
         }
     }
-    ix_wb(VM, a5 + 42, 0);
-    if (ix_rb(VM, a5 + 16)) {
-        ix_wb(VM, a5 + 16, 0);
-        wl(p, a1 + 2, rl(p, a5 + 12));
+    ix_wb(VM, a5 + PCTX_EXTRA, 0);
+    if (ix_rb(VM, a5 + CTX_JUMP_ON)) {
+        ix_wb(VM, a5 + CTX_JUMP_ON, 0);
+        wl(p, a1 + ENT_PC, rl(p, a5 + CTX_JUMP_PC));
         return;
     }
     uint8_t b1 = ix_rb(VM, a6 + 1);
     if (b1 == 0xFF || b1 == 0xFE) {
-        if (ix_rb(VM, a5 + 7)) {
-            uint8_t c = (uint8_t)(ix_rb(VM, a5 + 6) - 1);
-            ix_wb(VM, a5 + 6, c);
+        if (ix_rb(VM, a5 + CTX_LOOP_ON)) {
+            uint8_t c = (uint8_t)(ix_rb(VM, a5 + CTX_LOOP_N) - 1);
+            ix_wb(VM, a5 + CTX_LOOP_N, c);
             if (c) {
-                wl(p, a1 + 2, rl(p, a5 + 8));
+                wl(p, a1 + ENT_PC, rl(p, a5 + CTX_LOOP_PC));
                 return;
             }
         }
-        ix_wb(VM, a5 + 7, 0);
+        ix_wb(VM, a5 + CTX_LOOP_ON, 0);
         if (b1 == 0xFF) {
-            ix_wb(VM, a1 + 1, 0);                       /* script fini */
+            ix_wb(VM, a1 + ENT_BUSY, 0);                       /* script fini */
             return;
         }
     }
-    wl(p, a1 + 2, rl(p, a1 + 2) + 2);
+    wl(p, a1 + ENT_PC, rl(p, a1 + ENT_PC) + 2);
 }
 
 /* LAB_01F1 : script de l'entité a1 pour cette image (frames jusqu'à $FF) */
 static void ent_script(ProgIntro *p, uint32_t a1)
 {
-    while (rl(p, a1 + 2)) {                             /* LAB_01F2 */
+    while (rl(p, a1 + ENT_PC)) {                             /* LAB_01F2 */
         uint16_t d1 = 0, d2 = 0;
         uint32_t a6;
         uint8_t op;
         for (;;) {                                      /* LAB_01F3 */
-            a6 = rl(p, a1 + 2);
+            a6 = rl(p, a1 + ENT_PC);
             op = ix_rb(VM, a6);
             if (op == 0xFF) {
                 ent_group_end(p, a1, a6, d1, d2);
                 return;
             }
             if (op == 0xFD)
-                wl(p, a1 + 2, rl(p, rl(p, a1 + 36) + 32));
+                wl(p, a1 + ENT_PC, rl(p, rl(p, a1 + ENT_CTX) + CTX_RESUME_PC));
             else if (op == 0xFE)
-                wl(p, a1 + 2, rl(p, rl(p, a1 + 36) + 8));
+                wl(p, a1 + ENT_PC, rl(p, rl(p, a1 + ENT_CTX) + CTX_LOOP_PC));
             else if (op & 0x80)
                 ent_command(p, a1, a6, op & 0x7F);
             else
                 break;
         }
         /* frame : planche, n°, dy, drapeaux, dx */
-        uint32_t cel = rl(p, rl(p, a1 + 28) + (op & 0x1F));
+        uint32_t cel = rl(p, rl(p, a1 + ENT_BANKS) + (op & 0x1F));
         uint8_t fr = ix_rb(VM, a6 + 1);
-        ix_wb(VM, a1 + 21, fr);
+        ix_wb(VM, a1 + ENT_FRAME, fr);
         frame_info(p, cel, fr, a1);
         d2 = (uint16_t)(int16_t)(int8_t)ix_rb(VM, a6 + 2);
-        if (ix_rb(VM, a1 + 22) & 2)
-            d1 = (uint16_t)(rw(p, a1 + 6) - rw(p, a6 + 4) - rw(p, a1 + 16));
+        if (ix_rb(VM, a1 + ENT_DIR) & 2)
+            d1 = (uint16_t)(rw(p, a1 + ENT_X) - rw(p, a6 + 4) - rw(p, a1 + ENT_W));
         else
-            d1 = (uint16_t)(rw(p, a6 + 4) + rw(p, a1 + 6));
-        d2 = (uint16_t)(d2 + rw(p, a1 + 8) + rw(p, a1 + 10));
-        ww(p, a1 + 12, d1);
-        ww(p, a1 + 14, d2);
+            d1 = (uint16_t)(rw(p, a6 + 4) + rw(p, a1 + ENT_X));
+        d2 = (uint16_t)(d2 + rw(p, a1 + ENT_HEIGHT) + rw(p, a1 + ENT_DEPTH));
+        ww(p, a1 + ENT_DRAW_X, d1);
+        ww(p, a1 + ENT_DRAW_Y, d2);
         uint8_t fl = ix_rb(VM, a6 + 3);
         if (!(fl & 0x40))
-            bbox(p, d1, rw(p, a1 + 16), d2, rw(p, a1 + 18));
-        ix_wb(VM, a1 + 20, fl);
-        uint16_t d0 = ix_rb(VM, a1 + 21);
+            bbox(p, d1, rw(p, a1 + ENT_W), d2, rw(p, a1 + ENT_H));
+        ix_wb(VM, a1 + ENT_FLAGS, fl);
+        uint16_t d0 = ix_rb(VM, a1 + ENT_FRAME);
         if (fl & 0x10) {                                /* aussi dans le décor */
             set_planes(p, rl(p, PROGRAM_v_BgPlanes));
             prog_draw_cel(VM, &p->blt, cel, d0, d1, d2);
             set_planes(p, rl(p, PROGRAM_v_DrawPlanes));
         } else {                                        /* zone à restaurer */
             uint32_t a5 = rl(p, PROGRAM_v_RestoreNext);
-            ww(p, a5, rw(p, a1 + 12));
-            ww(p, a5 + 2, rw(p, a1 + 14));
-            ww(p, a5 + 4, rw(p, a1 + 16));
-            ww(p, a5 + 6, rw(p, a1 + 18));
-            ww(p, a5 + 12, 0xFFFF);
-            wl(p, PROGRAM_v_RestoreNext, a5 + 8);
+            ww(p, a5 + SCR_X, rw(p, a1 + ENT_DRAW_X));
+            ww(p, a5 + SCR_Y, rw(p, a1 + ENT_DRAW_Y));
+            ww(p, a5 + SCR_W, rw(p, a1 + ENT_W));
+            ww(p, a5 + SCR_H, rw(p, a1 + ENT_H));
+            ww(p, a5 + SCR_SIZE + SCR_W, 0xFFFF);
+            wl(p, PROGRAM_v_RestoreNext, a5 + SCR_SIZE);
         }
         static const uint32_t lists[2] = { PROGRAM_v_ListBody, PROGRAM_v_ListStrike };
         for (int k = 1; k >= 0; k--)
             if (fl & (1u << k)) {
                 uint32_t a4 = rl(p, lists[k]);
-                wl(p, a4, cel);
-                ww(p, a4 + 4, d0);
-                ww(p, a4 + 6, d1);
-                ww(p, a4 + 8, d2);
-                wl(p, a4 + 10, 0);
-                wl(p, lists[k], a4 + 10);
+                wl(p, a4 + DL_CEL, cel);
+                ww(p, a4 + DL_FRAME, d0);
+                ww(p, a4 + DL_X, d1);
+                ww(p, a4 + DL_Y, d2);
+                wl(p, a4 + DL_SIZE + DL_CEL, 0);
+                wl(p, lists[k], a4 + DL_SIZE);
             }
         ww(p, PROGRAM_v_BlitByCpu, fl & 0x20 ? 1 : 0);
         prog_draw_cel(VM, &p->blt, cel, d0, d1, d2);
-        wl(p, a1 + 2, rl(p, a1 + 2) + 6);
+        wl(p, a1 + ENT_PC, rl(p, a1 + ENT_PC) + 6);
     }
 }
 
@@ -841,22 +839,22 @@ static void ent_render(ProgIntro *p)
 {
     ent_sort(p);
     uint32_t a1 = PROGRAM_t_Entities;
-    for (unsigned i = 0; i < NENT; i++, a1 += ENT) {
+    for (unsigned i = 0; i < NENT; i++, a1 += PENT_SIZE) {
         ww(p, PROGRAM_v_EntIndex, (uint16_t)i);
         wl(p, PROGRAM_v_EntRenderPtr, a1);
-        if (!ix_rb(VM, a1) || rw(p, a1 + 40))
+        if (!ix_rb(VM, a1 + ENT_ACTIVE) || rw(p, a1 + PENT_HIDDEN))
             continue;
-        uint32_t a5 = rl(p, a1 + 36);
+        uint32_t a5 = rl(p, a1 + ENT_CTX);
         ww(p, PROGRAM_v_BBoxSet, 0);
-        if (!ix_rb(VM, a5 + 18)) {
+        if (!ix_rb(VM, a5 + CTX_SHADOW_ON)) {
             ent_script(p, a1);
             continue;
         }
-        for (uint32_t b = 0; b < ENT; b++)
+        for (uint32_t b = 0; b < PENT_SIZE; b++)
             ix_wb(VM, PROGRAM_b_EntitySwap + b, ix_rb(VM, a1 + b));
-        ww(p, PROGRAM_b_EntitySwap + 8, 0);
-        wl(p, PROGRAM_b_EntitySwap + 2, rl(p, a5 + 20));
-        wl(p, PROGRAM_b_EntitySwap + 36, PROGRAM_v_ShadowCtx);
+        ww(p, PROGRAM_b_EntitySwap + ENT_HEIGHT, 0);
+        wl(p, PROGRAM_b_EntitySwap + ENT_PC, rl(p, a5 + CTX_SHADOW_PC));
+        wl(p, PROGRAM_b_EntitySwap + ENT_CTX, PROGRAM_v_ShadowCtx);
         ent_script(p, PROGRAM_b_EntitySwap);
         ent_script(p, a1);
     }
@@ -1274,14 +1272,14 @@ static void text_records(ProgIntro *p, uint32_t a0)
                 wl(p, PROGRAM_v_TextChar, a + 1);
                 uint16_t f = glyph(p, c);
                 uint16_t x = rw(p, PROGRAM_v_TextX), y = rw(p, PROGRAM_v_TextY);
-                if (ix_rb(VM, rl(p, PROGRAM_v_TextRecord) + 9) & 2) {  /* LAB_02A0 */
+                if (ix_rb(VM, rl(p, PROGRAM_v_TextRecord) + TXT_FLAGS) & 2) {  /* LAB_02A0 */
                     uint32_t a5 = rl(p, PROGRAM_v_RestoreNext);
-                    ww(p, a5, x);
-                    ww(p, a5 + 2, y);
-                    ww(p, a5 + 4, rw(p, PROGRAM_v_GlyphWidth));
-                    ww(p, a5 + 6, rw(p, PROGRAM_v_GlyphHeight));
-                    ww(p, a5 + 12, 0xFFFF);
-                    wl(p, PROGRAM_v_RestoreNext, a5 + 8);
+                    ww(p, a5 + SCR_X, x);
+                    ww(p, a5 + SCR_Y, y);
+                    ww(p, a5 + SCR_W, rw(p, PROGRAM_v_GlyphWidth));
+                    ww(p, a5 + SCR_H, rw(p, PROGRAM_v_GlyphHeight));
+                    ww(p, a5 + SCR_SIZE + SCR_W, 0xFFFF);
+                    wl(p, PROGRAM_v_RestoreNext, a5 + SCR_SIZE);
                 }
                 prog_draw_cel(VM, &p->blt, rl(p, PROGRAM_t_FontBank + 16), f, x, y);
                 x = (uint16_t)(rw(p, PROGRAM_v_TextX) + rw(p, PROGRAM_v_GlyphWidth) - 2);

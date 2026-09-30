@@ -281,9 +281,9 @@ static void draw_places(MogCombat *m)
     wl(m, MOG_v_Lair, rl(m, MOG_t_FastBuffers + 68));
     for (int i = 0; i < 24; i++) {
         uint32_t a0 = rl(m, MOG_v_Lair);
-        if (sw(rw(m, a0 + 10)) >= 0)
-            icon(m, 0x14, rw(m, a0 + 10), rw(m, a0 + 12));
-        wl(m, MOG_v_Lair, rl(m, MOG_v_Lair) + 20);
+        if (sw(rw(m, a0 + LAIR_X)) >= 0)
+            icon(m, 0x14, rw(m, a0 + LAIR_X), rw(m, a0 + LAIR_Y));
+        wl(m, MOG_v_Lair, rl(m, MOG_v_Lair) + LAIR_SIZE);
     }
 }
 
@@ -475,12 +475,12 @@ static void sort_creatures(MogCombat *m)
     ww(m, MOG_v_CreaturesSorted, 1);
     uint32_t a0 = rl(m, MOG_v_MapCreatures), a1 = CUR, a2 = MOG_t_CreaturesByDist;
     uint16_t x = rw(m, a1 + OBJ_MAP_X), y = rw(m, a1 + OBJ_MAP_Y);
-    for (int i = 0; i < 24; i++, a0 += 20, a2 += 6) {
+    for (int i = 0; i < 24; i++, a0 += LAIR_SIZE, a2 += 6) {
         uint16_t d3;
-        if (sw(rw(m, a0 + 10)) < 0)
+        if (sw(rw(m, a0 + LAIR_X)) < 0)
             d3 = 0xFFFF;
         else
-            d3 = (uint16_t)distance(x, y, rw(m, a0 + 10), rw(m, a0 + 12));
+            d3 = (uint16_t)distance(x, y, rw(m, a0 + LAIR_X), rw(m, a0 + LAIR_Y));
         ww(m, a2, d3);
         wl(m, a2 + 2, a0);
     }
@@ -577,8 +577,8 @@ static void use_potion(MogCombat *m)
     if ((int8_t)rb(m, a0 + OBJ_LIVES) > 3 && !(sw(rw(m, a0 + OBJ_HP)) < sw((uint16_t)(rw(m, a0 + OBJ_HP_MAX) >> 2))))
         return;
     uint32_t a1 = rl(m, a0 + OBJ_INVENTORY);
-    if (rb(m, a1)) {
-        wb(m, a1, (uint8_t)(rb(m, a1) - 1));
+    if (rb(m, a1 + INV_POTIONS)) {
+        wb(m, a1 + INV_POTIONS, (uint8_t)(rb(m, a1 + INV_POTIONS) - 1));
         heal(m, a0);
     }
 }
@@ -609,14 +609,14 @@ void mog_loot(MogCombat *m, uint32_t a0, uint32_t a1)
             if (!rb(m, a2 + d0))
                 continue;
             d5 = 1;
-            if (d0 == 0x16 || d0 == 0x14) {             /* LAB_0027 */
+            if (d0 == INV_MOONSTONES || d0 == INV_KEYS) {  /* LAB_0027 */
                 ww(m, a3 + d0, rw(m, a3 + d0) | rw(m, a2 + d0));
                 ww(m, a2 + d0, 0);
                 break;
             }
             wb(m, a2 + d0, (uint8_t)(rb(m, a2 + d0) - 1));
             wb(m, a3 + d0, (uint8_t)(rb(m, a3 + d0) + 1));
-            if (!rb(m, a2 + d0) && d0 == 4)
+            if (!rb(m, a2 + d0) && d0 == INV_SHARP_SWORD)
                 wl(m, a1 + OBJ_WEAPON, 0x16);
             break;
         }
@@ -723,9 +723,9 @@ static void steal(MogCombat *m)
     if (!rl(m, a0 + OBJ_TARGET))
         return;
     uint32_t a1 = rl(m, a0 + OBJ_INVENTORY);
-    if (!rb(m, a1 + 14))
+    if (!rb(m, a1 + INV_ACQUISITION))
         return;
-    wb(m, a1 + 14, (uint8_t)(rb(m, a1 + 14) - 1));
+    wb(m, a1 + INV_ACQUISITION, (uint8_t)(rb(m, a1 + INV_ACQUISITION) - 1));
     uint32_t foe = rl(m, a0 + OBJ_TARGET);
     magic_sound(m);
     mog_loot(m, a0, foe);
@@ -735,7 +735,7 @@ static void steal(MogCombat *m)
 static void boots(MogCombat *m)
 {
     uint32_t a0 = CUR, a2 = rl(m, a0 + OBJ_INVENTORY);
-    if (!rb(m, a2 + 10) || !rl(m, a0 + OBJ_TARGET))
+    if (!rb(m, a2 + INV_HASTE) || !rl(m, a0 + OBJ_TARGET))
         return;
     uint32_t a1 = rl(m, a0 + OBJ_TARGET);
     int16_t d3 = (int16_t)distance(rw(m, a0 + OBJ_MAP_X), rw(m, a0 + OBJ_MAP_Y), rw(m, a1 + OBJ_MAP_X), rw(m, a1 + OBJ_MAP_Y));
@@ -743,7 +743,7 @@ static void boots(MogCombat *m)
     if (d3 < d0)
         return;
     magic_sound(m);
-    wb(m, a2 + 10, (uint8_t)(rb(m, a2 + 10) - 1));
+    wb(m, a2 + INV_HASTE, (uint8_t)(rb(m, a2 + INV_HASTE) - 1));
     ww(m, MOG_v_MovesMax, (uint16_t)(rw(m, MOG_v_MovesMax) << 1));
 }
 
@@ -896,7 +896,7 @@ static int flee(MogCombat *m)
     if (rl(m, a1 + OBJ_KNIGHT) == 4)
         return 0;
     wl(m, MOG_v_Defender, a1);
-    if (!rb(m, rl(m, a1 + OBJ_INVENTORY) + 18))
+    if (!rb(m, rl(m, a1 + OBJ_INVENTORY) + INV_PROTECTION))
         return 0;
     uint32_t s = rl(m, a1 + OBJ_NAME), d = MOG_s_FleeName;
     uint8_t c;
@@ -1006,9 +1006,9 @@ static void lair_encounter(MogCombat *m)
 {
     uint32_t a0 = rl(m, MOG_v_Lair);
     wl(m, MOG_v_TerrainMode, 2);
-    wl(m, MOG_v_LairTerrain, rl(m, a0 + 16));
-    wl(m, MOG_v_PlaceType, rw(m, a0 + 14));
-    uint32_t d0 = (uint32_t)(int32_t)sw(rw(m, a0 + 4));
+    wl(m, MOG_v_LairTerrain, rl(m, a0 + LAIR_TERRAIN));
+    wl(m, MOG_v_PlaceType, rw(m, a0 + LAIR_PLACE));
+    uint32_t d0 = (uint32_t)(int32_t)sw(rw(m, a0 + LAIR_CREATURE));
     mog_encounter_init(m, rl(m, MOG_t_CreatureInit + d0));
 }
 
@@ -1018,13 +1018,13 @@ static void lair_emptied(MogCombat *m)
     if (rw(m, MOG_v_BootsOn))
         return;
     uint32_t a0 = rl(m, MOG_v_Lair);
-    int d0 = rw(m, a0 + 8) != 0;
-    uint32_t a1 = rl(m, a0);
-    for (uint32_t i = 0; i < 24; i++)
+    int d0 = rw(m, a0 + LAIR_GOLD) != 0;
+    uint32_t a1 = rl(m, a0 + LAIR_INVENTORY);
+    for (uint32_t i = 0; i < INV_SIZE; i++)
         if (rb(m, a1 + i))
             d0 = 1;
     if (!d0)
-        wl(m, a0 + 10, 0xFFFFFFFFu);
+        wl(m, a0 + LAIR_X, 0xFFFFFFFFu);
 }
 
 /* LAB_005B : repaire a1 : combat (sauf bottes, LAB_065E), puis trésor
@@ -1346,12 +1346,12 @@ static void find_item(MogCombat *m, int d3)
         a0 = rl(m, a1 + OBJ_INVENTORY);
         if (d3 == 1) {
             a1 = rl(m, MOG_v_Lair);
-            a0 = rl(m, a1);
+            a0 = rl(m, a1 + LAIR_INVENTORY);
         } else if (d3 == 2) {
             a0 = MOG_t_ShopInventory;
         }
-        if (d0 == 4) {                                  /* LAB_0475 : l'épée magique */
-            if (rb(m, a0 + 4))
+        if (d0 == INV_SHARP_SWORD) {                    /* LAB_0475 : l'épée magique */
+            if (rb(m, a0 + INV_SHARP_SWORD))
                 continue;
             if (!d3)
                 wl(m, a1 + OBJ_WEAPON, 0x19);
@@ -1360,7 +1360,7 @@ static void find_item(MogCombat *m, int d3)
     }
     wb(m, a0 + d0, (uint8_t)(rb(m, a0 + d0) + 1));
     if (!d3) {
-        if (d0 == 6) {
+        if (d0 == INV_RINGS) {
             uint32_t k = CUR;
             ww(m, k + OBJ_HP, (uint16_t)(rw(m, k + OBJ_HP) + 0x14));
             mog_knight_hp(m, k);
