@@ -1,5 +1,11 @@
 # Analyse comparative : code ASM original vs réimplémentation C
 
+> **Note (2026-09-30)** — ce document d'analyse a servi à l'ancienne
+> réimplémentation non fidèle, supprimée depuis. Le jeu est maintenant un
+> portage routine par routine de l'original, vérifié contre lui : voir
+> `DOC_METHODE_PORTAGE.md`. Les lectures de l'assembleur ci-dessous
+> restent utiles ; en cas de désaccord, le code porté fait foi.
+
 > Moonstone — A Hard Days Knight  
 > Comparaison entre `amiga_asm/mog.asm` (code 68000 Amiga original) et
 > `game/src/moon_combat.c` (réimplémentation C moderne).  

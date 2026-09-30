@@ -1,8 +1,18 @@
-# Méthode de portage de `mog` en C : émulateur de référence et comparaison
+# Méthode de portage de Moonstone en C : émulateur de référence et comparaison
 
-Ce document explique **comment** le jeu (`mog`, le programme principal de
-Moonstone) est porté en C. Il décrit aussi comment chaque morceau est
-vérifié contre l'original : mémoire et écrans comparés octet par octet.
+Ce document explique **comment** Moonstone est porté en C. Il décrit aussi
+comment chaque morceau est vérifié contre l'original : mémoire et écrans
+comparés octet par octet.
+
+Le jeu original est fait de deux exécutables :
+
+- `program` : intro, et séquence de fin après une victoire (§8 bis) ;
+- `mog` : menu, choix des chevaliers et partie (carte, lieux, écrans,
+  combats) ; c'est l'essentiel du jeu.
+
+Les deux sont portés, et c'est désormais **le seul jeu** du dépôt :
+l'ancienne réimplémentation non fidèle (`moon_intro.c`, `moon_menu.c`,
+`moon_overworld.c`, `moon_town.c`...) a été supprimée (§10).
 
 Le contenu du moteur lui-même (boucle de combat, scripts, entités) est
 décrit dans `DOC_MOTEUR_COMBAT_MOG.md`.
@@ -158,6 +168,7 @@ de l'image suivante sont données aux deux.
 | `LAB_00EC` / `LAB_00ED` | attente « appuyez sur feu » (appui, relâché) |
 | `LAB_0E40` | attente d'une touche (menu des lieux) |
 | `LAB_008C`, `LAB_0095`, `LAB_0496`, `LAB_04A9`, `LAB_0457`, `LAB_0458`, `LAB_045D` | boucles des villes, du jeu de dés, de la sorcière |
+| `LAB_00B5`, `LAB_00D4`, `LAB_00C9`, `LAB_00CC` | menu du début, choix des chevaliers, saisie du nom (§7 bis) |
 
 - Côté banc : un crochet de code à l'adresse, qui arrête l'émulation.
 - Côté C : l'appel `m->frame_start(user)` au même endroit du code.
@@ -179,7 +190,7 @@ Ils ont été construits dans cet ordre, chacun s'appuyant sur le précédent :
 | `tools/mog_setupcheck.py` | la préparation des 11 rencontres (`t_CreatureInit`) jusqu'à `Combat_Loop`, écrans compris |
 | `tools/mog_drawcheck.py` | `LAB_0CDA` (dessin d'une frame CEL) rejoué des deux côtés, blitter émulé |
 | `tools/mog_mapcheck.py` | la carte, image par image |
-| **`tools/mog_lockstep.py`** | **le jeu entier**, original et C côte à côte (§4) |
+| **`tools/mog_lockstep.py`** | **le jeu entier**, original et C côte à côte (§4) ; `--menu` : depuis le menu du début (§7 bis) |
 | `tools/mog_gamecheck.py` | la nouvelle partie démarrée par le C seul, contre l'original |
 
 Le programme C de test est `build/tests/mog_run`. C'est un processus
@@ -324,6 +335,9 @@ Ces valeurs sont reproduites.
 - boucle de la carte (`mog_map_frame`), d'où partent les lieux, les
   écrans et les combats.
 
+Sans écran (outils), la nouvelle partie est à un joueur, sans menu ; avec
+l'hôte, le menu de l'original la précède (§7 bis).
+
 À chaque VBL :
 
 1. compteur de VBL ;
@@ -332,11 +346,57 @@ Ces valeurs sont reproduites.
 4. image affichée : plans de la copper list et sprite du pointeur ;
 5. 1/50 s chez l'hôte.
 
-`moon_mog.c` relie cela à SDL, avec `moonstone <données> 3 --mog`.
+`moon_mog.c` relie cela à SDL (`moonstone <données> 3`). Il joue d'abord
+program (l'intro), puis mog ; après une victoire, program de nouveau (la
+fin), puis mog (le menu).
+
+Les entrées de l'hôte :
+
+| Amiga | Clavier / manette |
+|---|---|
+| joystick, port 1 (`LAB_0630`, les joueurs) | flèches + Espace ou Ctrl, 1re manette |
+| joystick, port 0 (`LAB_062F`) | W A S D + F, 2e manette |
+| clavier (`SECSTRT_21`, codes de `LAB_0D99`) | lettres, chiffres, Tab (barre d'espace), Entrée, retour arrière |
+
+Le port 0 est à part : dans un duel entre deux humains
+(`Combat_StartPvP`) et à l'entraînement, le second chevalier y est mis
+(`11(objet) = 1`) ; il le garde ensuite pour son pointeur dans les
+écrans (`mog_screen_vbl`).
 
 `tests/mog_game_shot` fait tourner le même jeu **sans écran**. Il est mené
 par un script d'entrées (« 150 VBL à droite, touche I... ») et enregistre
 des captures PNG : c'est la vérification rapide du branchement.
+
+---
+
+## 7 bis. Le menu du début et le choix des chevaliers
+
+Dans `SECSTRT_0`, après les chargements, `LAB_0001` appelle
+`Prot_CopylockCheck` : la protection de la disquette, puis le menu. Porté
+dans `mog_menu.c`.
+
+- **La protection Copylock** (Rob Northen) est chiffrée : elle se
+  déchiffre elle-même en mode trace et ne peut pas être traduite. Sur une
+  disquette d'origine, elle laisse sur la pile la valeur `LAB_029F`, que
+  le menu range dans `LAB_0714` (le contrôleur du chevalier humain) ; une
+  copie y mettrait autre chose, et le jeu deviendrait injouable. Le C fait
+  comme une disquette d'origine.
+- **Le menu** (`LAB_00B5`) : ligne `LAB_06DC` 0 « Players » (1 à 4,
+  `LAB_05C5`), 1 « Gore » (`LAB_06DA`), 2 « Practice », 3 « Select
+  Knight ».
+- **Le choix des chevaliers** (`LAB_00D3`) : chaque joueur prend un des
+  quatre chevaliers (`LAB_00E5`) et tape son nom (`LAB_00C9` : 13 lettres,
+  éclair rouge sur `COLOR00` au-delà, retour arrière, Retour ou feu).
+- **L'entraînement** (`LAB_0002` + `LAB_0165`, `mog_practice`) : duel des
+  chevaliers 1 (port 1) et 2 (port 0), puis retour à `LAB_0001` et au
+  menu.
+
+Vérification : `mog_lockstep.py --menu game|players2|practice`. Le banc
+remplace la Copylock par `MOVE.L #LAB_029F,-(A7) ; JMP` menu (le patch est
+fait avant la copie de la mémoire, donc des deux côtés), et laisse passer
+`LAB_0001` au retour de l'entraînement. Résultats : 400 images identiques
+pour une partie à un et à deux joueurs (menu, chevaliers, noms, carte),
+1500 pour l'entraînement (duel, retour au menu, second duel).
 
 ---
 
@@ -376,11 +436,18 @@ banc remet la voie en état après le démarrage.
 
 ---
 
-## 8 bis. L'intro (program)
+## 8 bis. L'intro et la fin (program)
 
-L'intro est un autre exécutable de l'original, `program`. Il démarre,
-charge les décors, joue le générique et les scènes, puis charge `mog`. Il
-est porté de la même façon, sur sa propre image mémoire
+`program` est l'autre exécutable de l'original. Il démarre, puis :
+
+- d'ordinaire, charge les décors, joue le générique et les scènes de
+  l'intro, et charge `mog` ;
+- si mog a été gagné, joue la fin (`LAB_0001`) : mog, au temple, écrit à
+  `$3E0` (`EXT_000e` pour mog, `EXT_0007` pour program) `$80` + un bit du
+  chevalier (3 à 6) + un bit du lieu (0 à 2), puis relance program. Les
+  couleurs de la fin en dépendent (`LAB_01B9`, `LAB_01BE`).
+
+Il est porté de la même façon, sur sa propre image mémoire
 (`prog_boot_memory`, identique à celle du banc).
 
 - Banc : `tools/prog_ref.py`, avec les mêmes crochets que pour mog
@@ -394,11 +461,12 @@ est porté de la même façon, sur sa propre image mémoire
   - Ainsi `mog_blit.c`, `mog_gfx.c`, `mog_vbl.c` et `mog_files.c` sont
     recompilés pour program (`prog_*.c`) sans être recopiés.
 - Le reste est traduit à la main dans `prog_intro.c` et `prog_music.c` :
-  - le moteur d'entités à scripts ;
-  - le défilement de tuiles ;
+  - le moteur d'entités à scripts (et les routines appelées par les
+    scripts : éclairs, pulsations, contrôle du défilement) ;
+  - le défilement de tuiles, vers le bas (intro) et vers le haut (fin) ;
   - le générique ;
   - le texte ;
-  - la décompression RNC ;
+  - la décompression RNC (`music.cmp`, `vmusic.cmp`) ;
   - le lecteur de musique (format NoiseTracker).
 - Registre A1 : chaque entité garde le registre A1 de son appelant. Le C
   suit donc A1 (`ProgIntro.a1`) pour rester identique octet pour octet.
@@ -407,6 +475,9 @@ est porté de la même façon, sur sa propre image mémoire
   lecteur de musique tourne des deux côtés. Résultat : 5118 VBL
   identiques. `--scene 001b` (et les autres scènes) part de l'entrée d'une
   seule scène.
+- La fin se vérifie **sans jouer de partie** : `--flags 0x91` écrit les
+  drapeaux de mog à `$3E0` avant le départ, des deux côtés. Résultat :
+  4125 VBL identiques, pour `$91`, `$A2`, `$C4` et `$8A`.
 
 ---
 
@@ -415,11 +486,15 @@ est porté de la même façon, sur sa propre image mémoire
 ```sh
 cmake --build build
 
-# jeu complet (fenêtre SDL)
-build/game/moonstone <données> 3 --mog
+# le jeu (fenêtre SDL) : intro, menu, partie, fin
+build/game/moonstone <données> 3
+# la fin seule, sans partie ; les combats seuls
+build/game/moonstone <données> 3 --fin 0x91
+build/game/moonstone <données> 3 --combat all
 
 # original et C côte à côte
 python3 tools/mog_lockstep.py <données> --frames 2000 --fire 0.15 --wander 60 --place 0x19
+python3 tools/mog_lockstep.py <données> --menu players2 --frames 400    # menu, chevaliers
 python3 tools/mog_lockstep.py <données> --replay dm.joy --frames 1320   # rejouer
 
 # démarrage C contre original
@@ -432,10 +507,50 @@ build/tests/mog_game_shot <données> <préfixe> script.txt
 python3 tools/prog_lockstep.py <données> --scene intro
 # la fin (partie gagnée : EXT_0007 = $80 | chevalier | lieu), sans jouer
 python3 tools/prog_lockstep.py <données> --scene intro --flags 0x91
-build/game/moonstone <données> 3 --fin 0x91
-build/tests/prog_intro_shot <données> <préfixe> 100
+build/tests/prog_intro_shot <données> <préfixe> 100 [0x91]
 ```
 
 Les fichiers du jeu d'origine ne sont pas dans le dépôt. Le dossier
 `<données>` doit les contenir : `kn1.ob`, `test`, `*.PIV`, `*.CEL`, `*.t`,
 `collide.hit`...
+
+---
+
+## 10. Carte des fichiers
+
+| Fichiers | Contenu |
+|---|---|
+| `game/src/ix_vm.c`, `game/data/ix_*.c`, `ix_*_syms.h` | mémoire virtuelle, images de mog et de program, symboles |
+| `game/src/ix_engine.c` | moteur de scripts IMAGEXCEL de mog |
+| `game/src/mog_*.c` | mog : démarrage (`mog_boot`, `mog_files`, `mog_gfx`), menu (`mog_menu`), carte (`mog_map`), villes (`mog_town`), écrans (`mog_screens`), rencontres (`mog_encounter`, `mog_setup`), combat (`mog_loop`, `mog_ctl`, `mog_col`, `mog_ai`, `mog_native`, `mog_fight`), dessin (`mog_blit`, `mog_vbl`, `mog_text`), son (`mog_sound`), assemblage (`mog_game`) |
+| `game/src/prog_*.c` | program : intro et fin (`prog_intro`), musique (`prog_music`), jumeaux de mog (`prog_blit`, `prog_gfx`, `prog_vbl`, `prog_files`) |
+| `game/src/moon_hal.c` | SDL : fenêtre, entrées, flux audio |
+| `game/src/moon_mog.c`, `moon_game.c`, `moon_combat.c`, `main.c` | hôte : VBL, entrées, enchaînement program / mog, mode combats seuls |
+| `tools/mog_ref.py`, `tools/prog_ref.py` | bancs de référence (Unicorn) |
+| `tools/*check.py`, `tools/*lockstep.py` | comparaisons (§3, §4, §7 bis, §8 bis) |
+| `tests/mog_run.c`, `tests/prog_run.c` | côté C des comparaisons |
+| `tests/mog_game_shot.c`, `tests/prog_intro_shot.c` | jeu et intro sans écran (PNG, WAV) |
+
+L'ancienne version non fidèle (moteur de rendu et d'entités à part,
+modules par lieu) est supprimée. Les documents d'analyse écrits pour elle
+(`DOC_MODE_OVERWORLD.md`, `DOC_MODE_COMBAT.md`,
+`DOC_ANIMATIONS_INTRO_FIN.md`, `DOC_COMPARAISON_ASM_C.md`) restent pour
+leur lecture de l'assembleur ; la référence est désormais le code porté.
+
+---
+
+## 11. Ce qui reste
+
+- **Essais réels** : la fenêtre SDL, le clavier, les manettes et le son
+  n'ont été vérifiés que sans écran (captures, lancements courts) ; le
+  paquet Windows n'a pas été essayé sur Windows.
+- **Parties complètes** : les comparaisons couvrent des centaines à
+  quelques milliers d'images par scénario, pas une partie entière ; une
+  routine rare pourrait manquer (le C le signale : « … non portée »).
+- **Approximations** de l'intro : toute touche compte pour sauter le
+  générique (le gestionnaire clavier `LAB_0342` et sa touche de pause ne
+  sont pas repris) ; la souris (`LAB_034D`) n'est pas portée (inutile à
+  l'intro) ; Entrée ou le bouton de la manette font défiler l'intro sans
+  attendre (ajout de l'hôte).
+- **Démarrage de mog** : quelques tables de `SECSTRT_30` (conversion de
+  pixels) ne sont pas construites ; aucune routine portée ne les lit.
