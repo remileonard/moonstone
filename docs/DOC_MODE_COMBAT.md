@@ -1,5 +1,11 @@
 # Documentation — Mode de jeu : Combat
 
+> **Note (2026-09-30)** — ce document d'analyse a servi à l'ancienne
+> réimplémentation non fidèle, supprimée depuis. Le jeu est maintenant un
+> portage routine par routine de l'original, vérifié contre lui : voir
+> `DOC_METHODE_PORTAGE.md`. Les lectures de l'assembleur ci-dessous
+> restent utiles ; en cas de désaccord, le code porté fait foi.
+
 > Document de conception décrivant la séquence de combat de Moonstone —
 > A Hard Days Knight, telle qu'implémentée dans le binaire `mog` (sources
 > `mog.asm`), avec appui sur la documentation technique (`DOC_TECHNIQUE.md`).

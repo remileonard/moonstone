@@ -7,20 +7,39 @@ cmake_minimum_required(VERSION 3.15)
 set(GAME_SOURCES
     src/main.c
     src/moon_hal.c
-    src/moon_render.c
-    src/moon_entity.c
     src/moon_game.c
-    src/moon_intro.c
-    src/moon_menu.c
-    src/moon_overworld.c
     src/moon_combat.c
-    src/moon_town.c
-    src/moon_shop.c
-    src/moon_wizard.c
-    src/moon_village.c
-    src/moon_stonehenge.c
-    src/moon_valley.c
-    src/moon_ending.c
+    src/ix_vm.c
+    src/ix_engine.c
+    src/mog_ctl.c
+    src/mog_col.c
+    src/mog_native.c
+    src/mog_ai.c
+    src/mog_setup.c
+    src/mog_encounter.c
+    src/mog_fight.c
+    src/mog_blit.c
+    src/mog_gfx.c
+    src/mog_vbl.c
+    src/mog_text.c
+    src/mog_map.c
+    src/mog_screens.c
+    src/mog_town.c
+    src/mog_game.c
+    src/mog_menu.c
+    src/mog_sound.c
+    src/moon_mog.c
+    src/mog_boot.c
+    src/mog_files.c
+    src/prog_files.c
+    src/mog_loop.c
+    src/prog_blit.c
+    src/prog_gfx.c
+    src/prog_vbl.c
+    src/prog_intro.c
+    src/prog_music.c
+    data/ix_program.c
+    data/ix_mog.c
 )
 
 add_executable(moonstone ${GAME_SOURCES})
@@ -28,6 +47,7 @@ add_executable(moonstone ${GAME_SOURCES})
 target_include_directories(moonstone
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/data
         ${CMAKE_CURRENT_SOURCE_DIR}/../libmoon_assets/include
         ${SDL2_INCLUDE_DIRS}
 )

@@ -4,6 +4,7 @@
 
 #include "moon_hal.h"
 
+#define SDL_MAIN_HANDLED           /* main() ordinaire, aussi sous Windows */
 #include <SDL2/SDL.h>
 #ifdef HAVE_SDL2_MIXER
 #include "SDL_mixer.h"
@@ -54,6 +55,7 @@ int hal_init(const char *title, int scale)
     flags |= SDL_INIT_AUDIO;
 #endif
 
+    SDL_SetMainReady();
     if (SDL_Init(flags) != 0) {
         fprintf(stderr, "SDL_Init error: %s\n", SDL_GetError());
         return -1;
@@ -463,4 +465,70 @@ void hal_fade_from_black(uint32_t *pal, const uint32_t *target, int n, int steps
                    | ((uint32_t)g << 8) | b;
         }
     }
+}
+
+/* ------------------------------------------------------------------ */
+/* Flux audio brut                                                     */
+/* ------------------------------------------------------------------ */
+
+#ifdef HAVE_SDL2_MIXER
+#define STREAM_CAP 16384                /* images stéréo (~0,37 s) */
+static int16_t    s_stream[STREAM_CAP * 2];
+static int        s_rd, s_fill;
+static SDL_mutex *s_stream_lock;
+
+static void stream_cb(void *u, Uint8 *buf, int len)
+{
+    (void)u;
+    int16_t *out = (int16_t *)buf;
+    int n = len / 4, k = 0;
+    SDL_LockMutex(s_stream_lock);
+    for (; k < n && s_fill > 0; k++, s_fill--) {
+        out[2 * k] = s_stream[2 * s_rd];
+        out[2 * k + 1] = s_stream[2 * s_rd + 1];
+        s_rd = (s_rd + 1) % STREAM_CAP;
+    }
+    SDL_UnlockMutex(s_stream_lock);
+    for (; k < n; k++)
+        out[2 * k] = out[2 * k + 1] = 0;
+}
+#endif
+
+int hal_audio_stream_open(void)
+{
+#ifdef HAVE_SDL2_MIXER
+    int freq = 0, ch = 0;
+    Uint16 fmt = 0;
+    if (!Mix_QuerySpec(&freq, &fmt, &ch) || fmt != AUDIO_S16SYS || ch != 2)
+        return 0;
+    if (!s_stream_lock)
+        s_stream_lock = SDL_CreateMutex();
+    s_rd = s_fill = 0;
+    Mix_HookMusic(stream_cb, NULL);
+    return freq;
+#else
+    return 0;
+#endif
+}
+
+void hal_audio_stream_push(const int16_t *stereo, int frames)
+{
+#ifdef HAVE_SDL2_MIXER
+    if (!s_stream_lock)
+        return;
+    SDL_LockMutex(s_stream_lock);
+    for (int i = 0; i < frames; i++) {
+        if (s_fill == STREAM_CAP) {             /* trop d'avance : le plus ancien part */
+            s_rd = (s_rd + 1) % STREAM_CAP;
+            s_fill--;
+        }
+        int w = (s_rd + s_fill) % STREAM_CAP;
+        s_stream[2 * w] = stereo[2 * i];
+        s_stream[2 * w + 1] = stereo[2 * i + 1];
+        s_fill++;
+    }
+    SDL_UnlockMutex(s_stream_lock);
+#else
+    (void)stereo; (void)frames;
+#endif
 }

@@ -1,5 +1,11 @@
 # Documentation des animations d'introduction et de fin — Moonstone / Amiga 68000
 
+> **Note (2026-09-30)** — ce document d'analyse a servi à l'ancienne
+> réimplémentation non fidèle, supprimée depuis. Le jeu est maintenant un
+> portage routine par routine de l'original, vérifié contre lui : voir
+> `DOC_METHODE_PORTAGE.md`. Les lectures de l'assembleur ci-dessous
+> restent utiles ; en cas de désaccord, le code porté fait foi.
+
 > Document de référence pour le portage C des scènes cinématiques.
 > Sources analysées : `amiga_asm/program.asm`, `amiga_asm/mog.asm`.
 

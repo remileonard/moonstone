@@ -1,0 +1,8 @@
+# Symboles de program — noms donnés au fil de l'analyse.
+# Format : <hunk>:$<offset> <TAB> <nom> <TAB> <ancien nom IRA> <TAB> <commentaire>
+# Géré par tools/disasm/rename.py ; réappliqué par tools/disasm/regen.sh.
+
+4:$00000	Io_HunkLoader	SECSTRT_4	Chargeur/relogeur d'executables hunk (charge mog)
+8:$007C2	Unpack_Rnc1	LAB_0190	Decompresseur RNC ProPack type 1 (music.cmp / vmusic.cmp)
+21:$00004	Unpack_StileRle	LAB_0448	Decompresseur RLE 2 bits des .stile (porte dans libmoon_assets/src/rle_stile.c)
+21:$00906	Unpack_Lzss	LAB_049C	Decompresseur LZSS des .cel/.PIV (fenetre 2 Ko) ; boucle de copie deroulee LAB_03E2

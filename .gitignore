@@ -68,3 +68,10 @@ vcpkg_installed/
 # test output & cache
 Testing/
 .cache/
+
+# Python
+__pycache__/
+*.pyc
+
+# Outils de désassemblage compilés localement
+tools/disasm/.build/
