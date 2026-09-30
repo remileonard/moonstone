@@ -376,6 +376,40 @@ banc remet la voie en état après le démarrage.
 
 ---
 
+## 8 bis. L'intro (program)
+
+L'intro est un autre exécutable de l'original, `program`. Il démarre,
+charge les décors, joue le générique et les scènes, puis charge `mog`. Il
+est porté de la même façon, sur sa propre image mémoire
+(`prog_boot_memory`, identique à celle du banc).
+
+- Banc : `tools/prog_ref.py`, avec les mêmes crochets que pour mog
+  (fichiers, blitter émulé). L'attente d'une VBL (`LAB_0552`) appelle les
+  vrais serveurs VBL.
+- Code partagé : une partie du code de program est la même que celle de
+  mog, à d'autres adresses.
+  - `tools/asm_twins.py` apparie les blocs identiques.
+  - `tools/prog_twins.py` écrit des en-têtes (`prog_twin_*.h`) qui
+    redéfinissent chaque `MOG_x` en `PROGRAM_y`.
+  - Ainsi `mog_blit.c`, `mog_gfx.c`, `mog_vbl.c` et `mog_files.c` sont
+    recompilés pour program (`prog_*.c`) sans être recopiés.
+- Le reste est traduit à la main dans `prog_intro.c` et `prog_music.c` :
+  - le moteur d'entités à scripts ;
+  - le défilement de tuiles ;
+  - le générique ;
+  - le texte ;
+  - la décompression RNC ;
+  - le lecteur de musique (format NoiseTracker).
+- Registre A1 : chaque entité garde le registre A1 de son appelant. Le C
+  suit donc A1 (`ProgIntro.a1`) pour rester identique octet pour octet.
+- Vérification : `tools/prog_lockstep.py --scene intro` compare la
+  mémoire VBL par VBL, de `SECSTRT_0` jusqu'au chargement de mog. Le vrai
+  lecteur de musique tourne des deux côtés. Résultat : 5118 VBL
+  identiques. `--scene 001b` (et les autres scènes) part de l'entrée d'une
+  seule scène.
+
+---
+
 ## 9. Commandes
 
 ```sh
@@ -393,6 +427,10 @@ python3 tools/mog_gamecheck.py <données>
 
 # captures sans écran, script d'entrées
 build/tests/mog_game_shot <données> <préfixe> script.txt
+
+# intro : original et C côte à côte ; C seul (images + musique .wav)
+python3 tools/prog_lockstep.py <données> --scene intro
+build/tests/prog_intro_shot <données> <préfixe> 100
 ```
 
 Les fichiers du jeu d'origine ne sont pas dans le dépôt. Le dossier
