@@ -32,11 +32,17 @@ Caractéristiques globales :
 - **I/O disque** : pilote *trackdisk* maison (MFM brut, sync `$4489`, sans
   trackdisk.device), capable de lire des disquettes au format propriétaire
   Mindscape ; voir §6.4.
-- **Décompression** : trois algorithmes distincts sont présents dans `program.asm` :
-  - **RNC ProPack type 1** (`LAB_0190`) — utilisé pour `music.cmp` / `vmusic.cmp` (Huffman + magic `$524E4301`)
-  - **LZSS** (`LAB_049C`) — utilisé pour les sprites `.cel` (fenêtre 2 Ko, longueur 2..34 octets)
-  - **Bitplane RLE** (`LAB_0448` / `SECSTRT_21`) — utilisé pour les décors `.stile` (opcodes 2 bits)
-  Les fonds d'écran `.PIV` Mindscape (magic `0x0005`/`0x0004`) utilisent un format **propriétaire** dont le body est compressé avec le même **LZSS** (`LAB_049C`) que les sprites `.cel`. `LAB_0434` (PackBits) gère une variante IFF/ILBM non utilisée par les fichiers de jeu observés.
+- **Décompression** : deux algorithmes servent aux fichiers du jeu (audit de
+  libmoon_assets contre les décodeurs vérifiés du portage, `tests/lib_audit.c`) :
+  - **RNC** (`Unpack_Rnc1`, `LAB_0190`) — `music.cmp` / `vmusic.cmp` : en-tête de 12 octets
+    (`"RNC\x01"`, taille décompressée, taille compressée ; pas de CRC), flux de bits lu
+    **à rebours**, sans Huffman
+  - **LZSS** (`LAB_049C` / `LAB_0CC2`) — sprites `.cel`/`.ob`/`.c`/`.f`, fonds `.PIV` et `.p`,
+    terrains `.t` (précédés d'un long : taille compressée)
+  Les fichiers `.stile` ne sont **pas compressés** : 960 octets lus tels quels (carte de
+  tuiles, un mot par case). Le codeur à bits `LAB_0408`, le RLE `Unpack_StileRle`
+  (`LAB_0448`) et la variante IFF/PackBits (`LAB_0434`) sont du code mort (blocs jamais
+  atteints) ; la bibliothèque ne les implémente plus.
   Les fichiers `.CEL` sont des sprites propriétaires avec en-tête décrit en §10.16.
 - **Pas d'auto-modification de code** identifiée (à confirmer pour les
   patchs de copper list / blitter list construits dynamiquement, qui ne
@@ -462,14 +468,14 @@ Les fichiers `.cel` contiennent les sprites des personnages/créatures ; les fic
 | `bg7.PIV` | 13 969 | `0004 0000` | Fond PIV Mindscape — 4 plans (16 couleurs) | ✅ Oui | LZSS → `LAB_049C` |
 | `bg8.PIV` | 13 194 | `0005 0000` | Fond PIV Mindscape — 5 plans | ✅ Oui | LZSS → `LAB_049C` |
 | `bold.f` | 12 133 | `004c 0000` | Police bitmap Mindscape — 0x4c=76 glyphes | ✅ Probable | LZSS → `LAB_049C` (même famille que `.cel`) |
-| `co.stile` | 960 | `0000 0000` | Tileset décor (combat) | ✅ Oui | Bitplane RLE 2 bits → `LAB_0448` |
+| `co.stile` | 960 | `0000 0000` | Tileset décor (combat) | ✅ Oui | Brut (carte de tuiles, mots) → `LAB_0185` |
 | `co1.cel` | 8 652 | `0019 0000` | Sprite CEL Mindscape — 0x19=25 frames | ✅ Oui | LZSS → `LAB_049C` |
 | `Crystal` | 17 424 | `0000 03f3` | Amiga Hunk overlay (Crystal engine?) | ❌ Non | binaire brut |
 | `da1.cel` | 4 440 | `0034 0000` | Sprite CEL Mindscape — 0x34=52 frames | ✅ Oui | LZSS → `LAB_049C` |
 | `dg1.cel` | 22 377 | `0037 0000` | Sprite CEL Mindscape — 0x37=55 frames | ✅ Oui | LZSS → `LAB_049C` |
 | `dw1.cel` | 17 820 | `0035 0000` | Sprite CEL Mindscape — 0x35=53 frames | ✅ Oui | LZSS → `LAB_049C` |
 | `ha1.cel` | 11 898 | `0016 0000` | Sprite CEL Mindscape — 0x16=22 frames | ✅ Oui | LZSS → `LAB_049C` |
-| `intro.stile` | 960 | `0000 0001` | Tileset décor (intro) | ✅ Oui | Bitplane RLE 2 bits → `LAB_0448` |
+| `intro.stile` | 960 | `0000 0001` | Tileset décor (intro) | ✅ Oui | Brut (carte de tuiles, mots) → `LAB_0185` |
 | `iraosx` | — | — | Outil macOS (désassembleur IRA v2.11) | N/A | hors jeu |
 | `Klift1.CEL` | 12 927 | `0037 0000` | Sprite CEL Mindscape — 0x37=55 frames | ✅ Oui | LZSS → `LAB_049C` |
 | `kn1.ob` | 5 | `6c697374` (`"list"`) | Sprite objet chevalier — stub/résidu de développement (5 octets : `"list"` + 1 octet) ; le format .ob complet est identique au format CEL (voir §6.2.3). Les .ob réels en jeu sont chargés par `LAB_0496`/`LAB_0CBB` avec LZSS. | ❌ Non (stub) | Format CEL identique → LZSS `LAB_049C` |
@@ -477,18 +483,18 @@ Les fichiers `.cel` contiennent les sprites des personnages/créatures ; les fic
 | `message.piv` | 3 694 | `0004 0000` | Message PIV Mindscape — 4 plans | ✅ Oui | LZSS → `LAB_049C` |
 | `mindscape` | 16 473 | `0005 0000` | Logo splash PIV Mindscape — 5 plans | ✅ Oui | LZSS → `LAB_049C` |
 | `mog` | 172 260 | `0000 03f3` | Amiga Hunk overlay (jeu interactif) | ❌ Non | binaire brut |
-| `music.cmp` | 88 187 | `524e4301` (`"RNC\x01"`) | Module SoundTracker compressé RNC | ✅ Oui | RNC ProPack 1 → `LAB_0190` |
+| `music.cmp` | 88 187 | `524e4301` (`"RNC\x01"`) | Module SoundTracker compressé RNC | ✅ Oui | RNC (`Unpack_Rnc1`) → `LAB_0190` |
 | `nb` | 15 732 | `0000 03f3` | Amiga Hunk bootstrap — trackloader + couche HAL hardware (§6.6) | ❌ Non | binaire brut |
 | `ov1.cel` | 11 357 | `0004 0000` | Sprite CEL Mindscape — 0x04=4 frames | ✅ Oui | LZSS → `LAB_049C` |
 | `program` | 60 472 | `0000 03f3` | Amiga Hunk principal (intro + loader) | ❌ Non | binaire brut |
-| `vmusic.cmp` | 60 994 | `524e4301` (`"RNC\x01"`) | Module SoundTracker compressé RNC | ✅ Oui | RNC ProPack 1 → `LAB_0190` |
+| `vmusic.cmp` | 60 994 | `524e4301` (`"RNC\x01"`) | Module SoundTracker compressé RNC | ✅ Oui | RNC (`Unpack_Rnc1`) → `LAB_0190` |
 
 **Notes sur les formats :**
 
 - **Magic `0000 03f3`** = magic Amiga Hunk (exécutable/overlay AmigaOS). Ces fichiers sont chargés par le loader hunk de `program` (`SECSTRT_4`) et exécutés directement en mémoire chip/fast — **aucune décompression**.
 - **Magic `005x 0000` / `001x 0000`** = en-tête propriétaire Mindscape CEL. Le premier mot (`word[0]`) encode le nombre de frames de l'animation. Format **non standard** (pas IFF). Compressé en LZSS frame par frame.
 - **Magic `0005 0000` / `0004 0000`** (fichiers `.PIV`) = en-tête propriétaire Mindscape PIV. Le premier mot encode le **nombre de plans** (4 ou 5). Format **non IFF**. Le body est compressé en **LZSS** (`LAB_049C`) — même algorithme que les sprites `.cel`. Une image 320×200×5 plans non compressée ferait ~40 000 octets ; les tailles observées (11–28 Ko) confirment la compression.
-- **Magic `524e4301`** = `"RNC\x01"` = signature RNC ProPack type 1 sans ambiguïté. Header 18 octets (taille décompressée, taille compressée, CRC16).
+- **Magic `524e4301`** = `"RNC\x01"`. Header de 12 octets (magic, taille décompressée, taille compressée), sans CRC ; décodé par `Unpack_Rnc1` (flux lu à rebours, pas de Huffman).
 - **`kn1.ob`** (5 octets, `"list"`) = stub ou résidu de développement — ce fichier est trop petit pour être un asset valide. Le **format .ob complet** (utilisé en jeu) est identique au format `.cel` : en-tête 10 octets (`word` frame_count + deux `long`) + table de frames (`frame_count × 10` octets) + corps LZSS. Confirmé par `LAB_0496` (`program.asm`, lignes 8596–8650) et `LAB_0CBB` (`mog.asm`) qui utilisent exactement le même décodeur que les sprites `.cel`.
 
 #### 6.2.5 Cycling palette — `SECSTRT_31`
@@ -962,7 +968,7 @@ Total estimé en BSS : ≈ 4 Kio + bitmap en `S_27`/`S_30`.
 
 | Extension | Format réel | Magic identifier | Compressé | Décompresseur | Taille raw vs compressée |
 |-----------|-------------|-----------------|-----------|---------------|--------------------------|
-| `.cmp` | RNC ProPack 1 | `524e4301` ("RNC\x01") | ✅ Oui | `LAB_0190` ([program.asm#L3617](program.asm#L3617)) | ~88 Ko → ~140 Ko (music) |
+| `.cmp` | RNC (`Unpack_Rnc1`) | `524e4301` ("RNC\x01") | ✅ Oui | `LAB_0190` ([program.asm#L3617](program.asm#L3617)) | ~88 Ko → ~140 Ko (music) |
 | `.cel` / `.CEL` | CEL Mindscape propriétaire | `word[0]` = nb frames | ✅ Oui | `LAB_049C` LZSS ([program.asm#L9210](program.asm#L9210)) | ratio ~0.4..0.6 selon sprite |
 | `.stile` | Tileset RLE bitplane | `0000 0000`/`0001` | ✅ Oui | `LAB_0448` / `SECSTRT_21` ([program.asm#L7923](program.asm#L7923)) | 960 octets (petit dataset) |
 | `.PIV` / `.piv` | PIV Mindscape propriétaire | `word[0]` = nb plans (4 ou 5) | ✅ Oui | `LAB_049C` LZSS ([program.asm#L9210](program.asm#L9210)) | ~11–28 Ko vs ~40 Ko raw |
@@ -977,13 +983,13 @@ Total estimé en BSS : ≈ 4 Kio + bitmap en `S_27`/`S_30`.
 - **RNC ProPack** (musique) : outil standard Amiga très répandu en 1992, excellent ratio sur données séquentielles comme les modules tracker.
 - **LZSS** (sprites **et fonds PIV**) : compromis vitesse/ratio adapté aux données pixel avec beaucoup de répétitions locales ; décodage rapide sans table. Utilisé aussi bien pour les `.cel` que pour les `.PIV` custom Mindscape.
 - **RLE bitplane** (décors) : exploite la nature bitplane des tiles — les plans nuls ou constants se compressent à 2 bits par ligne, gains importants sur les grandes zones vides de décor.
-- **IFF/ILBM + PackBits** (`LAB_0434`) : présent dans le code pour une variante PIV IFF non utilisée par les fichiers de jeu observés.
+- **IFF/ILBM + PackBits** (`LAB_0434`) : code mort (jamais atteint) ; aucun fichier du jeu n'est au format IFF.
 
 ### 8.3 Impact pour le portage
 
 - `music.cmp` / `vmusic.cmp` : décompresser avec un décodeur RNC1 standard (bibliothèques disponibles) avant chargement du module tracker.
 - `*.cel` : décompresser via le port de `LAB_049C` (LZSS, ~60 lignes ASM → ~30 lignes C).
-- `*.stile` : décompresser via le port de `LAB_0448` (RLE 2 bits, ~80 lignes ASM).
+- `*.stile` : aucune décompression, lire les 960 octets (carte de tuiles, mots big-endian).
 - `*.PIV` : décompresser le body via le port de `LAB_049C` (LZSS, même décodeur que les `.cel`) — `moon_lzss_decompress` dans `libmoon_assets`.
 - `*.ob` : décoder comme un sprite CEL (même format — en-tête 10 octets + table de frames + body LZSS) → `moon_ob_load` dans `libmoon_assets`.
 
@@ -1594,10 +1600,12 @@ Les rencontres spéciales sont déclenchées lors du passage sur un nœud de la 
 
 #### Décompresseur RNC — `LAB_0190` ([program.asm#L3617](program.asm#L3617))
 
-Les fichiers `music.cmp` et `vmusic.cmp` sont compressés avec **RNC ProPack type 1** (Rob Northen) :
+Les fichiers `music.cmp` et `vmusic.cmp` sont compressés par **RNC** (Rob Northen) :
 - Magic : `$524E4301` = « RNC\x01 »
-- Structure : header 18 octets (magic + taille décompressée + taille compressée + CRC + …) + données Huffman
-- Décompresseur : `LAB_0190`…`LAB_01B5` = implémentation complète du décodeur RNC1 avec 3 tables Huffman
+- Structure : header 12 octets (magic + taille décompressée + taille compressée), pas de CRC
+- Décompresseur : `LAB_0190`…`LAB_01B5` (`Unpack_Rnc1`) : flux de bits lu à rebours, sortie écrite
+  à rebours, sans Huffman (tables fixes `LAB_019F`, `LAB_01A0`, `LAB_01A8`, `L08_008B3`,
+  `LAB_01B0`, `LAB_01B1`) ; porté dans `libmoon_assets/src/rnc1.c`
 
 #### Décompresseur LZSS — `LAB_049C` ([program.asm#L9210](program.asm#L9210))
 
@@ -2179,7 +2187,7 @@ Le portage ne doit **jamais nécessiter de convertir les fichiers originaux** en
 ```
 libmoon_assets
 ├── Décompression in-memory
-│   ├── RNC ProPack 1   → music.cmp, vmusic.cmp
+│   ├── RNC (Unpack_Rnc1) → music.cmp, vmusic.cmp
 │   ├── LZSS Mindscape  → *.cel, *.CEL, *.ob, bold.f
 │   └── RLE 2-bit       → *.stile
 ├── Parsing de format
@@ -2307,10 +2315,9 @@ Chaque décompresseur est isolé dans son propre fichier source sans dépendance
 
 | Fichier source | Algorithme | Référence ASM | Taille estimée |
 |---------------|------------|---------------|----------------|
-| `rnc1.c` | RNC ProPack 1 (Huffman + LZ) | `LAB_0190` | ~150 lignes C |
-| `lzss_cel.c` | LZSS Mindscape (fenêtre 2 Ko, longueur 2..34) | `LAB_049C` | ~60 lignes C |
-| `rle_stile.c` | RLE 2 bits (opcodes `00`/`01`/`10`/`11`) | `LAB_0448` | ~80 lignes C |
-| `packbits_piv.c` | PIV Mindscape : LZSS pour le format custom (body via `LAB_049C`) + PackBits IFF (`LAB_0434`) | `LAB_049C` / `LAB_0434` | ~150 lignes C |
+| `rnc1.c` | RNC (`Unpack_Rnc1` : flux à rebours, sans Huffman) | `LAB_0190` | ~150 lignes C |
+| `lzss_cel.c` | LZSS Mindscape (fenêtre 2 Ko, longueur 3..34) | `LAB_049C` | ~60 lignes C |
+| `piv.c` | PIV Mindscape : en-tête, palette (bit 15), corps LZSS | `LAB_0402` / `LAB_0C27` | ~90 lignes C |
 
 Chacun expose une fonction `int decompress_xxx(const uint8_t *src, size_t src_len, uint8_t *dst, size_t dst_len)` retournant les octets écrits ou `-1` en cas d'erreur.
 
@@ -2342,7 +2349,6 @@ Construite **au-dessus de `libmoon_assets`**, cette suite d'utilitaires en ligne
 | `moon-info <fichier>` | Afficher métadonnées (magic, format, nb frames, taille compressée/décompressée) | texte |
 | `moon-view-cel <fichier.cel> [frame]` | Rendre une frame CEL en ASCII-art ou PNG | PNG / terminal |
 | `moon-view-piv <fichier.PIV>` | Décoder et afficher un fond d'écran | PNG |
-| `moon-view-stile <fichier.stile>` | Afficher les tuiles décompressées | PNG |
 | `moon-dump <fichier> <out.bin>` | Décompresser brut vers fichier binaire | fichier |
 | `moon-palette <fichier.PIV>` | Afficher la palette en hexa + swatches ANSI | texte |
 | `moon-mod-info <fichier.cmp>` | Afficher les métadonnées du module (BPM, instruments, patterns) | texte |
@@ -2378,8 +2384,8 @@ Décompressé : 88187 → 141320 octets (RNC1)
 |-------|-----------|-------------|----------------------|
 | 1 | `rnc1.c` | aucune | `moon-dump music.cmp` produit un MOD jouable |
 | 2 | `lzss_cel.c` | aucune | `moon-view-cel au1.cel 0` produit la bonne image |
-| 3 | `packbits_piv.c` | aucune | `moon-view-piv bg1a.PIV` ≡ capture WinUAE |
-| 4 | `rle_stile.c` | aucune | tiles visibles dans `moon-view-stile` |
+| 3 | `piv.c` | aucune | `moon-view-piv bg1a.PIV` ≡ capture WinUAE |
+| 4 | `tests/lib_audit.c` | étapes 1–3 | chaque fichier identique aux décodeurs vérifiés du portage |
 | 5 | `libmoon_assets` | étapes 1–4 | API complète + cache + `moon-info` fonctionnel |
 | 6 | Renderer planar | libmoon_assets + SDL2 | affichage d'un fond PIV + sprite CEL superposé |
 | 7 | Player audio | libmoon_assets + SDL2 audio | musique jouée en boucle |

@@ -46,45 +46,34 @@ static void inspect_file(const char *path)
     printf("File    : %s  (%ld bytes)\n", path, sz);
 
     if (nread >= 4 && be32(hdr) == 0x524E4301u) {
-        /* RNC ProPack type 1 */
+        /* RNC, Unpack_Rnc1 of program: 12-byte header */
         uint32_t uncomp = (nread >= 8)  ? be32(hdr + 4) : 0;
         uint32_t comp   = (nread >= 12) ? be32(hdr + 8) : 0;
-        uint8_t  chunks = (nread >= 18) ? hdr[17] : 0;
         float    ratio  = (comp > 0) ? (float)uncomp / (float)comp : 0.0f;
-        printf("Format  : CMP — RNC ProPack type 1\n");
-        printf("Algo    : Huffman + LZ back-references (LAB_0190)\n");
+        printf("Format  : CMP — RNC (\"RNC\\x01\", 12-byte header)\n");
+        printf("Algo    : backward bit stream, literals + matches (LAB_0190)\n");
         printf("Packed  : %u bytes → %u bytes (ratio %.2f)\n",
                comp, uncomp, ratio);
-        printf("Chunks  : %u\n", (unsigned)chunks);
-    } else if (nread >= 4 && be32(hdr) == 0x464F524Du) {
-        /* IFF/ILBM */
-        uint32_t form_id = (nread >= 12) ? be32(hdr + 8) : 0;
-        printf("Format  : IFF/ILBM background image (PIV)\n");
-        printf("Algo    : PackBits per-row (ByteRun1)\n");
-        if (form_id == 0x494C424Du)
-            printf("Sub-form: ILBM (interleaved bitmap)\n");
-        else
-            printf("Sub-form: 0x%08X\n", form_id);
-    } else if (nread >= 2 && (be16(hdr) == 0x0004 || be16(hdr) == 0x0005)) {
-        /* Custom Mindscape PIV */
+    } else if (nread >= 6 && (be16(hdr) == 0x0004 || be16(hdr) == 0x0005)) {
+        /* Mindscape PIV (also the .p pictures) */
         int planes = (int)be16(hdr);
-        printf("Format  : PIV Mindscape proprietary background\n");
-        printf("Algo    : PackBits maison (LAB_0434)\n");
+        printf("Format  : PIV Mindscape background (320x200)\n");
+        printf("Algo    : LZSS (LAB_0402 / LAB_0C27)\n");
         printf("Planes  : %d (%d colours)\n", planes, 1 << planes);
-        printf("Raw     : ~%d bytes → ratio ~0.52\n", 320 * 200 * planes / 8);
-    } else if (nread >= 6) {
-        /* CEL / .f font — check for reasonable frame count + data offset */
+        printf("Packed  : %u bytes → %d bytes\n", be32(hdr + 2), 8000 * planes);
+    } else if (nread >= 10) {
+        /* CEL / .ob / .c / .f — frame count, packed size, unpacked bits */
         uint16_t frame_count = be16(hdr);
-        uint32_t data_offset = be32(hdr + 2);
-        if (frame_count > 0 && frame_count < 512 &&
-            data_offset > 6 && (long)data_offset < sz) {
+        uint32_t packed = be32(hdr + 2);
+        long data_offset = 10 + 10L * frame_count;
+        if (frame_count > 0 && data_offset + (long)packed <= sz) {
             printf("Format  : CEL Mindscape sprite sheet\n");
             printf("Algo    : LZSS (window 2 KB, len 3..34) — LAB_049C\n");
             printf("Frames  : %u\n", (unsigned)frame_count);
-            printf("CompOff : 0x%04X (%u)\n",
-                   (unsigned)data_offset, (unsigned)data_offset);
+            printf("Packed  : %u bytes at 0x%04lX → %u bytes\n",
+                   packed, data_offset, be32(hdr + 6) >> 3);
         } else {
-            printf("Format  : Unknown / OB raw data\n");
+            printf("Format  : Unknown / raw data\n");
             printf("Magic   : %02X %02X %02X %02X ...\n",
                    hdr[0], hdr[1], hdr[2], hdr[3]);
         }

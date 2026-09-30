@@ -17,7 +17,6 @@ add_moon_tool(moon-dump     moon_dump.c)
 add_moon_tool(moon-palette  moon_palette.c)
 add_moon_tool(moon-view-cel moon_view_cel.c)
 add_moon_tool(moon-view-piv moon_view_piv.c)
-add_moon_tool(moon-view-stile moon_view_stile.c)
 add_moon_tool(moon-mod-info  moon_mod_info.c)
 add_moon_tool(moon-view-test moon_view_test.c)
 
@@ -43,7 +42,6 @@ endif()
 
 install(TARGETS
     moon-info moon-dump moon-palette
-    moon-view-cel moon-view-piv moon-view-stile moon-mod-info
     moon-view-test moon-anim-dw1 moon-anim-viewer
     RUNTIME DESTINATION bin
 )

@@ -30,8 +30,6 @@ add_library(moon_assets STATIC
     src/terrain.c
     src/rnc1.c
     src/lzss_cel.c
-    src/rle_stile.c
-    src/packbits_piv.c
 )
 
 target_include_directories(moon_assets

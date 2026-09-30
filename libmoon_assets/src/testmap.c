@@ -5,18 +5,18 @@
  * Each image starts immediately after the previous one.  The start of each
  * image is identified by its 2-byte plane-count magic word (0x0004 or
  * 0x0005), followed by a 4-byte compressed-body length, then the palette,
- * then the compressed bitstream (LAB_0408 algorithm).
+ * then the LZSS body (see piv.c).
  *
  * Layout of a single Mindscape-PIV within the container:
  *   +0  word  plane_count   (4 or 5; used as magic to locate next image)
  *   +2  long  comp_size     compressed body size in bytes
  *   +6  ...   palette       32 bytes (4 planes) or 64 bytes (5 planes)
- *   +6+palette_bytes  ...   LAB_0408 compressed bitstream (comp_size bytes)
+ *   +6+palette_bytes  ...   LZSS body (comp_size bytes)
  *
  * Total image size = 6 + palette_bytes + comp_size.
  *
  * Reference: mog.asm LAB_013A (loader), LAB_0142 (PIV#8 = overworld map),
- *            packbits_piv.c (LAB_0C21 / moon_piv_load_from_buffer).
+ *            piv.c (LAB_0C27 / moon_piv_load_from_buffer).
  */
 
 #include "moon_private.h"

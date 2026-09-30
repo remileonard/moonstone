@@ -5,9 +5,12 @@
  * the combat arena layout for a given terrain type.  They are LZSS
  * compressed (same algorithm as .cel and .piv files).
  *
+ * File layout: [packed size: uint32_be] [LZSS stream: packed size bytes]
+ *
  * Loading procedure mirrors mog.asm LAB_0A6D (lines 19091–19118):
  *
- *   1. Load the raw file and LZSS-decompress it into a working buffer.
+ *   1. Read the packed size, then LZSS-decompress the stream that follows
+ *      into a working buffer.
  *
  *   2. Read the obstacle count (uint16_be at offset 0).
  *
@@ -58,15 +61,18 @@ MoonTerrain *moon_terrain_load(const char *name)
     if (!raw)
         return NULL;
 
-    /* Decompress the LZSS payload.  The entire file is the LZSS stream
-     * (no extra header, matching the LAB_0CC0 loader). */
-    uint8_t *decomp = (uint8_t *)malloc(TERRAIN_DECOMP_MAX);
-    if (!decomp) {
+    /* A long gives the packed size; the LZSS stream follows (LAB_0A6D) */
+    uint32_t packed = raw_len < 4 ? 0 :
+        ((uint32_t)raw[0] << 24) | ((uint32_t)raw[1] << 16) |
+        ((uint32_t)raw[2] << 8) | raw[3];
+    uint8_t *decomp = (uint8_t *)calloc(1, TERRAIN_DECOMP_MAX);
+    if (!decomp || raw_len < 4 || packed > raw_len - 4) {
+        free(decomp);
         free(raw);
         return NULL;
     }
 
-    int decomp_len = moon_lzss_decompress(raw, raw_len, decomp,
+    int decomp_len = moon_lzss_decompress(raw + 4, packed, decomp,
                                           TERRAIN_DECOMP_MAX);
     free(raw);
 

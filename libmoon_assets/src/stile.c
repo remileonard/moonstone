@@ -1,8 +1,10 @@
 /*
- * stile.c — STILE tilemap loader for libmoon_assets.
+ * stile.c — STILE tile map loader for libmoon_assets.
  *
- * STILE files store tile bitmap data compressed with a 2-bit RLE scheme
- * (LAB_0448 in program.asm).  The decompressor is in rle_stile.c.
+ * A .stile file (intro.stile, co.stile) is not compressed: its 960 bytes
+ * are read as they are (LAB_0185 in program.asm reads up to 1000 bytes
+ * with LAB_03B2 and decodes nothing) and hold a map of big-endian tile numbers, one word per
+ * tile, used by the intro's vertical scroll (LAB_05A5).
  */
 
 #include "moon_private.h"
@@ -19,29 +21,21 @@ MoonStile *moon_stile_load(const char *name)
     if (!buf)
         return NULL;
 
-    /* Stile files have a small header; the compressed data follows directly */
-    size_t decomp_max = len * 8 + 4096; /* RLE can expand significantly */
-    uint8_t *data = (uint8_t *)calloc(1, decomp_max);
-    if (!data) {
+    MoonStile *stile = (MoonStile *)calloc(1, sizeof(MoonStile));
+    if (!stile) {
         free(buf);
         return NULL;
     }
-
-    int written = moon_rle_stile_decompress(buf, len, data, decomp_max);
-    free(buf);
-    if (written < 0) {
-        free(data);
-        return NULL;
-    }
-
-    MoonStile *stile = (MoonStile *)calloc(1, sizeof(MoonStile));
-    if (!stile) {
-        free(data);
-        return NULL;
-    }
-    stile->size = (size_t)written;
-    stile->data = data;
+    stile->size = len;
+    stile->data = buf;
     return stile;
+}
+
+uint16_t moon_stile_tile(const MoonStile *stile, size_t index)
+{
+    if (!stile || index * 2 + 1 >= stile->size)
+        return 0;
+    return (uint16_t)(stile->data[index * 2] << 8 | stile->data[index * 2 + 1]);
 }
 
 void moon_stile_free(MoonStile *stile)

@@ -7,7 +7,8 @@
  * Global header (10 bytes):
  *   word[0]   = frame_count  (number of animation frames)
  *   long[2..5]= compressed pixel data size (bytes)
- *   long[6..9]= reserved
+ *   long[6..9]= decompressed pixel data size, in bits (LAB_0CB6 reserves
+ *               (size >> 3) + 0x168 bytes for the pixels)
  *
  * frames × (per-frame-header, 10 bytes each):
  *     long  = offset_from_data_start (byte offset into decompressed pixel data)
@@ -20,7 +21,8 @@
  *
  * After the frame table, the LZSS-compressed pixel data begins as a single
  * stream; the per-frame offsets index into the decompressed output.
- * Pixel data is planar, up to 5 planes, interleaved row-by-row.
+ * Pixel data is planar, up to 5 planes, one plane after the other.
+ * A frame whose plane mask is 0 has no pixels (nothing is drawn).
  */
 
 #include "moon_private.h"
@@ -38,13 +40,12 @@ MoonCel *cel_decode(const uint8_t *buf, size_t len)
         return NULL;
 
     /*
-     * Global header (10 bytes, program.asm lines 8596-8604):
+     * Global header (10 bytes, LAB_0CBB in mog.asm):
      *   word[0..1]  = frame_count
      *   long[2..5]  = compressed pixel data size (bytes)
-     *   long[6..9]  = reserved / unknown
+     *   long[6..9]  = decompressed pixel data size (bits)
      *
-     * Frame table starts at offset 10; each entry is 10 bytes
-     * (MULU #$000a,D0 at lines 8606/8638/8645/8663/8690):
+     * Frame table starts at offset 10; each entry is 10 bytes:
      *   long [0..3] = pixel_data_offset (into decompressed pixel buffer)
      *   word [4..5] = width  (pixels)
      *   word [6..7] = height (rows)
@@ -56,25 +57,20 @@ MoonCel *cel_decode(const uint8_t *buf, size_t len)
     uint16_t frame_count = (uint16_t)((buf[0] << 8) | buf[1]);
     uint32_t comp_size   = ((uint32_t)buf[2] << 24) | ((uint32_t)buf[3] << 16) |
                            ((uint32_t)buf[4] <<  8) |  (uint32_t)buf[5];
+    uint32_t pix_bits    = ((uint32_t)buf[6] << 24) | ((uint32_t)buf[7] << 16) |
+                           ((uint32_t)buf[8] <<  8) |  (uint32_t)buf[9];
 
     if (frame_count == 0)
         return NULL;
 
-    /* Validate frame table fits in file */
     size_t frame_table_end = (size_t)10 + (size_t)frame_count * 10;
-    if (frame_table_end > len)
+    if (frame_table_end > len || comp_size > len - frame_table_end)
         return NULL;
-
-    /* Locate compressed data */
     const uint8_t *comp_data = buf + frame_table_end;
-    size_t comp_avail = len - frame_table_end;
-    if (comp_size > (uint32_t)comp_avail)
-        comp_size = (uint32_t)comp_avail;   /* clamp to available bytes */
 
-    /* Estimate decompressed size: actual size is stored in comp_size but
-     * that is the COMPRESSED size; decompressed can be up to ~4× larger. */
-    size_t decomp_max = (size_t)comp_size * 4 + 65536;
-    uint8_t *pixels = (uint8_t *)malloc(decomp_max);
+    /* The original reserves (bits >> 3) + 0x168 bytes (LAB_0CB6) */
+    size_t decomp_max = (size_t)(pix_bits >> 3) + 0x168;
+    uint8_t *pixels = (uint8_t *)calloc(1, decomp_max);
     if (!pixels)
         return NULL;
 
@@ -104,25 +100,20 @@ MoonCel *cel_decode(const uint8_t *buf, size_t len)
                                ((uint32_t)m[2] <<  8) |  (uint32_t)m[3];
         uint16_t w           = (uint16_t)((m[4] << 8) | m[5]);
         uint16_t h           = (uint16_t)((m[6] << 8) | m[7]);
-        uint8_t  toggle_flags = m[8];   /* bit 0 = draw toggle */
-        uint8_t  planes_mask  = m[9];   /* bit n = bitplane n active */
 
         MoonCelFrame *f = &cel->frames[i];
         f->width      = w;
         f->height     = h;
-        f->draw_flags = toggle_flags;
-        f->minterm    = 0;   /* not stored in this format */
+        f->draw_flags = m[8];   /* bit 0 = draw toggle */
+        f->plane_mask = m[9];   /* bit n = bitplane n active */
+        f->offset     = frame_off;
+        f->minterm    = 0;      /* not stored in this format */
 
-        /*
-         * Count active bitplanes from the mask (bits 0..4 checked by
-         * LAB_04AB: LSR.W #1,D6; BCS.S LAB_04AC; DBF D7,LAB_04AB).
-         */
-        {
-            int p = 0;
-            for (int b = 0; b < 5; b++)
-                if (planes_mask & (1u << b)) p++;
-            f->planes = (p >= 1 && p <= 5) ? (uint8_t)p : 5;
-        }
+        /* Active bitplanes: bits 0..4 of the mask (LAB_04AB); 0 = none */
+        int p = 0;
+        for (int b = 0; b < 5; b++)
+            if (f->plane_mask & (1u << b)) p++;
+        f->planes = (uint8_t)p;
 
         /* Row stride per plane, word-aligned */
         int row_bytes  = ((w + 15) / 16) * 2;

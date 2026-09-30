@@ -54,47 +54,35 @@ int main(int argc, char *argv[])
     const char *algo = "unknown";
 
     if ((size_t)src_len >= 4 && be32(src) == 0x524E4301u) {
-        /* RNC ProPack 1 */
+        /* RNC (Unpack_Rnc1 of program) */
         uint32_t uncomp_size = be32(src + 4);
         size_t   dst_cap     = (size_t)uncomp_size + 16;
         dst = (uint8_t *)malloc(dst_cap);
         if (!dst) { free(src); return 1; }
         dst_len = moon_rnc1_decompress(src, (size_t)src_len, dst, dst_cap);
-        algo = "RNC ProPack type 1";
-    } else if ((size_t)src_len >= 4 && be32(src) == 0x464F524Du) {
-        /* IFF/ILBM — dump raw body only (PackBits decompressed) */
-        /* For simplicity, dump the entire raw BODY if found */
-        /* A more complete tool would parse the ILBM and dump the bitmap */
-        fprintf(stderr, "IFF/ILBM: use moon-view-piv to visualise. Dumping as-is.\n");
-        dst = src; src = NULL;
-        dst_len = (int)src_len;
-        algo = "IFF/ILBM (raw)";
-    } else if ((size_t)src_len >= 2 && (be16(src) == 0x0004 || be16(src) == 0x0005)) {
-        /* Custom PIV — decompress PackBits body */
+        algo = "RNC (Unpack_Rnc1)";
+    } else if ((size_t)src_len >= 6 && (be16(src) == 0x0004 || be16(src) == 0x0005)) {
+        /* PIV / .p: header, palette, LZSS body (piv.c) */
         int planes = (int)be16(src);
-        int pal_words = (planes == 4) ? 16 : 32;
-        size_t body_offset = 4 + (size_t)pal_words * 2;
-        if ((size_t)src_len > body_offset) {
-            const uint8_t *body = src + body_offset;
-            size_t body_len = (size_t)src_len - body_offset;
-            size_t dst_cap  = 320 * 200 * planes / 8 + 64;
-            dst = (uint8_t *)malloc(dst_cap);
+        size_t body_offset = 6 + (size_t)(planes == 4 ? 16 : 32) * 2;
+        uint32_t body_len = be32(src + 2);
+        if ((size_t)src_len >= body_offset && body_len <= (size_t)src_len - body_offset) {
+            size_t dst_cap = (size_t)planes * 8000;
+            dst = (uint8_t *)calloc(1, dst_cap);
             if (!dst) { free(src); return 1; }
-            dst_len = moon_packbits_decompress(body, body_len, dst, dst_cap);
+            dst_len = moon_lzss_decompress(src + body_offset, body_len, dst, dst_cap);
         }
-        algo = "PIV PackBits";
+        algo = "PIV LZSS";
     } else {
-        /* CEL / unknown — try LZSS */
-        /* For CEL files, skip the header and decompress the data section */
-        if ((size_t)src_len >= 6) {
-            uint32_t data_offset = be32(src + 2);
-            if (data_offset < (size_t)src_len) {
-                const uint8_t *comp = src + data_offset;
-                size_t comp_len = (size_t)src_len - data_offset;
-                size_t dst_cap  = comp_len * 4 + 65536;
-                dst = (uint8_t *)malloc(dst_cap);
+        /* CEL: 10-byte header, frame table, LZSS pixels (cel.c) */
+        if ((size_t)src_len >= 10) {
+            size_t data_offset = 10 + (size_t)be16(src) * 10;
+            uint32_t comp_len = be32(src + 2);
+            if (data_offset <= (size_t)src_len && comp_len <= (size_t)src_len - data_offset) {
+                size_t dst_cap = (size_t)(be32(src + 6) >> 3) + 0x168;
+                dst = (uint8_t *)calloc(1, dst_cap);
                 if (!dst) { free(src); return 1; }
-                dst_len = moon_lzss_decompress(comp, comp_len, dst, dst_cap);
+                dst_len = moon_lzss_decompress(src + data_offset, comp_len, dst, dst_cap);
                 algo = "CEL LZSS";
             }
         }

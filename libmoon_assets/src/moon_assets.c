@@ -4,7 +4,7 @@
  * Implements moon_init, moon_shutdown, and moon_file_read.
  * Format-specific loaders are in their own files:
  *   cel.c    — CEL sprite sheets
- *   piv.c    — PIV background bitmaps (decoder in packbits_piv.c)
+ *   piv.c    — PIV background bitmaps
  *   stile.c  — STILE tile maps
  *   mod.c    — MOD / CMP ProTracker modules
  *   ob.c     — OB character sprite sheets

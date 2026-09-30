@@ -8,11 +8,11 @@
  * Références (portage) :
  *   LZSS         mog_unpack (LAB_0CC2 / Unpack_Lzss)
  *   CEL, OB, .c  mog_load_cel (LAB_0CBB)
- *   PIV          LAB_0402 / LAB_0C27 : en-tête, palette (bit 15), LZSS
+ *   PIV, .p      LAB_0402 / LAB_0C27 : en-tête, palette (bit 15), LZSS
  *   Test         PIV à la suite (LAB_013A)
  *   RNC (.cmp)   prog_rnc_unpack (Unpack_Rnc1 de program)
  *   MOD          octets décompressés, lus comme le lecteur (LAB_0061)
- *   stile        1000 octets bruts (LAB_0185 : LAB_03B2 sans décodage)
+ *   stile        octets bruts (LAB_0185 : LAB_03B2 sans décodage)
  *   terrain .t   LAB_0A6D : long taille, LZSS, obstacles, objets
  *   .a           octets bruts (LAB_0AB5)
  *   collide.hit  mog_load_hit_cel (Col_LoadHitData)
@@ -132,7 +132,6 @@ static void audit_cel(const char *name)
         return;
     }
     char why[256] = "";
-    int empty = 0;
     if ((uint16_t)c->frame_count != n)
         snprintf(why, sizeof why, "frames : bib %d, réf %u", c->frame_count, n);
     for (int i = 0; !*why && i < c->frame_count; i++) {
@@ -149,9 +148,7 @@ static void audit_cel(const char *name)
                      f->width, f->height, w, h);
         else if (f->draw_flags != fl)
             snprintf(why, sizeof why, "frame %d : octet 8 bib %02X, réf %02X", i, f->draw_flags, fl);
-        else if (!mask && f->planes == 5)
-            empty++;                                    /* frame sans plan */
-        else if (f->planes != planes)
+        else if (f->planes != planes || f->plane_mask != mask || f->offset != off)
             snprintf(why, sizeof why, "frame %d : plans bib %u, réf %d (masque %02X)", i,
                      f->planes, planes, mask);
         else {
@@ -161,9 +158,6 @@ static void audit_cel(const char *name)
                 snprintf(why, sizeof why, "frame %d : pixels différents à l'octet %ld / %zu", i, d, sz);
         }
     }
-    if (!*why && empty)
-        snprintf(why, sizeof why, "%d frame(s) sans plan (masque 0) : la bibliothèque compte 5 "
-                 "plans, l'original aucun (rien n'est dessiné)", empty);
     verdict("CEL", name, !*why, "%s", why);
     moon_cel_free(c);
 }
@@ -345,12 +339,15 @@ static void audit_stile(const char *name)
     uint8_t *raw = moon_file_read(name, &len);
     MoonStile *s = moon_stile_load(name);
     char why[256] = "";
-    size_t n = len < 1000 ? len : 1000;
     if (!s)
         snprintf(why, sizeof why, "bibliothèque : échec du chargement");
-    else if (s->size < n || memcmp(s->data, raw, n))
-        snprintf(why, sizeof why, "bib : %zu octets décodés (RLE) ; l'original lit %zu octets bruts "
-                 "(carte de tuiles, mots)", s->size, n);
+    else if (s->size != len || memcmp(s->data, raw, len))
+        snprintf(why, sizeof why, "bib : %zu octets ; l'original lit les %zu octets bruts "
+                 "(carte de tuiles, mots)", s->size, len);
+    else
+        for (size_t i = 0; !*why && i < len / 2; i++)
+            if (moon_stile_tile(s, i) != be16(raw + 2 * i))
+                snprintf(why, sizeof why, "tuile %zu différente", i);
     verdict("STILE", name, !*why, "%s", why);
     moon_stile_free(s);
     free(raw);
@@ -527,10 +524,10 @@ int main(int argc, char **argv)
 
     for (int i = 0; i < n; i++) {
         const char *nm = names[i];
-        if (ext_is(nm, "cel") || ext_is(nm, "ob") || ext_is(nm, "c") || ext_is(nm, "p")
+        if (ext_is(nm, "cel") || ext_is(nm, "ob") || ext_is(nm, "c")
             || ext_is(nm, "f") || ext_is(nm, "font"))
             audit_cel(nm);
-        else if (ext_is(nm, "piv"))
+        else if (ext_is(nm, "piv") || ext_is(nm, "p"))
             audit_piv(nm);
         else if (ext_is(nm, "cmp"))
             audit_cmp(nm);
@@ -552,7 +549,7 @@ int main(int argc, char **argv)
     /* flux LZSS seuls : le corps de chaque CEL */
     for (int i = 0; i < n; i++)
         if (ext_is(names[i], "cel") || ext_is(names[i], "ob") || ext_is(names[i], "c")
-            || ext_is(names[i], "p") || ext_is(names[i], "f") || ext_is(names[i], "font")) {
+            || ext_is(names[i], "f") || ext_is(names[i], "font")) {
             size_t len;
             uint8_t *raw = moon_file_read(names[i], &len);
             if (raw && len > 10) {

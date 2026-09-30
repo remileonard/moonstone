@@ -33,7 +33,7 @@ static uint32_t amiga_to_argb(uint16_t c)
 /* Extract pixel index from planar bitmap.
  *
  * Pixel data is stored plane-sequential (matching the Amiga hardware
- * layout and the LAB_0408 / LAB_043A output):
+ * layout and the LZSS output of LAB_0402 / LAB_0C27):
  *   bitplane 0: rows 0..height-1  (byte 0 .. row_bytes*height-1)
  *   bitplane 1: rows 0..height-1  (next row_bytes*height bytes)
  *   …

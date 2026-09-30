@@ -1,78 +1,60 @@
 /*
- * lzss_cel.c — Mindscape LZSS decompressor for .cel / .f files
+ * lzss_cel.c — Mindscape LZSS decompressor (.cel, .ob, .c, .f, .PIV, .t)
  *
- * Ported from LAB_049C in program.asm (Moonstone, Mindscape 1991).
+ * Port of LAB_049C in program.asm / LAB_0CC2 in mog.asm (Moonstone,
+ * Mindscape 1991).
  *
  * Algorithm:
- *   Read a control byte (8 bits, processed MSB-first).
- *   For each bit in the control byte:
+ *   Read a control byte; its 8 bits (MSB first) announce 8 tokens.
+ *   The end of the input is tested before each token.
  *     0 → literal: copy 1 byte from input to output.
- *     1 → back-reference:
- *           Read 2 bytes B1 and B2.
- *           offset = ((B1 & 0x07) << 8) | B2   (11-bit window offset, 1-based)
- *           length = 34 - (B1 >> 3)             (3..34 bytes)
- *           Copy `length` bytes from output[-offset] to output.
+ *     1 → back-reference: read the big-endian word W;
+ *           offset = W & 0x7FF, length = 34 - (W >> 11)  (3..34 bytes);
+ *           copy `length` bytes, one at a time, from output - offset.
  *
- * Input format:
- *   The source buffer contains:
- *     word[0]  = frame_count (big-endian)  -- CEL header, consumed by caller
- *     long[1]  = data_offset               -- CEL header, consumed by caller
- *     ...      = the LZSS stream
- *
- * This function operates on the raw LZSS stream (after any headers are
- * stripped by the caller).
+ * The original writes straight into memory: a back-reference may reach
+ * bytes that precede the output (moon_lzss_decompress_window gives them),
+ * and offset 0 copies each byte onto itself (the output keeps what it
+ * held).
  */
 
 #include "moon_assets.h"
 
+int moon_lzss_decompress_window(const uint8_t *src, size_t src_len,
+                                uint8_t *buf, size_t start, size_t buf_len)
+{
+    const uint8_t *p   = src;
+    const uint8_t *end = src + src_len;
+    size_t         out = start;
+
+    if (start > buf_len)
+        return -1;
+    while (p < end) {
+        uint8_t ctrl = *p++;
+        for (int bits = 0; bits < 8 && p < end; bits++, ctrl <<= 1) {
+            if (!(ctrl & 0x80)) {
+                if (out >= buf_len)
+                    return -1;
+                buf[out++] = *p++;
+                continue;
+            }
+            if (p + 2 > end)
+                return -1;
+            unsigned w      = (unsigned)p[0] << 8 | p[1];
+            size_t   offset = w & 0x7FF;
+            size_t   length = 34 - (w >> 11);
+            p += 2;
+            if (offset > out || out + length > buf_len)
+                return -1;
+            for (size_t i = 0; i < length; i++, out++)
+                buf[out] = buf[out - offset];
+        }
+    }
+    return (int)(out - start);
+}
+
 int moon_lzss_decompress(const uint8_t *src, size_t src_len,
                          uint8_t *dst, size_t dst_len)
 {
-    const uint8_t *src_end = src + src_len;
-    uint8_t       *out     = dst;
-    uint8_t       *out_end = dst + dst_len;
-    const uint8_t *p       = src;
-
-    while (p < src_end && out < out_end) {
-        /* Read control byte — 8 flags, processed MSB first */
-        uint8_t ctrl = *p++;
-        int     bits = 8;
-
-        while (bits-- > 0 && p < src_end && out < out_end) {
-            if (ctrl & 0x80) {
-                /* Back-reference */
-                if (p + 2 > src_end)
-                    return -1;
-
-                uint8_t b1 = *p++;
-                uint8_t b2 = *p++;
-
-                int offset = ((b1 & 0x07) << 8) | b2;  /* 11-bit, 0-based */
-                int length = 34 - (b1 >> 3);            /* 3..34 bytes */
-
-                if (offset == 0) {
-                    /* offset 0: fill with current output byte (uncommon) */
-                    if (out == dst)
-                        return -1;
-                    uint8_t fill = *(out - 1);
-                    for (int i = 0; i < length && out < out_end; i++)
-                        *out++ = fill;
-                } else {
-                    /* Normal back-reference */
-                    if (out - dst < offset)
-                        return -1;  /* back-ref before start of output */
-                    uint8_t *back = out - offset;
-                    for (int i = 0; i < length && out < out_end; i++)
-                        *out++ = back[i];
-                }
-            } else {
-                /* Literal byte */
-                *out++ = *p++;
-            }
-
-            ctrl <<= 1;
-        }
-    }
-
-    return (int)(out - dst);
+    return moon_lzss_decompress_window(src, src_len, dst, 0, dst_len);
 }

@@ -508,6 +508,9 @@ python3 tools/prog_lockstep.py <données> --scene intro
 # la fin (partie gagnée : EXT_0007 = $80 | chevalier | lieu), sans jouer
 python3 tools/prog_lockstep.py <données> --scene intro --flags 0x91
 build/tests/prog_intro_shot <données> <préfixe> 100 [0x91]
+
+# libmoon_assets contre les décodeurs du portage, fichier par fichier
+build/tests/lib_audit <données>
 ```
 
 Les fichiers du jeu d'origine ne sont pas dans le dépôt. Le dossier
@@ -530,12 +533,38 @@ Les fichiers du jeu d'origine ne sont pas dans le dépôt. Le dossier
 | `tools/*check.py`, `tools/*lockstep.py` | comparaisons (§3, §4, §7 bis, §8 bis) |
 | `tests/mog_run.c`, `tests/prog_run.c` | côté C des comparaisons |
 | `tests/mog_game_shot.c`, `tests/prog_intro_shot.c` | jeu et intro sans écran (PNG, WAV) |
+| `libmoon_assets/` | lecture des fichiers du jeu (CEL, PIV et `.p`, LZSS, RNC, MOD, stile, `.t`, `.a`, collide.hit) |
+| `tests/lib_audit.c` | audit de la bibliothèque : chaque fichier comparé aux décodeurs du portage (§10 bis) |
 
 L'ancienne version non fidèle (moteur de rendu et d'entités à part,
 modules par lieu) est supprimée. Les documents d'analyse écrits pour elle
 (`DOC_MODE_OVERWORLD.md`, `DOC_MODE_COMBAT.md`,
 `DOC_ANIMATIONS_INTRO_FIN.md`, `DOC_COMPARAISON_ASM_C.md`) restent pour
 leur lecture de l'assembleur ; la référence est désormais le code porté.
+
+### 10 bis. libmoon_assets
+
+La bibliothèque lit les formats du jeu hors de la mémoire émulée.
+`tests/lib_audit.c` la compare, fichier par fichier, aux décodeurs du
+portage (eux-mêmes vérifiés contre l'original) : les 221 vérifications
+sont identiques. L'audit a corrigé :
+
+- CEL : une frame de masque 0 n'a aucun plan (et non 5) ; la taille des
+  pixels vient de l'en-tête (+6, en bits, comme `LAB_0CB6`) ; masque et
+  décalage de chaque frame sont exposés ;
+- LZSS : décalage 0 fidèle (l'octet est recopié sur lui-même), fenêtre
+  avant la sortie (`moon_lzss_decompress_window`) ;
+- `.p` : ce sont des PIV (`LAB_0C27`), pas des CEL ;
+- terrain `.t` : un long (taille compressée) précède le flux LZSS ;
+- RNC `.cmp` : décodeur remplacé par `Unpack_Rnc1` de program (en-tête de
+  12 octets, flux lu à rebours) ; les MOD se chargent ;
+- stile : pas de compression, carte de tuiles brute (`moon_stile_tile`) ;
+- collide.hit : les 14 sprites sont lus (fin de section `99`), chiffres
+  lus comme `LAB_03D8` / `LAB_03D9` (maximum signé).
+
+Code mort retiré (blocs jamais atteints de l'original) : le codeur à bits
+`LAB_0408`, le RLE `Unpack_StileRle` (`LAB_0448`), la variante IFF/PackBits
+(`LAB_0434`) et l'outil `moon-view-stile` qui s'appuyait sur ce RLE.
 
 ---
 

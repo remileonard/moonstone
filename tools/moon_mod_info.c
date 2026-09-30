@@ -132,7 +132,7 @@ int main(int argc, char *argv[])
         buf[2] == 'C'  && buf[3] == 0x01) {
         uint32_t uncomp = ((uint32_t)buf[4]<<24)|((uint32_t)buf[5]<<16)|
                           ((uint32_t)buf[6]<<8)|(uint32_t)buf[7];
-        printf("Compressed: RNC ProPack 1  (%ld → %u bytes)\n", sz, uncomp);
+        printf("Compressed: RNC (Unpack_Rnc1)  (%ld → %u bytes)\n", sz, uncomp);
         mod_size = (size_t)uncomp + 16;
         mod_data = (uint8_t *)malloc(mod_size);
         if (mod_data) {
