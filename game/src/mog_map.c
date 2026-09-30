@@ -48,19 +48,19 @@ static void set_planes(MogCombat *m, uint32_t d0)
 static void copy_screen(MogCombat *m, uint32_t a0, uint32_t a1)
 {
     MogBlitter *b = &m->blt;
-    wl(m, MOG_LAB_0424, a0);
-    wl(m, MOG_LAB_0425, a1);
+    wl(m, MOG_v_CopySrc, a0);
+    wl(m, MOG_v_CopyDst, a1);
     for (int p = 0; p < 5; p++) {
-        b->apt = rl(m, MOG_LAB_0424);
-        b->dpt = rl(m, MOG_LAB_0425);
+        b->apt = rl(m, MOG_v_CopySrc);
+        b->dpt = rl(m, MOG_v_CopyDst);
         b->amod = 0;
         b->dmod = 0;
         b->afwm = b->alwm = 0xFFFF;
         b->con0 = 0x09F0;
         b->con1 = 0;
         mog_blitter_run(VM, b, 0x3214);
-        wl(m, MOG_LAB_0424, rl(m, MOG_LAB_0424) + 0x1F40);
-        wl(m, MOG_LAB_0425, rl(m, MOG_LAB_0425) + 0x1F40);
+        wl(m, MOG_v_CopySrc, rl(m, MOG_v_CopySrc) + 0x1F40);
+        wl(m, MOG_v_CopyDst, rl(m, MOG_v_CopyDst) + 0x1F40);
     }
 }
 
@@ -68,8 +68,8 @@ static void copy_screen(MogCombat *m, uint32_t a0, uint32_t a1)
 static void clear_keys(MogCombat *m)
 {
     for (uint32_t i = 0; i < 128; i++)
-        wb(m, MOG_LAB_0B91 + i, 0);
-    ww(m, MOG_SECSTRT_21, 0);
+        wb(m, MOG_t_KeysDown + i, 0);
+    ww(m, MOG_v_KeyPressed, 0);
 }
 
 
@@ -95,7 +95,7 @@ static uint16_t cell_index(MogCombat *m)
     knight_cell(m);
     uint32_t a0 = CUR;
     uint16_t d1 = (uint16_t)(rw(m, a0 + 68) * 40 + rw(m, a0 + 66));
-    ww(m, MOG_LAB_0E21, d1);
+    ww(m, MOG_v_CellIndex, d1);
     return d1;
 }
 
@@ -111,29 +111,29 @@ static void cell_place(MogCombat *m)
 static void icon_size(MogCombat *m, uint16_t d0)
 {
     uint32_t e = rl(m, MOG_b_MapIcons) + (uint32_t)(int32_t)sw((uint16_t)(d0 * 10));
-    ww(m, MOG_LAB_05AE, rw(m, e + 14));
-    ww(m, MOG_LAB_05AF, rw(m, e + 16));
+    ww(m, MOG_v_IconW, rw(m, e + 14));
+    ww(m, MOG_v_IconH, rw(m, e + 16));
 }
 
 /* LAB_0067 : l'icône d0 en (d1, d2) recouvre-t-elle celle du chevalier
  * (icône 0) en (d3, d4) ? Renvoie D5 (2 : oui). */
 static int overlap(MogCombat *m, uint16_t d0, uint16_t d1, uint16_t d2, uint16_t d3, uint16_t d4)
 {
-    ww(m, MOG_LAB_05B2, d0);
-    ww(m, MOG_LAB_05B3, d1);
-    ww(m, MOG_LAB_05B4, d2);
-    ww(m, MOG_LAB_05B5, d3);
-    ww(m, MOG_LAB_05B6, d4);
+    ww(m, MOG_v_OverlapIcon, d0);
+    ww(m, MOG_v_OverlapX, d1);
+    ww(m, MOG_v_OverlapY, d2);
+    ww(m, MOG_v_OverlapKnightX, d3);
+    ww(m, MOG_v_OverlapKnightY, d4);
     icon_size(m, d0);
-    ww(m, MOG_LAB_05B0, rw(m, MOG_LAB_05AF));
-    ww(m, MOG_LAB_05B1, rw(m, MOG_LAB_05AE));
+    ww(m, MOG_v_OtherIconH, rw(m, MOG_v_IconH));
+    ww(m, MOG_v_OtherIconW, rw(m, MOG_v_IconW));
     icon_size(m, 0);
     int d5 = 0;
-    uint16_t a = rw(m, MOG_LAB_05B5), b = rw(m, MOG_LAB_05B3);
-    d5 += mog_span(b, (uint16_t)(b + rw(m, MOG_LAB_05B1)), a, (uint16_t)(a + rw(m, MOG_LAB_05AE)));
+    uint16_t a = rw(m, MOG_v_OverlapKnightX), b = rw(m, MOG_v_OverlapX);
+    d5 += mog_span(b, (uint16_t)(b + rw(m, MOG_v_OtherIconW)), a, (uint16_t)(a + rw(m, MOG_v_IconW)));
     if (d5) {
-        uint16_t c = rw(m, MOG_LAB_05B4), d = rw(m, MOG_LAB_05B6);
-        d5 += mog_span(c, (uint16_t)(c + rw(m, MOG_LAB_05B0)), d, (uint16_t)(d + rw(m, MOG_LAB_05AF)));
+        uint16_t c = rw(m, MOG_v_OverlapY), d = rw(m, MOG_v_OverlapKnightY);
+        d5 += mog_span(c, (uint16_t)(c + rw(m, MOG_v_OtherIconH)), d, (uint16_t)(d + rw(m, MOG_v_IconH)));
     }
     return d5;
 }
@@ -256,17 +256,17 @@ static void move_knight(MogCombat *m)
 /* LAB_0DD8 : case lente (LAB_08FA) : une image sur 2^n sans mouvement */
 static void terrain_slow(MogCombat *m)
 {
-    ww(m, MOG_L36_008E4, 0);
+    ww(m, MOG_v_CellSlowSkip, 0);
     if (rw(m, MOG_v_BootsOn) || rw(m, MOG_v_Boots2On))
         return;
     uint16_t d1 = cell_index(m);
     int8_t d7 = (int8_t)rb(m, MOG_t_CellSlow + (uint32_t)(int32_t)sw(d1));
     if (!d7)
         return;
-    uint16_t c = (uint16_t)(rw(m, MOG_LAB_0DDA) + 1);
-    ww(m, MOG_LAB_0DDA, c);
+    uint16_t c = (uint16_t)(rw(m, MOG_v_CellSlowCount) + 1);
+    ww(m, MOG_v_CellSlowCount, c);
     if (c & (uint16_t)d7)
-        ww(m, MOG_L36_008E4, 1);
+        ww(m, MOG_v_CellSlowSkip, 1);
 }
 
 /* ------------------------------------------------------------------ */
@@ -344,7 +344,7 @@ static void map_colours_off(MogCombat *m)
 {
     if (rw(m, MOG_v_MapColoursOn)) {
         wl(m, rl(m, MOG_v_WaterGlow), 0);                  /* LAB_0E59 */
-        wl(m, rl(m, MOG_LAB_0DDE), 0);
+        wl(m, rl(m, MOG_v_MapCycle), 0);
         ww(m, MOG_v_MapColoursOn, 0);
     }
     wl(m, MOG_v_PalFadeTarget, MOG_t_PalBlack);                /* LAB_03F0 */
@@ -359,13 +359,13 @@ static void map_colours_off(MogCombat *m)
 static void map_colours_on(MogCombat *m)
 {
     if (!rw(m, MOG_v_MapColoursOn)) {
-        wl(m, MOG_v_PalFadeTarget, MOG_LAB_0D2B);            /* LAB_03F2 */
+        wl(m, MOG_v_PalFadeTarget, MOG_t_PivPalette);            /* LAB_03F2 */
         ww(m, MOG_v_PalFadeDelay, 2);
         ww(m, MOG_v_PalFadeCount, 2);
         mog_wait_vbls(m, 0x24);
         ww(m, MOG_v_MapColoursOn, 1);
         wl(m, MOG_v_WaterGlow, mog_glow(VM, 0x1F, 0xFF, 1, 0));
-        wl(m, MOG_LAB_0DDE, mog_cycle(VM, 0x15, 0x17, 1, 0x18));
+        wl(m, MOG_v_MapCycle, mog_cycle(VM, 0x15, 0x17, 1, 0x18));
     }
     if (!rw(m, MOG_v_DragonFlying))
         mog_map_dragon(m);                              /* LAB_0DCB */
@@ -385,7 +385,7 @@ void mog_map_dragon(MogCombat *m)
     if ((int8_t)rb(m, d + 73) < 0)
         return;
     mog_reset_entities(m);                              /* LAB_0305 */
-    wl(m, MOG_t_Controllers + 40, MOG_LAB_0DCF);
+    wl(m, MOG_t_Controllers + 40, MOG_Ctl_MapDragon);
     for (uint32_t i = 0; i < 5; i++)
         wl(m, MOG_t_BankMapDragon + 4 * i, rl(m, MOG_b_MapIcons));
     ww(m, d + 4, 0x0A);
@@ -399,7 +399,7 @@ void mog_map_dragon(MogCombat *m)
     uint32_t script = rl(m, MOG_t_DragonMapScripts);
     ix_start_entity(&m->eng, script, d, MOG_t_BankMapDragon, sw(rw(m, script + 4)),
                     sw(rw(m, script + 6)), sw(rw(m, script + 8)), 3, 0x28);
-    ww(m, MOG_LAB_0DDC, 2);
+    ww(m, MOG_v_DragonMapPhase, 2);
     ww(m, MOG_v_DragonDiveTimer, 0x64);
     ww(m, MOG_v_DragonFlying, 1);
     uint32_t k;
@@ -418,14 +418,14 @@ int mog_map_dragon_ctl(MogCombat *m, uint32_t a0, CtlResult *out)
     ww(m, MOG_v_DragonDiveTimer, (uint16_t)t);
     if (t < 0)
         ww(m, MOG_v_DragonDiveTimer, 0x64);
-    uint16_t dx = rw(m, MOG_LAB_0DDC);
+    uint16_t dx = rw(m, MOG_v_DragonMapPhase);
     if (!(sw(rw(m, MOG_v_DragonDiveTimer)) > 0x3C)) {
         ww(m, a0 + 4, (uint16_t)(rw(m, a0 + 4) + dx));
         *out = mog_set_script(m, MOG_x_DragonMapDive);
         return 1;
     }
     ww(m, a0 + 4, (uint16_t)(rw(m, a0 + 4) + dx));
-    uint16_t d5 = rw(m, MOG_L36_008E8);
+    uint16_t d5 = rw(m, MOG_v_DragonMapDir);
     uint32_t prey = rl(m, MOG_v_DragonObj + 100);
     int16_t d0 = sw(rw(m, prey + 128)), y = sw(rw(m, a0 + 8));
     if (d0 != y) {
@@ -436,12 +436,12 @@ int mog_map_dragon_ctl(MogCombat *m, uint32_t a0, CtlResult *out)
     if (sw(rw(m, a0 + 4)) > 0x15E) {                    /* LAB_0DD3 */
         ww(m, a0 + 4, 0x159);
         wb(m, a0 + 10, rb(m, a0 + 10) ^ 2);
-        ww(m, MOG_LAB_0DDC, (uint16_t)-rw(m, MOG_LAB_0DDC));
+        ww(m, MOG_v_DragonMapPhase, (uint16_t)-rw(m, MOG_v_DragonMapPhase));
     }
     if (!(sw(rw(m, a0 + 4)) > -20)) {
         ww(m, a0 + 4, 0xFFF6);
         wb(m, a0 + 10, rb(m, a0 + 10) ^ 2);
-        ww(m, MOG_LAB_0DDC, (uint16_t)-rw(m, MOG_LAB_0DDC));
+        ww(m, MOG_v_DragonMapPhase, (uint16_t)-rw(m, MOG_v_DragonMapPhase));
     }
     if (sw(rw(m, a0 + 8)) > 0xC8)                       /* LAB_0DD5 */
         ww(m, a0 + 8, 0);
@@ -601,7 +601,7 @@ void mog_loot(MogCombat *m, uint32_t a0, uint32_t a1)
     }
     uint32_t a2 = rl(m, a1 + 96), a3 = rl(m, a0 + 96);
     if (rb(m, a1 + 73)) {                               /* vivant : un objet */
-        for (uint32_t a4 = MOG_LAB_0028;; a4 += 2) {    /* LAB_001E */
+        for (uint32_t a4 = MOG_t_LootSlots;; a4 += 2) {    /* LAB_001E */
             uint16_t d0 = rw(m, a4);
             if (d0 == 0xFFFF)
                 break;
@@ -625,7 +625,7 @@ void mog_loot(MogCombat *m, uint32_t a0, uint32_t a1)
             ww(m, a1 + 74, d0);
         }
     } else {                                            /* à terre : tout */
-        for (uint32_t a4 = MOG_LAB_0028;; a4 += 2) {    /* LAB_0023 */
+        for (uint32_t a4 = MOG_t_LootSlots;; a4 += 2) {    /* LAB_0023 */
             uint16_t d0 = rw(m, a4);
             if (d0 == 0xFFFF)
                 break;
@@ -909,13 +909,13 @@ static int flee(MogCombat *m)
     uint32_t a2 = rl(m, MOG_v_PalCurrent);                  /* LAB_03EB */
     for (int i = 0; i < 33; i++)
         ww(m, a2 + 2u * (unsigned)i, 0);
-    ww(m, MOG_LAB_053B, 0xFFFF);
+    ww(m, MOG_v_UsedItem, 0xFFFF);
     uint32_t k = rl(m, MOG_v_Combatants);
     wl(m, MOG_v_Combatants, rl(m, MOG_v_Combatants + 4));
     mog_screen_run(m, 9);                               /* LAB_04CF */
     wl(m, MOG_v_Combatants, k);
     int d0 = 0;
-    if (rw(m, MOG_LAB_053B) == 0x12) {
+    if (rw(m, MOG_v_UsedItem) == 0x12) {
         d0 = 1;
         if (rw(m, MOG_v_ReversedOn)) {
             d0 = 0;
@@ -965,9 +965,9 @@ static int pvp(MogCombat *m, uint32_t a0, uint32_t a1)
             wb(m, a1 + 11, port);
         }
         before_combat(m);                               /* LAB_0065 */
-        mog_encounter_init(m, MOG_LAB_0164);
+        mog_encounter_init(m, MOG_Enc_EnemyKnight);
         mog_combat_run(m);
-        ww(m, MOG_LAB_05AD, 0);
+        ww(m, MOG_v_CombatantsSwapped, 0);
         a0 = rl(m, MOG_v_Combatants);
         a1 = rl(m, MOG_v_Combatants + 4);
         if (rb(m, MOG_v_KnightsDown) == 3) {                 /* LAB_0055 : les deux à terre */
@@ -977,7 +977,7 @@ static int pvp(MogCombat *m, uint32_t a0, uint32_t a1)
             return 0;
         }
         if (rb(m, MOG_v_KnightsDown) & 1) {                  /* le premier à terre */
-            ww(m, MOG_LAB_05AD, 1);
+            ww(m, MOG_v_CombatantsSwapped, 1);
             wl(m, MOG_v_Combatants + 4, a0);
             wl(m, MOG_v_Combatants, a1);
             a0 = rl(m, MOG_v_Combatants);
@@ -991,7 +991,7 @@ static int pvp(MogCombat *m, uint32_t a0, uint32_t a1)
         return 0;
     }
     mog_screen_run(m, 1);                               /* LAB_04CF */
-    if (rw(m, MOG_LAB_05AD)) {
+    if (rw(m, MOG_v_CombatantsSwapped)) {
         uint32_t d0 = rl(m, MOG_v_Combatants);
         wl(m, MOG_v_Combatants, rl(m, MOG_v_Combatants + 4));
         wl(m, MOG_v_Combatants + 4, d0);
@@ -1125,10 +1125,10 @@ static int places_fire(MogCombat *m)
             mog_swap_screens(m);                        /* LAB_0416 */
             for (;;) {                                  /* LAB_0E40 */
                 mog_idle(m);            /* rendez-vous, temps qui passe */
-                uint16_t key = rw(m, MOG_SECSTRT_21);
+                uint16_t key = rw(m, MOG_v_KeyPressed);
                 if (!key)
                     continue;
-                uint8_t c = rb(m, MOG_LAB_0D99 + key);  /* LAB_0D8D */
+                uint8_t c = rb(m, MOG_t_KeyChars + key);  /* LAB_0D8D */
                 if (c < '1' || c > '9')
                     continue;
                 a2 = MOG_t_PlacesReached + (uint32_t)(c - '1') * 8;
@@ -1162,7 +1162,7 @@ static int dragon_attack(MogCombat *m)
     if (rl(m, a0 + 54) == 4) {
         wb(m, a0 + 73, (uint8_t)(rb(m, a0 + 73) - 1));
     } else if (!rb(m, a0 + 82) && rb(m, a0 + 73)) {
-        mog_encounter_init(m, MOG_LAB_0192);
+        mog_encounter_init(m, MOG_Enc_Dragon);
         mog_combat_run(m);
         lost = rb(m, MOG_v_KnightsDown) & 1;
     }
@@ -1434,7 +1434,7 @@ static void random_event(MogCombat *m)
  * sort (130) : une vie de moins */
 static void black_knights_events(MogCombat *m)
 {
-    wl(m, MOG_LAB_0035, rl(m, MOG_v_CurObj));
+    wl(m, MOG_v_EventKnight, rl(m, MOG_v_CurObj));
     uint32_t a0 = MOG_t_KnightObjects;
     for (int i = 0; i < 4; i++, a0 += IX_OBJECT_SIZE) {
         if (rl(m, a0 + 54) == 4) {
@@ -1449,7 +1449,7 @@ static void black_knights_events(MogCombat *m)
         if (rb(m, a0 + 130))
             wb(m, a0 + 73, (uint8_t)(rb(m, a0 + 73) - 1));
     }
-    wl(m, MOG_v_CurObj, rl(m, MOG_LAB_0035));
+    wl(m, MOG_v_CurObj, rl(m, MOG_v_EventKnight));
 }
 
 /* LAB_0029 : nouvelle manche (saison tous les 4 jours), PV regagnés */
@@ -1489,19 +1489,19 @@ static void next_day_screen(MogCombat *m)
     uint32_t a2 = rl(m, MOG_v_PalCurrent);                  /* LAB_03EB */
     for (int i = 0; i < 33; i++)
         ww(m, a2 + 2u * (unsigned)i, 0);
-    mog_clear_screen(m, rl(m, MOG_SECSTRT_35));
-    mog_set_planes(m, rl(m, MOG_SECSTRT_35));
-    uint32_t src = rl(m, MOG_t_FastBuffers + 56), dst = rl(m, MOG_LAB_0D92);
+    mog_clear_screen(m, rl(m, MOG_v_ShowPlanes));
+    mog_set_planes(m, rl(m, MOG_v_ShowPlanes));
+    uint32_t src = rl(m, MOG_t_FastBuffers + 56), dst = rl(m, MOG_v_DrawPlanes);
     for (uint32_t i = 0; i < 0x25F7; i++)
         wb(m, dst + i, rb(m, src + i));
-    mog_piv_decode(m, rl(m, MOG_LAB_0D92));
+    mog_piv_decode(m, rl(m, MOG_v_DrawPlanes));
     wl(m, MOG_v_Combatants + 10, rl(m, MOG_t_FontBank + 16));
     mog_text_records(m, MOG_t_NextDayText);
     uint16_t d0 = rw(m, MOG_v_Combatants + 18);
     ww(m, MOG_v_BlitByCpu, 1);
     mog_draw_cel(VM, &m->blt, rl(m, MOG_t_BankMap + 4), d0, 0x77, 0x0C);
     ww(m, MOG_v_BlitByCpu, 0);
-    mog_fade_to(m, MOG_LAB_0D2B);
+    mog_fade_to(m, MOG_t_PivPalette);
 }
 
 /* LAB_00EE : lecture des joysticks ; renvoie le port 1 (D1) */
@@ -1532,20 +1532,20 @@ void mog_message_screen(MogCombat *m, uint32_t a0, int dim)
     uint32_t a2 = rl(m, MOG_v_PalCurrent);                  /* LAB_03EB */
     for (int i = 0; i < 33; i++)
         ww(m, a2 + 2u * (unsigned)i, 0);
-    mog_clear_screen(m, rl(m, MOG_SECSTRT_35));         /* LAB_0D72 */
-    mog_set_planes(m, rl(m, MOG_SECSTRT_35));
-    uint32_t src = rl(m, MOG_t_FastBuffers + 52), dst = rl(m, MOG_LAB_0D92);
+    mog_clear_screen(m, rl(m, MOG_v_ShowPlanes));         /* LAB_0D72 */
+    mog_set_planes(m, rl(m, MOG_v_ShowPlanes));
+    uint32_t src = rl(m, MOG_t_FastBuffers + 52), dst = rl(m, MOG_v_DrawPlanes);
     for (uint32_t i = 0; i < 0xE6F; i++)
         wb(m, dst + i, rb(m, src + i));
-    mog_piv_decode(m, rl(m, MOG_LAB_0D92));             /* LAB_0C21 */
+    mog_piv_decode(m, rl(m, MOG_v_DrawPlanes));             /* LAB_0C21 */
     wl(m, MOG_v_Combatants + 10, rl(m, MOG_t_FontBank + 16));
     mog_text_records(m, rl(m, MOG_v_MessageText));           /* LAB_0432 */
     if (dim) {
         static const uint16_t c[6] = { 0x800, 0x600, 0x400, 0, 0x200, 0x100 };
         for (uint32_t i = 0; i < 6; i++)
-            ww(m, MOG_LAB_0D2B + 2 + 2 * i, c[i]);
+            ww(m, MOG_t_PivPalette + 2 + 2 * i, c[i]);
     }
-    mog_fade_to(m, MOG_LAB_0D2B);                       /* LAB_03F2 */
+    mog_fade_to(m, MOG_t_PivPalette);                       /* LAB_03F2 */
 }
 
 /* ------------------------------------------------------------------ */
@@ -1563,9 +1563,9 @@ void mog_map_enter(MogCombat *m)
     mog_piv_decode(m, rl(m, MOG_b_Piv));
     draw_places(m);                                     /* LAB_0DA3 */
     draw_other_knights(m);                              /* LAB_0D9E */
-    copy_screen(m, rl(m, MOG_v_BgPlanes), rl(m, MOG_SECSTRT_35));   /* LAB_0418 */
-    copy_screen(m, rl(m, MOG_v_BgPlanes), rl(m, MOG_LAB_0D92));
-    mog_set_planes(m, rl(m, MOG_LAB_0D92));
+    copy_screen(m, rl(m, MOG_v_BgPlanes), rl(m, MOG_v_ShowPlanes));   /* LAB_0418 */
+    copy_screen(m, rl(m, MOG_v_BgPlanes), rl(m, MOG_v_DrawPlanes));
+    mog_set_planes(m, rl(m, MOG_v_DrawPlanes));
     select_knight(m);                                   /* LAB_0DBD */
     move_knight(m);                                     /* LAB_0DA6 */
     draw_current(m);                                    /* LAB_0D9B */
@@ -1636,11 +1636,11 @@ int mog_map_frame(MogCombat *m)
             return ev;
         terrain_slow(m);                                /* LAB_0DD8 */
         ww(m, MOG_v_MovesUsed, (uint16_t)(rw(m, MOG_v_MovesUsed) + 1));
-        if (!rw(m, MOG_L36_008E4))
+        if (!rw(m, MOG_v_CellSlowSkip))
             d1 = steer(m);                              /* LAB_0E0C */
     } else {
         terrain_slow(m);
-        if (!rw(m, MOG_L36_008E4)) {
+        if (!rw(m, MOG_v_CellSlowSkip)) {
             ww(m, MOG_v_Joy0, m->joy[0]);             /* LAB_00EE */
             ww(m, MOG_v_Joy1, m->joy[1]);
             d1 = m->joy[1];
@@ -1655,8 +1655,8 @@ int mog_map_frame(MogCombat *m)
             ww(m, MOG_v_MovesUsed, (uint16_t)(rw(m, MOG_v_MovesUsed) + 1));
     }
     if (!skip_keys) {                                   /* LAB_0DB1 */
-        uint16_t key = rw(m, MOG_SECSTRT_21);
-        uint8_t c = rb(m, MOG_LAB_0D99 + key);          /* LAB_0D8D */
+        uint16_t key = rw(m, MOG_v_KeyPressed);
+        uint8_t c = rb(m, MOG_t_KeyChars + key);          /* LAB_0D8D */
         if (rl(m, CUR + 54) != 4) {
             if (c == 0x20) {
                 map_colours_off(m);
@@ -1698,7 +1698,7 @@ int mog_map_frame(MogCombat *m)
     move_knight(m);                                     /* LAB_0DBC */
     draw_current(m);
     mog_swap_screens(m);
-    copy_screen(m, rl(m, MOG_v_BgPlanes), rl(m, MOG_LAB_0D92));
+    copy_screen(m, rl(m, MOG_v_BgPlanes), rl(m, MOG_v_DrawPlanes));
     mog_frame_wait(m);
     return MOG_MAP_CONTINUE;
 }

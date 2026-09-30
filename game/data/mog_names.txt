@@ -827,3 +827,326 @@ LAB_09EE    t_ExitZoneText      texte de la zone « sortie »
 LAB_09EF    t_NextKnightText    texte du bouton « chevalier suivant »
 LAB_09F0    t_ScreenPalette     palette des écrans à pointeur
 LAB_09F1    t_PanelKnightColours couleurs des chevaliers des panneaux
+
+# --- Variables et tables locales aux routines ---
+L00_06960   v_DragonSave116     Dragon : champ +116 gardé (LAB_0297)
+LAB_0295    v_DragonSave118     Dragon : champ +118 gardé
+L00_072FA   v_SoundSeqPos       position dans la suite de sons (LAB_02E9)
+L00_08671   t_BlockBits         bits de direction bloquée par obstacle
+LAB_03B6    v_AllowedDirs       directions permises (LAB_03B5)
+L00_0915A   v_ShakeCount        tremblement d'écran : secousses restantes
+L00_0915E   v_ShakePlanes       tremblement : plans décalés
+LAB_042C    v_ShakeTable        tremblement : table des décalages
+LAB_042D    v_ShakeDelay        tremblement : VBL entre deux pas
+LAB_0430    t_ShakeOffsets      décalages du tremblement (LAB_0427)
+L00_0AFE4   t_FramesLeft        cadres du panneau de gauche
+LAB_04F3    t_FramesRight       cadres du panneau de droite
+LAB_04F5    t_KnightPanelIcons  icônes fixes du panneau du chevalier
+LAB_04F6    v_StatOffset        caractéristique affichée (décalage dans l'objet)
+L00_0B042   v_StatY             Y de la ligne de caractéristique
+L00_0B85C   v_InvIconFrame      frame de l'icône d'inventaire
+LAB_0514    v_InvIconX          X de l'icône d'inventaire
+L36_008E4   v_CellSlowSkip      case lente : image sans mouvement
+LAB_0DDA    v_CellSlowCount     compteur des images en case lente
+LAB_0DDC    v_DragonMapPhase    phase du vol du dragon sur la carte
+L36_008E8   v_DragonMapDir      sens du vol du dragon
+LAB_0DDE    v_MapCycle          rotation de couleurs de la carte
+L37_00172   v_SpriteX           X du sprite placé (LAB_0E78)
+LAB_0E84    v_SpriteY           Y du sprite placé
+L40_0040C   t_MudmanSteps       pas du Mudman selon la direction
+L40_00662   t_TrollStepX        pas horizontal du Troll (LAB_0EC6)
+L44_00BEE   v_SndVoice          voie de la suite de sons en cours
+L44_00BF0   b_SndSeq0           suite de sons de la voie 0 (128 octets)
+L44_00C70   b_SndSeq1           suite de sons de la voie 1
+L44_00CF0   b_SndSeq2           suite de sons de la voie 2
+L44_00D70   b_SndSeq3           suite de sons de la voie 3
+L44_013B6   t_SndInstruments    instruments des effets (15 octets)
+LAB_0028    t_LootSlots         cases d'inventaire prises au vaincu (LAB_001C)
+LAB_0035    v_EventKnight       chevalier de l'événement de manche (gardé)
+LAB_015E    t_PassingKnightWalkInit marche initiale du chevalier de passage
+LAB_0185    t_FoeScaling        renforts des adversaires selon le niveau
+LAB_0186    v_FoeScale          renfort choisi (0-2)
+LAB_0187    t_FoeScaledKits     équipements concernés par le renfort
+LAB_0193    v_DragonPartA       première partie du Dragon (objet)
+LAB_0194    v_DragonPartB       seconde partie du Dragon
+LAB_0199    t_EntriesDragon     position d'entrée du Dragon
+LAB_01A1    v_DemonObj          objet du Démon
+LAB_01A2    v_DemonCompanionObj objet du compagnon du Démon
+LAB_01AD    v_EntryRank         rang d'entrée suivant (0-3)
+LAB_01D8    v_WalkPhase         phase de marche gardée à l'arrêt
+LAB_01EB    v_Parried           parade réussie (LAB_01E6)
+LAB_0234    v_PassingKnightToggle bascule du chevalier de passage
+LAB_024E    t_TroggWalkX        pas en X des Troggs (LAB_0236)
+LAB_024F    t_TroggWalkY        pas en Y des Troggs
+LAB_0250    t_TroggWalkDir      directions des Troggs
+LAB_02DA    v_JumpBest          meilleure distance du saut visé
+LAB_02EC    v_NativeCount       compteur des routines natives (LAB_02E8)
+LAB_02EE    t_SoundSeqA         suite de sons (LAB_02E9)
+LAB_0301    t_Trajectories      trajectoires (6 × 20 octets)
+LAB_0302    t_ThrownDamage      dégâts de l'objet lancé
+LAB_0321    v_FrameStartVbl     compteur de VBL au début de l'image
+LAB_037F    v_PhysMoved         l'entité a bougé (physique du moteur)
+LAB_0411    v_PaletteKind       genre de palette du combat (LAB_0409)
+LAB_0414    v_CombatGlow        pulsation de couleur du combat
+LAB_0424    v_CopySrc           copie d'écran : source
+LAB_0425    v_CopyDst           copie d'écran : destination
+LAB_0488    v_MasterTexts       textes choisis par le maître d'armes
+LAB_048D    t_TrainingBonus     bonus de réussite selon l'or (LAB_0489)
+LAB_04AF    v_GambleBet         mise posée (jeu de dés)
+LAB_0525    t_Knights           les quatre objets des chevaliers
+LAB_0526    v_NextKnight        chevalier suivant (0-3)
+LAB_053B    v_UsedItem          objet utilisé à l'écran (-1 aucun ; $12 fuite)
+LAB_053C    v_ScreenRedo        écran à reconstruire
+LAB_054D    t_ZoneValues        valeur des zones $1B et suivantes
+LAB_05A5    v_LowHpGlowA        pulsation des PV bas : joueur, couleur 6
+LAB_05A6    v_LowHpGlowB        couleur 7
+LAB_05A7    v_LowHpGlowC        couleur 8
+LAB_05A8    v_FoeLowHpGlowA     pulsation des PV bas : adversaire, couleur 9
+LAB_05A9    v_FoeLowHpGlowB     couleur 10
+LAB_05AA    v_FoeLowHpGlowC     couleur 11
+LAB_05AB    v_CombatStarted     combat en route (Combat_Run)
+LAB_05AC    v_CombatStartVbl    compteur de VBL au début du combat
+LAB_05AD    v_CombatantsSwapped combattants échangés (duel perdu par le premier)
+LAB_05AE    v_IconW             largeur de l'icône (LAB_0066)
+LAB_05AF    v_IconH             hauteur de l'icône
+LAB_05B0    v_OtherIconH        hauteur de l'autre icône (LAB_0067)
+LAB_05B1    v_OtherIconW        largeur de l'autre icône
+LAB_05B2    v_OverlapIcon       icône testée
+LAB_05B3    v_OverlapX          X de l'icône testée
+LAB_05B4    v_OverlapY          Y de l'icône testée
+LAB_05B5    v_OverlapKnightX    X de l'icône du chevalier
+LAB_05B6    v_OverlapKnightY    Y de l'icône du chevalier
+LAB_05B7    t_PalTown           palette de la ville
+
+# --- Points d'impact, zones, obstacles, blocs du terrain ---
+LAB_0A4D    v_HitDataEnd        fin des points d'impact rangés (LAB_03D2)
+LAB_0A4E    v_HitByCelNext      entrée libre de t_HitDataByCel
+LAB_0A4F    v_HitDataEndBase    fin des points d'impact du chevalier (remise à chaque combat)
+LAB_0A50    v_HitByCelBase      entrée libre après ceux du chevalier
+LAB_0A58    t_ZoneTemplate      zone modèle (x, y, l, h, texte, identifiant, genre, case)
+LAB_0A77    v_ObstacleX0        obstacle testé : X gauche
+LAB_0A78    v_ObstacleX1        obstacle testé : X droit
+LAB_0A79    v_TileH             bloc du terrain : hauteur
+LAB_0A7A    v_TileW             bloc du terrain : largeur
+LAB_0A7B    v_TileWCopy         largeur copiée
+LAB_0A7C    v_TileHClip         hauteur après découpe
+LAB_0A7D    v_TileSrcMod        modulo de la source (blitter A)
+LAB_0A7E    v_TileMaskMod       modulo du masque (blitter B)
+LAB_0A80    v_TileDstMod        modulo de la destination
+LAB_0A81    v_TerrainObjPos     objet du terrain suivant (décalage, SECSTRT_12)
+LAB_0A83    b_TerrainObjects    objets du terrain à dessiner (2400 octets)
+LAB_0A84    v_TileCon0B         BLTCON0 du masque
+LAB_0A85    v_TileCon1          BLTCON1 (décalage)
+LAB_0A86    v_TileSrcX          X du bloc dans la planche
+LAB_0A87    v_TileSrcY          Y du bloc dans la planche
+LAB_0A88    v_TileX             X de destination
+LAB_0A89    v_TileY             Y de destination
+LAB_0A8A    v_TileSheet         planche du bloc
+LAB_0A8B    v_TileDst           plans de destination
+LAB_0A8C    v_TileIndex         numéro du bloc
+LAB_0A8D    v_TileClip0A8D      découpe (remis à zéro)
+LAB_0A8E    v_TileSkipRows      octets sautés en haut (découpe)
+LAB_0A8F    v_TileMaskSkip      décalage dans le masque (découpe)
+LAB_0A90    v_TileClip0A90      découpe (remis à zéro)
+LAB_0A91    v_TileClip0A91      découpe (remis à zéro)
+LAB_0A92    v_TileSrcPtr        source du plan suivant
+LAB_0A93    v_TileDstPtr        destination du plan suivant
+LAB_0A94    v_TileBltSize       BLTSIZE
+LAB_0A95    v_TileFirstMask     masque du premier mot
+LAB_0A96    v_TileLastMask      masque du dernier mot
+LAB_0A97    v_TileMask          masque du bloc
+LAB_0A98    v_ObstacleMaxY      Y le plus bas des obstacles du terrain
+SECSTRT_14  b_Obstacles         obstacles du terrain (mot nombre, 8 octets chacun) ; zones des écrans
+SECSTRT_15  t_TileMasks         masques des blocs du terrain
+
+# --- Son, clavier, VBL, écrans ---
+LAB_0AA5    v_SndNextVoice      voie de l'effet suivant (0-3)
+LAB_0AA6    v_SndMuted          effets coupés
+LAB_0B91    t_KeysDown          touches enfoncées (128 octets)
+LAB_0B96    t_VblTasks          tâches de l'interruption d'image
+LAB_0C59    v_PivPlanes         plans du PIV décodé (4 ou 5)
+LAB_0D00    v_DestPlane1        plan de destination 1
+LAB_0D01    v_DestPlane2        plan de destination 2
+LAB_0D02    v_DestPlane3        plan de destination 3
+LAB_0D03    v_DestPlane4        plan de destination 4
+LAB_0D2B    t_PivPalette        palette du dernier PIV décodé
+LAB_0D92    v_DrawPlanes        plans de l'écran de dessin (tampon arrière)
+LAB_0D99    t_KeyChars          caractère de chaque code de touche
+
+# --- Pointeur, créatures, dés, son ---
+LAB_0E21    v_CellIndex         index de la case (40 par ligne)
+LAB_0E82    v_SpritePair        sprite jumeau (attaché)
+LAB_0E8C    t_SpriteData        données des 8 sprites matériels
+LAB_0E8D    v_PointerSpriteBoot données du sprite du pointeur (po.cel)
+LAB_0E8E    v_PointerSprite2Boot données du sprite jumeau
+LAB_0EB6    v_MudState          état commun des Mudmen (octet fort)
+LAB_0EC0    t_TrollSounds       sons du Troll (tirés au hasard)
+LAB_0EC1    v_TrollSoundIndex   son suivant du Troll
+LAB_0ECF    t_DemonSounds       sons du Démon (LAB_0ED0)
+LAB_0EEA    v_DemonState        état du Démon (octet fort)
+SECSTRT_41  t_KnightAiWalkX     pas en X du chevalier ordinateur
+LAB_0F36    t_KnightAiWalkY     pas en Y du chevalier ordinateur
+LAB_0F37    t_KnightAiWalkDir   directions du chevalier ordinateur
+LAB_0F38    v_KnightAiLastAtk   dernière attaque du chevalier ordinateur
+LAB_0F3A    v_AiStepX           pas en X de l'approche (LAB_0F20)
+LAB_0F3B    v_AiStepY           pas en Y de l'approche
+LAB_0F3C    v_AiStepYAlt        pas en Y de rechange
+LAB_0F3D    v_AiNear            assez près (approche)
+LAB_0F3E    v_AiWalkGroup       groupe de la table de marche (0, $20, $40)
+LAB_0F3F    v_AiArrived         approche terminée
+LAB_0F42    t_DiceWinText       texte des dés : gagné
+LAB_0F43    t_DiceLoseText      texte des dés : perdu
+LAB_0F54    x_Croupier          croupier des dés
+LAB_0F55    x_CroupierTake      croupier : prend la mise
+LAB_0F56    x_SacrificeA        sacrifice (A)
+LAB_0F57    x_SacrificeB        sacrifice (B)
+LAB_0F58    v_SacrificeDone     sacrifice fait
+LAB_0F59    v_GambleKnight      chevalier qui joue aux dés
+LAB_0F5A    t_BankDice          banque CEL des dés (dice.cel)
+LAB_0F5B    v_GambleState       état du croupier
+LAB_0F5C    v_DicePlanes        plans de l'écran des dés
+LAB_0F5D    v_GambleStep        étape du jeu de dés
+LAB_0F5E    b_DiceGoldText      or écrit (dés)
+LAB_0F5F    t_Dice              les trois dés (octets)
+LAB_0F60    v_Die2              deuxième dé
+LAB_0F61    v_Die3              troisième dé
+LAB_0F62    v_Bet               mise
+LAB_0F63    t_DiceOdds          gains selon les dés (LAB_04B4)
+SECSTRT_42  t_SacrificeMessage  message du sacrifice
+LAB_0FCA    t_SndDefault        suite de sons par défaut (fin : $FF)
+LAB_0FE1    t_SndEnvelopes      enveloppes des effets (8 octets)
+LAB_1098    t_SndPrograms       programmes des effets (n × 4)
+LAB_10A2    t_SndSilence        instrument muet
+LAB_10A3    t_SndSamplesKnight  échantillons du chevalier (kn.a ; 14 octets chacun)
+LAB_10A4    t_SndSamplesKnightEnd fin des échantillons du chevalier
+LAB_10A5    t_SndSamplesA       échantillons relogés (bloc A)
+LAB_10A6    t_SndSamplesB       échantillons relogés (bloc B)
+LAB_10A7    t_SndSamplesKnight2End fin du second bloc du chevalier
+LAB_10A8    t_SndSampleRatmen   échantillon des hommes-rats
+LAB_10A9    t_SndSampleCreature échantillon de la créature
+LAB_10AA    t_SndSampleReplay   échantillon Re.a
+LAB_10AB    t_SndSampleWizard   échantillon du magicien
+LAB_10AC    t_SndSampleCreature2 échantillon de la créature (2)
+LAB_10AD    t_SndSampleReplay2  échantillon Re.a (2)
+LAB_10AE    t_SndSampleCreature3 échantillon de la créature (3)
+SECSTRT_45  t_SndSilentSample   échantillon silencieux (AUDxLC au repos)
+SECSTRT_1   t_HpColours         trois couleurs de pulsation des PV
+SECSTRT_10  v_HitTextSize       taille du texte de collide.hit
+SECSTRT_13  v_ObstacleLimit     limite en Y des obstacles
+SECSTRT_21  v_KeyPressed        dernière touche (code)
+SECSTRT_25  v_PivData           PIV en cours de décodage
+SECSTRT_35  v_ShowPlanes        plans de l'écran montré
+SECSTRT_38  t_SpriteEmpty       sprite vide (pointeur caché)
+SECSTRT_43  b_PointerSprite     données du sprite du pointeur
+
+# --- Routines (adresses citées par le C : tables, switch des routines natives) ---
+LAB_0005    Call_FoeDown        un adversaire de moins ; le suivant entre ou le combat finit
+LAB_0006    Call_EndCombat      fin du combat dans 35 images
+LAB_00E0    Menu_CursorAnim     animation du curseur de saisie
+LAB_0116    Load_EnemyKnight    CEL du chevalier adverse (He1..He3.ob)
+LAB_0118    Load_TroggSpear     CEL des Troggs à lance
+LAB_011A    Load_TroggAxe       CEL des Troggs à hache
+LAB_011C    Load_Ratmen         CEL des hommes-rats
+LAB_011E    Load_Mudmen         CEL des Mudmen
+LAB_011F    Load_Balok          CEL de Balok
+LAB_0121    Load_Dragon         CEL du Dragon
+LAB_0123    Load_PassingKnight  CEL du chevalier de passage
+LAB_0125    Load_Demon          CEL du Démon
+LAB_0126    Load_Troll          CEL du Troll
+LAB_0164    Enc_EnemyKnight     rencontre : chevalier adverse
+LAB_0166    Kit_None            équipement / adversaire suivant : rien (RTS)
+LAB_0168    Enc_TroggAxe        rencontre : Troggs à hache
+LAB_0169    Kit_TroggA          équipement du Trogg (contrôleur $18)
+LAB_016A    Enc_TroggAxe2       rencontre : Troggs à hache (2)
+LAB_016B    Next_EntriesA       adversaire suivant (positions t_EntriesA)
+LAB_0170    Kit_TroggB          équipement du Trogg à hache (contrôleur $1C)
+LAB_0175    Enc_TroggSpear      rencontre : Troggs à lance
+LAB_0176    Kit_TroggSpear      équipement du Trogg à lance (contrôleur $20)
+LAB_0188    Enc_PassingKnights  rencontre : chevaliers de passage
+LAB_0189    Next_EntriesB       adversaire suivant (positions t_EntriesB)
+LAB_018B    Kit_PassingKnight   équipement du chevalier de passage
+LAB_018C    Enc_Ratmen          rencontre : hommes-rats
+LAB_018D    Next_EntriesC       adversaire suivant (positions t_EntriesC)
+LAB_018F    Kit_Ratmen          équipement des hommes-rats
+LAB_0192    Enc_Dragon          rencontre : Dragon
+LAB_0196    Enc_Balok           rencontre : Balok
+LAB_0197    Next_Balok          adversaire suivant (Balok)
+LAB_0198    Kit_Balok           équipement de Balok
+LAB_019A    Enc_Mudmen          rencontre : Mudmen
+LAB_019B    Next_EntriesC2      adversaire suivant (positions t_EntriesC, Mudmen)
+LAB_019D    Kit_Mudmen          équipement des Mudmen
+LAB_019E    Enc_Troll           rencontre : Troll
+LAB_019F    Kit_Troll           équipement du Troll
+LAB_01A0    Enc_Demon           rencontre : Démon
+LAB_01C8    Call_Countdown      compte à rebours 13(objet)
+LAB_01E1    React_KnightHit     le chevalier a touché (t_HitFn)
+LAB_01ED    React_Hit8          touché : attaque 8
+LAB_01EF    React_Hit4Or8       touché : attaques 4 et 8
+LAB_01F2    React_KnightHitBy   chevalier touché (parade possible)
+LAB_01F6    React_Parry         touché : parade ou 3 PV
+LAB_01F9    React_Hit20         touché : attaque $20
+LAB_01FD    React_Hit7          touché : 7 PV
+LAB_0200    React_Pushed        touché : repoussé
+LAB_0201    React_Hit30         touché : 30 PV (attaque $20)
+LAB_0203    React_Hit10         touché : 10 PV
+LAB_0205    React_HitOrDie      touché : dégâts ou mort
+LAB_0206    React_Hit5          touché : 5 PV
+LAB_020B    React_Default       réaction par défaut (LAB_020D)
+LAB_0210    Call_BackStop       fin du recul
+LAB_0211    Call_BackStep       un pas de recul
+LAB_0226    Ctl_PassingKnight   contrôleur 0 : chevalier qui traverse l'écran
+LAB_0236    Ctl_Trogg           contrôleurs 24, 28, 32 : Troggs
+LAB_0251    Ctl_Ratman          contrôleur 36 : hommes-rats
+LAB_027A    Ctl_Dragon          contrôleur 20 : Dragon
+LAB_028E    Call_DragonMove     déplacement du Dragon
+LAB_0298    Ctl_DragonPart      contrôleur 44 : partie du Dragon
+LAB_029F    Ctl_Leaper          contrôleur 48 : créature qui bondit (Balok)
+LAB_02AC    Call_Voice1D        voix $1D (voie 0)
+LAB_02AD    Call_Voice1B        voix $1B (voie 1)
+LAB_02AE    Call_Sound30_12     sons $30 et $12
+LAB_02CA    Call_Throw          lance un objet (contrôleur 52)
+LAB_02CB    Ctl_Projectile      contrôleur 52 : objet projeté
+LAB_02D2    Ctl_Inert           contrôleur 40 : objet inerte
+LAB_02DB    Call_EnemyActed     un adversaire a agi
+LAB_02DC    Call_SoundRnd1E     son $1E + hasard
+LAB_02DE    Call_SoundRnd02DE   son au hasard (LAB_02DE)
+LAB_02E0    Call_SoundRnd5B     son $5B ou $5C
+LAB_02E1    Call_SoundRnd6A     son $6A ou $6B
+LAB_02E2    Call_SoundRnd61     son $61 à $64
+LAB_02E3    Call_SoundRnd65     son $65 ou $66
+LAB_02E4    Call_SoundRnd67     son $67 + hasard
+LAB_02E6    Call_Footstep       pas (un son sur 5)
+LAB_02E8    Call_SoundSeqB      suite de sons LAB_02EF
+LAB_02E9    Call_SoundSeqA      suite de sons LAB_02EE
+LAB_02EF    t_SoundSeqB         suite de sons (LAB_02E8)
+LAB_0427    Call_Shake          tremblement d'écran
+LAB_042A    Vbl_Shake           tâche VBL du tremblement
+LAB_04AC    Ctl_Croupier        contrôleur 68 : croupier des dés
+LAB_04BA    Call_DiceSound      dés qui roulent : son
+LAB_04BB    t_DiceSounds        sons des dés
+LAB_04C2    Call_SacrificeSound sacrifice : son au hasard
+LAB_04C4    Ctl_Sacrifice       contrôleur du sacrifice
+LAB_057D    Vbl_Pointer         serveur VBL du pointeur (joystick)
+LAB_0A9E    Call_VoiceOff0      libère la voie 0
+LAB_0A9F    Call_VoiceOff1      libère la voie 1
+LAB_0AA0    Call_VoiceOff2      libère la voie 2
+LAB_0DCF    Ctl_MapDragon       contrôleur 40 sur la carte : vol du dragon
+LAB_0EB8    Call_Voice50        voix $50 (voie 0)
+LAB_0EB9    Call_MudmenSounds   Mudmen : deux sons
+LAB_0EBD    Call_SoundRnd0EBD   son au hasard (LAB_0EBD)
+LAB_0EBE    Call_TrollSound     Troll : son suivant
+LAB_0EC2    Ctl_Troll           contrôleur 64 : Troll
+LAB_0ED0    Call_DemonSounds    Démon : deux sons
+LAB_0ED2    Ctl_Demon           contrôleur 8 : Démon
+LAB_0EEB    Call_DemonCompanion compagnon du Démon (script LAB_08AF)
+LAB_0EEC    Call_DemonCompanion2 compagnon du Démon (LAB_0EEC)
+LAB_0EED    Call_DemonCompanionKill compagnon du Démon retiré
+LAB_0EEE    Call_Voice4A        voix $4A
+LAB_0EEF    Call_SoundRnd0EEF   son au hasard (LAB_0EEF)
+LAB_0EF6    Call_DemonFx        Démon : effet (LAB_0EFD)
+LAB_0EF7    Call_DemonThrow     le Démon projette le chevalier derrière lui
+LAB_0EFF    Ctl_KnightAi        contrôleurs 16 et 56 : chevalier géré par l'ordinateur
+SECSTRT_40  Ctl_Mudman          contrôleur 4 : Mudmen
+L00_05C20   t_PassingKnightDx   pas en X du chevalier de passage
+LAB_000A    Call_FreezeOthers   gèle (ou dégèle) tout le monde sauf le compagnon du Démon, et le Dragon
+LAB_000D    Call_PlayerDies     le joueur meurt (PV à -1)

@@ -69,8 +69,8 @@ static CtlResult passing_knight(MogCombat *m, uint32_t a0)
         wrap = 1;
     }
     if (wrap) {                                         /* LAB_022A */
-        uint16_t t = (uint16_t)(ix_rw(VM, MOG_LAB_0234) ^ 1);
-        ix_ww(VM, MOG_LAB_0234, t);
+        uint16_t t = (uint16_t)(ix_rw(VM, MOG_v_PassingKnightToggle) ^ 1);
+        ix_ww(VM, MOG_v_PassingKnightToggle, t);
         if (t)
             ix_ww(VM, a1 + 8, ix_rw(VM, a2 + 8));
         else
@@ -90,7 +90,7 @@ static CtlResult passing_knight(MogCombat *m, uint32_t a0)
     a1 = ix_rl(VM, MOG_v_CurObj);
     int16_t k = (int8_t)ix_rb(VM, a1 + 12);
     ix_wl(VM, MOG_v_CtlScript, ix_rl(VM, ix_rl(VM, a1 + 46) + (uint32_t)(int32_t)(int16_t)(k << 2)));
-    uint16_t dx = ix_rw(VM, MOG_L00_05C20 + (uint32_t)(int32_t)(int16_t)(k << 1));
+    uint16_t dx = ix_rw(VM, MOG_t_PassingKnightDx + (uint32_t)(int32_t)(int16_t)(k << 1));
     if (ix_rb(VM, a1 + 10) & 2)
         dx = (uint16_t)-dx;
     ix_ww(VM, a1 + 4, (uint16_t)(ix_rw(VM, a1 + 4) + dx));
@@ -178,20 +178,20 @@ static void foe_side(MogCombat *m, Regs *r)
  * 63(moi). D0 = 0 : à portée (D1.w = distance) ; D0 = 1 : se déplacer. */
 static void approach(MogCombat *m, Regs *r)
 {
-    ix_ww(VM, MOG_LAB_0F3A, 0);
-    ix_ww(VM, MOG_LAB_0F3B, 0);
-    ix_ww(VM, MOG_LAB_0F3D, 0);
-    ix_ww(VM, MOG_LAB_0F3C, 0);
+    ix_ww(VM, MOG_v_AiStepX, 0);
+    ix_ww(VM, MOG_v_AiStepY, 0);
+    ix_ww(VM, MOG_v_AiNear, 0);
+    ix_ww(VM, MOG_v_AiStepYAlt, 0);
     uint32_t a0 = me(m), a1 = foe(m);
     face_foe(m, r);
-    ix_ww(VM, MOG_LAB_0F3F, 0);
+    ix_ww(VM, MOG_v_AiArrived, 0);
     near_in_depth(m, r);
     if ((uint16_t)r->d0) {
-        ix_ww(VM, MOG_LAB_0F3D, 1);
+        ix_ww(VM, MOG_v_AiNear, 1);
     } else {
         setw(&r->d1, ix_rw(VM, a0 + 8));
         bset63(m, a0, sw((uint16_t)r->d1) > sw(ix_rw(VM, a1 + 8)) ? 3 : 2);
-        ix_ww(VM, MOG_LAB_0F3F, 1);
+        ix_ww(VM, MOG_v_AiArrived, 1);
     }
     setw(&r->d7, ix_rw(VM, a0 + 118));                  /* LAB_0F27 */
     near_in_x(m, r);
@@ -207,7 +207,7 @@ static void approach(MogCombat *m, Regs *r)
     setw(&r->d7, ix_rw(VM, a0 + 116));
     near_in_x(m, r);
     if ((uint16_t)r->d0) {
-        r->d0 = ix_rw(VM, MOG_LAB_0F3F);
+        r->d0 = ix_rw(VM, MOG_v_AiArrived);
         return;
     }
     foe_side(m, r);                                     /* LAB_0F28 */
@@ -232,8 +232,8 @@ static void step_from(MogCombat *m, Regs *r, uint32_t tab)
     setb(&r->d0, ix_rb(VM, a0 + 12));
     setw(&r->d0, (uint16_t)((uint16_t)r->d0 << 2));
     uint32_t e = tab + (uint32_t)(int32_t)sw((uint16_t)r->d0);
-    ix_ww(VM, MOG_LAB_0F3A, ix_rw(VM, e));
-    ix_ww(VM, MOG_LAB_0F3B, ix_rw(VM, e + 2));
+    ix_ww(VM, MOG_v_AiStepX, ix_rw(VM, e));
+    ix_ww(VM, MOG_v_AiStepY, ix_rw(VM, e + 2));
 }
 
 static void step_left(MogCombat *m, Regs *r, uint32_t tab)       /* LAB_0F1A */
@@ -241,9 +241,9 @@ static void step_left(MogCombat *m, Regs *r, uint32_t tab)       /* LAB_0F1A */
     walk_sense(m, r);
     step_from(m, r, tab);
     r->d6 = 0;
-    ix_ww(VM, MOG_LAB_0F3A, (uint16_t)-ix_rw(VM, MOG_LAB_0F3A));
-    if (ix_rw(VM, MOG_LAB_0F3C))
-        ix_ww(VM, MOG_LAB_0F3B, ix_rw(VM, MOG_LAB_0F3C));
+    ix_ww(VM, MOG_v_AiStepX, (uint16_t)-ix_rw(VM, MOG_v_AiStepX));
+    if (ix_rw(VM, MOG_v_AiStepYAlt))
+        ix_ww(VM, MOG_v_AiStepY, ix_rw(VM, MOG_v_AiStepYAlt));
 }
 
 static void step_right(MogCombat *m, Regs *r, uint32_t tab)      /* LAB_0F1C */
@@ -251,8 +251,8 @@ static void step_right(MogCombat *m, Regs *r, uint32_t tab)      /* LAB_0F1C */
     walk_sense(m, r);
     step_from(m, r, tab);
     r->d6 = 0;
-    if (ix_rw(VM, MOG_LAB_0F3C))
-        ix_ww(VM, MOG_LAB_0F3B, ix_rw(VM, MOG_LAB_0F3C));
+    if (ix_rw(VM, MOG_v_AiStepYAlt))
+        ix_ww(VM, MOG_v_AiStepY, ix_rw(VM, MOG_v_AiStepYAlt));
 }
 
 static void step_up(MogCombat *m, Regs *r, uint32_t tab)         /* LAB_0F1E */
@@ -260,15 +260,15 @@ static void step_up(MogCombat *m, Regs *r, uint32_t tab)         /* LAB_0F1E */
     r->d7 = 1;
     step_from(m, r, tab);
     r->d6 = 32;
-    ix_ww(VM, MOG_LAB_0F3B, (uint16_t)-ix_rw(VM, MOG_LAB_0F3B));
-    ix_ww(VM, MOG_LAB_0F3C, 0xFFFB);
+    ix_ww(VM, MOG_v_AiStepY, (uint16_t)-ix_rw(VM, MOG_v_AiStepY));
+    ix_ww(VM, MOG_v_AiStepYAlt, 0xFFFB);
 }
 
 static void step_down(MogCombat *m, Regs *r, uint32_t tab)       /* LAB_0F1F */
 {
     r->d7 = 1;
     step_from(m, r, tab);
-    ix_ww(VM, MOG_LAB_0F3C, 5);
+    ix_ww(VM, MOG_v_AiStepYAlt, 5);
     r->d6 = 64;
 }
 
@@ -280,7 +280,7 @@ static void next_phase(MogCombat *m, Regs *r, uint32_t a0)
         r->d0 = (uint32_t)ix_rb(VM, a0 + 12) << 2;
         r->d0 += r->d6;
         if (ix_rl(VM, ix_rl(VM, a0 + 46) + (uint32_t)(int32_t)sw((uint16_t)r->d0))) {
-            ix_ww(VM, MOG_LAB_0F3E, (uint16_t)r->d6);
+            ix_ww(VM, MOG_v_AiWalkGroup, (uint16_t)r->d6);
             return;
         }
     }
@@ -292,7 +292,7 @@ static CtlResult walk(MogCombat *m, Regs *r)
 {
     uint32_t a0 = me(m);
     next_phase(m, r, a0);
-    uint16_t allowed = mog_blocked_dirs(m, a0, ix_rw(VM, MOG_LAB_0F3A), ix_rb(VM, a0 + 10));
+    uint16_t allowed = mog_blocked_dirs(m, a0, ix_rw(VM, MOG_v_AiStepX), ix_rb(VM, a0 + 10));
     a0 = me(m);
     uint16_t bits = (uint16_t)(ix_rw(VM, a0 + 62) & allowed);
     ix_ww(VM, a0 + 62, bits);
@@ -301,13 +301,13 @@ static CtlResult walk(MogCombat *m, Regs *r)
         return mog_set_script(m, ix_rl(VM, a0 + 22));
     }
     if (!(bits & 3))
-        ix_ww(VM, MOG_LAB_0F3A, 0);
+        ix_ww(VM, MOG_v_AiStepX, 0);
     if (!(bits & 0x0C))
-        ix_ww(VM, MOG_LAB_0F3B, 0);
-    uint16_t k = (uint16_t)((ix_rb(VM, a0 + 12) << 2) + ix_rw(VM, MOG_LAB_0F3E));  /* LAB_0F23 */
+        ix_ww(VM, MOG_v_AiStepY, 0);
+    uint16_t k = (uint16_t)((ix_rb(VM, a0 + 12) << 2) + ix_rw(VM, MOG_v_AiWalkGroup));  /* LAB_0F23 */
     ix_wl(VM, MOG_v_CtlScript, ix_rl(VM, ix_rl(VM, a0 + 46) + (uint32_t)(int32_t)sw(k)));
-    ix_ww(VM, a0 + 4, (uint16_t)(ix_rw(VM, a0 + 4) + ix_rw(VM, MOG_LAB_0F3A)));
-    ix_ww(VM, a0 + 8, (uint16_t)(ix_rw(VM, a0 + 8) + ix_rw(VM, MOG_LAB_0F3B)));
+    ix_ww(VM, a0 + 4, (uint16_t)(ix_rw(VM, a0 + 4) + ix_rw(VM, MOG_v_AiStepX)));
+    ix_ww(VM, a0 + 8, (uint16_t)(ix_rw(VM, a0 + 8) + ix_rw(VM, MOG_v_AiStepY)));
     return mog_ctl_return(m);
 }
 
@@ -388,7 +388,7 @@ static CtlResult creature_0236(MogCombat *m, uint32_t a0)
     int attack = 0;
     if (!(uint16_t)r.d0) {
         attack = 1;
-    } else if (ix_rw(VM, MOG_LAB_0F3D)) {
+    } else if (ix_rw(VM, MOG_v_AiNear)) {
         dist_x(m, &r);
         setw(&r.d1, (uint16_t)r.d0);
         attack = 1;
@@ -450,7 +450,7 @@ move:                                                   /* LAB_0238 */
     a0 = me(m);
     if (!ix_rb(VM, a0 + 63))
         return mog_ctl_return(m);
-    return walk_by_bits(m, &r, MOG_LAB_024E, MOG_LAB_024F, MOG_LAB_0250, 1);
+    return walk_by_bits(m, &r, MOG_t_TroggWalkX, MOG_t_TroggWalkY, MOG_t_TroggWalkDir, 1);
 }
 
 /* ------------------------------------------------------------------ */
@@ -486,7 +486,7 @@ static uint32_t extl(uint32_t v) { return (uint32_t)(int32_t)(int16_t)v; }
  * décrite dans LAB_062E (voir LAB_02D3). */
 static void start_flight(MogCombat *m)
 {
-    uint32_t a0 = MOG_LAB_0301;
+    uint32_t a0 = MOG_t_Trajectories;
     uint32_t key = ix_rl(VM, MOG_t_Trajectory);
     int i;
     for (i = 0; i < 6; i++, a0 += 20)
@@ -546,7 +546,7 @@ typedef struct {
 
 static void fly(MogCombat *m, uint32_t obj, Flight *f)
 {
-    uint32_t a0 = MOG_LAB_0301;
+    uint32_t a0 = MOG_t_Trajectories;
     int i;
     for (i = 0; i < 6; i++, a0 += 20)
         if (ix_rl(VM, a0) == obj)
@@ -590,11 +590,11 @@ static void aim_jump(MogCombat *m, uint32_t a0, uint16_t d7)
     ix_ww(VM, a0 + 128, ix_rw(VM, a2 + 8));
     ix_ww(VM, a3 + 14, ix_rw(VM, a2 + 6));
     uint16_t dx = absw(ix_rw(VM, a3 + 10), ix_rw(VM, a3 + 4));
-    ix_ww(VM, MOG_LAB_02DA, dx);
+    ix_ww(VM, MOG_v_JumpBest, dx);
     uint16_t dd = absw(ix_rw(VM, a3 + 12), ix_rw(VM, a3 + 6));
-    if (!(sw(dd) < sw(ix_rw(VM, MOG_LAB_02DA))))
-        ix_ww(VM, MOG_LAB_02DA, dd);
-    uint16_t dist = ix_rw(VM, MOG_LAB_02DA);
+    if (!(sw(dd) < sw(ix_rw(VM, MOG_v_JumpBest))))
+        ix_ww(VM, MOG_v_JumpBest, dd);
+    uint16_t dist = ix_rw(VM, MOG_v_JumpBest);
     ix_ww(VM, MOG_v_ChaseStepX, (uint16_t)(dist >> 1));
     ix_ww(VM, MOG_v_ChaseStepY, (uint16_t)(dist >> 3));
     if (!(sw(ix_rw(VM, MOG_v_ChaseStepX)) > 2))
@@ -612,7 +612,7 @@ static void aim_jump(MogCombat *m, uint32_t a0, uint16_t d7)
 static CtlResult walk_script(MogCombat *m)
 {
     uint32_t a0 = me(m);
-    uint16_t k = (uint16_t)((ix_rb(VM, a0 + 12) << 2) + ix_rw(VM, MOG_LAB_0F3E));
+    uint16_t k = (uint16_t)((ix_rb(VM, a0 + 12) << 2) + ix_rw(VM, MOG_v_AiWalkGroup));
     return mog_set_script(m, ix_rl(VM, ix_rl(VM, a0 + 46) + (uint32_t)(int32_t)sw(k)));
 }
 
@@ -702,7 +702,7 @@ static CtlResult rat_jump(MogCombat *m, Regs *r)
         d0 = 8;
     a0 = me(m);
     ix_ww(VM, MOG_t_Trajectory + 16, d0);
-    if (!(sw(ix_rw(VM, MOG_LAB_02DA)) > 40)) {
+    if (!(sw(ix_rw(VM, MOG_v_JumpBest)) > 40)) {
         ix_wb(VM, a0 + 104, (uint8_t)(ix_rb(VM, a0 + 104) | 0x80));
         ix_ww(VM, MOG_t_Trajectory + 18, 2);
         start_flight(m);
@@ -943,7 +943,7 @@ static CtlResult ratman(MogCombat *m, uint32_t a0)
 /* LAB_0F34 : éclaboussure (LAB_08BF, contrôleur 40) au point d'impact */
 static void splash(MogCombat *m, uint32_t a0)
 {
-    ix_wl(VM, MOG_t_Controllers + 40, MOG_LAB_02D2);
+    ix_wl(VM, MOG_t_Controllers + 40, MOG_Ctl_Inert);
     ix_spawn(&m->eng, MOG_x_Splash, MOG_t_BankBlo, sw(ix_rw(VM, a0 + 122)), 0,
              sw(ix_rw(VM, a0 + 124)), ix_rb(VM, ix_rl(VM, MOG_v_PlayerObj) + 10), 0x28);
 }
@@ -952,9 +952,9 @@ static void splash(MogCombat *m, uint32_t a0)
 static void step_x_0662(MogCombat *m, Regs *r, int left)
 {
     walk_sense(m, r);
-    step_from(m, r, MOG_L40_00662);
+    step_from(m, r, MOG_t_TrollStepX);
     if (left)
-        ix_ww(VM, MOG_LAB_0F3A, (uint16_t)-ix_rw(VM, MOG_LAB_0F3A));
+        ix_ww(VM, MOG_v_AiStepX, (uint16_t)-ix_rw(VM, MOG_v_AiStepX));
 }
 
 static CtlResult creature_0EC2(MogCombat *m, uint32_t a0)
@@ -1000,10 +1000,10 @@ static CtlResult creature_0EC2(MogCombat *m, uint32_t a0)
         step_x_0662(m, &r, 1);
     if (ix_rb(VM, a0 + 63) & 8) {                       /* LAB_0EC4 */
         walk_sense(m, &r);
-        ix_ww(VM, MOG_LAB_0F3B, 0xFFFB);
+        ix_ww(VM, MOG_v_AiStepY, 0xFFFB);
     } else if (ix_rb(VM, a0 + 63) & 4) {
         walk_sense(m, &r);
-        ix_ww(VM, MOG_LAB_0F3B, 5);
+        ix_ww(VM, MOG_v_AiStepY, 5);
     }
     return walk(m, &r);
 }
@@ -1045,7 +1045,7 @@ static CtlResult ai_knight(MogCombat *m, uint32_t a0)
         if (hp(m, a1) > 0) {
             uint32_t att = ix_rl(VM, a1 + 18);
             mog_check_parry(m, a1);
-            if (ix_rw(VM, MOG_LAB_01EB))
+            if (ix_rw(VM, MOG_v_Parried))
                 return mog_own_attack(m);
             a1 = me(m);                                 /* LAB_0F15 / LAB_0F16 */
             hurt(m, a1, mog_knight_damage(m, att));
@@ -1062,12 +1062,12 @@ static CtlResult ai_knight(MogCombat *m, uint32_t a0)
         return mog_set_script(m, ix_rl(VM, a0 + 26));   /* LAB_0F18 */
     }
 
-    ix_ww(VM, MOG_LAB_0F38, ix_rw(VM, a0 + 64));
+    ix_ww(VM, MOG_v_KnightAiLastAtk, ix_rw(VM, a0 + 64));
     approach(m, &r);
     int engage = 0;
     if (!(uint16_t)r.d0) {
         engage = 1;
-    } else if (ix_rw(VM, MOG_LAB_0F3D)) {
+    } else if (ix_rw(VM, MOG_v_AiNear)) {
         dist_x(m, &r);
         setw(&r.d1, (uint16_t)r.d0);
         engage = 1;
@@ -1077,7 +1077,7 @@ static CtlResult ai_knight(MogCombat *m, uint32_t a0)
         uint32_t atk = ix_rl(VM, a0 + 34);
         uint32_t a2 = foe(m);
         int16_t d = sw((uint16_t)r.d1);
-        uint16_t prev = ix_rw(VM, MOG_LAB_0F38);
+        uint16_t prev = ix_rw(VM, MOG_v_KnightAiLastAtk);
         if (hp(m, a2) <= 0) {
             ix_wb(VM, a0 + 106, 0);
             if (!(d > 90)) {
@@ -1123,7 +1123,7 @@ move:                                                   /* LAB_0F02 */
     if (!ix_rb(VM, a0 + 63))
         return mog_ctl_return(m);
     ix_wb(VM, a0 + 104, (uint8_t)(ix_rb(VM, a0 + 104) & 0x7F));
-    return walk_by_bits(m, &r, MOG_SECSTRT_41, MOG_LAB_0F36, MOG_LAB_0F37, 0);
+    return walk_by_bits(m, &r, MOG_t_KnightAiWalkX, MOG_t_KnightAiWalkY, MOG_t_KnightAiWalkDir, 0);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1131,7 +1131,7 @@ move:                                                   /* LAB_0F02 */
 /* ------------------------------------------------------------------ */
 
 /* LAB_0EB6 : état commun des Mudmen (octet de poids fort du mot) */
-#define MUD_STATE MOG_LAB_0EB6
+#define MUD_STATE MOG_v_MudState
 
 static CtlResult mudman(MogCombat *m, uint32_t a0)
 {
@@ -1248,7 +1248,7 @@ swallow:                                                /* LAB_0EB0 */
     int far = 0;
     if (!(uint16_t)r.d0) {
         d = sw((uint16_t)r.d1);
-    } else if (ix_rw(VM, MOG_LAB_0F3D)) {
+    } else if (ix_rw(VM, MOG_v_AiNear)) {
         dist_x(m, &r);
         setw(&r.d1, (uint16_t)r.d0);
         d = sw((uint16_t)r.d1);
@@ -1278,30 +1278,30 @@ swallow:                                                /* LAB_0EB0 */
     uint8_t st = ix_rb(VM, a0 + 63);
     if (st & 1) {                                       /* LAB_0EA1 */
         setb(&r.d0, ix_rb(VM, a0 + 12));
-        ix_ww(VM, MOG_LAB_0F3A, ix_rw(VM, MOG_L40_0040C + (uint32_t)(int32_t)sw((uint16_t)((uint16_t)r.d0 << 1))));
+        ix_ww(VM, MOG_v_AiStepX, ix_rw(VM, MOG_t_MudmanSteps + (uint32_t)(int32_t)sw((uint16_t)((uint16_t)r.d0 << 1))));
     }
     if (st & 2) {                                       /* LAB_0EA2 */
         setb(&r.d0, ix_rb(VM, a0 + 12));
-        ix_ww(VM, MOG_LAB_0F3A, ix_rw(VM, MOG_L40_0040C + (uint32_t)(int32_t)sw((uint16_t)((uint16_t)r.d0 << 1))));
-        ix_ww(VM, MOG_LAB_0F3A, (uint16_t)-ix_rw(VM, MOG_LAB_0F3A));
+        ix_ww(VM, MOG_v_AiStepX, ix_rw(VM, MOG_t_MudmanSteps + (uint32_t)(int32_t)sw((uint16_t)((uint16_t)r.d0 << 1))));
+        ix_ww(VM, MOG_v_AiStepX, (uint16_t)-ix_rw(VM, MOG_v_AiStepX));
     }
     if (st & 8)
-        ix_ww(VM, MOG_LAB_0F3B, 0xFFFE);
+        ix_ww(VM, MOG_v_AiStepY, 0xFFFE);
     if (st & 4)
-        ix_ww(VM, MOG_LAB_0F3B, 2);
+        ix_ww(VM, MOG_v_AiStepY, 2);
     a0 = me(m);                                         /* LAB_0E9D */
-    uint16_t allowed = mog_blocked_dirs(m, a0, ix_rw(VM, MOG_LAB_0F3A), ix_rb(VM, a0 + 10));
+    uint16_t allowed = mog_blocked_dirs(m, a0, ix_rw(VM, MOG_v_AiStepX), ix_rb(VM, a0 + 10));
     a0 = me(m);
     uint16_t bits = (uint16_t)(ix_rw(VM, a0 + 62) & allowed);
     ix_ww(VM, a0 + 62, bits);
     if (!(bits & 3))
-        ix_ww(VM, MOG_LAB_0F3A, 0);
+        ix_ww(VM, MOG_v_AiStepX, 0);
     if (!(bits & 0x0C))
-        ix_ww(VM, MOG_LAB_0F3B, 0);
+        ix_ww(VM, MOG_v_AiStepY, 0);
     ix_wl(VM, MOG_v_CtlScript, ix_rl(VM, ix_rl(VM, a0 + 46) + (uint32_t)ix_rb(VM, a0 + 12) * 4u));
-    ix_ww(VM, a0 + 4, (uint16_t)(ix_rw(VM, a0 + 4) + ix_rw(VM, MOG_LAB_0F3A)));
-    ix_ww(VM, a0 + 8, (uint16_t)(ix_rw(VM, a0 + 8) + ix_rw(VM, MOG_LAB_0F3B)));
-    if (!ix_rl(VM, MOG_LAB_0F3A)) {                     /* TST.L : 0F3A et 0F3B */
+    ix_ww(VM, a0 + 4, (uint16_t)(ix_rw(VM, a0 + 4) + ix_rw(VM, MOG_v_AiStepX)));
+    ix_ww(VM, a0 + 8, (uint16_t)(ix_rw(VM, a0 + 8) + ix_rw(VM, MOG_v_AiStepY)));
+    if (!ix_rl(VM, MOG_v_AiStepX)) {                     /* TST.L : 0F3A et 0F3B */
         ix_wb(VM, a0 + 12, 0);
         ix_wl(VM, MOG_v_CtlScript, ix_rl(VM, a0 + 22));
     }
@@ -1312,12 +1312,12 @@ swallow:                                                /* LAB_0EB0 */
 /* LAB_0ED2 (contrôleur 8) : Démon (et son compagnon LAB_01A2)         */
 /* ------------------------------------------------------------------ */
 
-#define DEMON_STATE MOG_LAB_0EEA            /* octet de poids fort */
+#define DEMON_STATE MOG_v_DemonState            /* octet de poids fort */
 
 /* Le compagnon suit le Démon (X et profondeur de l'entité). */
 static void demon_sync(MogCombat *m)
 {
-    uint32_t en = ix_find_entity(&m->eng, ix_rl(VM, MOG_LAB_01A2));
+    uint32_t en = ix_find_entity(&m->eng, ix_rl(VM, MOG_v_DemonCompanionObj));
     if (en) {
         uint32_t a0 = me(m);
         ix_ww(VM, en + 6, ix_rw(VM, a0 + 4));
@@ -1359,7 +1359,7 @@ static void demon_release(MogCombat *m, uint8_t wait)
 {
     if (!btst8(m, DEMON_STATE, 6))
         return;
-    uint32_t a0 = ix_rl(VM, MOG_LAB_01A1);
+    uint32_t a0 = ix_rl(VM, MOG_v_DemonObj);
     ix_wb(VM, MOG_v_BackDir, ix_rb(VM, a0 + 10));
     mog_toggle_freeze(m, ix_rl(VM, MOG_v_PlayerObj));
     mog_restart_entity(m, ix_rl(VM, MOG_v_PlayerObj), MOG_x_KnightDropped);
@@ -1448,7 +1448,7 @@ static CtlResult demon(MogCombat *m, uint32_t a0)
 
     approach(m, &r);                                    /* LAB_0ED4 */
     if ((uint16_t)r.d0) {
-        if (!ix_rw(VM, MOG_LAB_0F3D))
+        if (!ix_rw(VM, MOG_v_AiNear))
             return demon_walk(m, &r);
         dist_x(m, &r);
         setw(&r.d1, (uint16_t)r.d0);
@@ -1643,7 +1643,7 @@ static CtlResult leaper(MogCombat *m, uint32_t a0)
  * profondeur du Dragon. */
 static CtlResult dragon_done(MogCombat *m)
 {
-    uint32_t a2 = ix_rl(VM, MOG_LAB_0193), a3 = ix_rl(VM, MOG_LAB_0194);
+    uint32_t a2 = ix_rl(VM, MOG_v_DragonPartA), a3 = ix_rl(VM, MOG_v_DragonPartB);
     uint16_t d = (uint16_t)(ix_rw(VM, MOG_v_DragonObj + 8) + 10);
     ix_ww(VM, a2 + 8, d);
     ix_ww(VM, a3 + 8, (uint16_t)(d - 30));
@@ -1660,8 +1660,8 @@ void mog_dragon_move(MogCombat *m)
     ix_wl(VM, MOG_v_TargetObj, ix_rl(VM, MOG_v_PlayerObj));
     int low = btst8(m, DRAGON_STATE, 6);
     if (low) {
-        ix_ww(VM, MOG_L00_06960, ix_rw(VM, a0 + 116));
-        ix_ww(VM, MOG_LAB_0295, ix_rw(VM, a0 + 118));
+        ix_ww(VM, MOG_v_DragonSave116, ix_rw(VM, a0 + 116));
+        ix_ww(VM, MOG_v_DragonSave118, ix_rw(VM, a0 + 118));
         ix_ww(VM, a0 + 116, 2);
         ix_ww(VM, a0 + 118, 1);
     }
@@ -1688,8 +1688,8 @@ void mog_dragon_move(MogCombat *m)
     ix_ww(VM, en + 6, ix_rw(VM, a1 + 4));
     ix_ww(VM, en + 10, ix_rw(VM, a1 + 8));
     if (low) {                                          /* (écrit dans l'entité) */
-        ix_ww(VM, en + 116, ix_rw(VM, MOG_L00_06960));
-        ix_ww(VM, en + 118, ix_rw(VM, MOG_LAB_0295));
+        ix_ww(VM, en + 116, ix_rw(VM, MOG_v_DragonSave116));
+        ix_ww(VM, en + 118, ix_rw(VM, MOG_v_DragonSave118));
     }
 }
 
@@ -1718,7 +1718,7 @@ static CtlResult dragon_takeoff(MogCombat *m, uint32_t walk_off, uint16_t steps,
 /* LAB_0297 : flamme (LAB_0886, contrôleur 40) devant le Dragon */
 static void dragon_fire(MogCombat *m)
 {
-    ix_wl(VM, MOG_t_Controllers + 40, MOG_LAB_02D2);
+    ix_wl(VM, MOG_t_Controllers + 40, MOG_Ctl_Inert);
     uint32_t a1 = MOG_v_DragonObj;
     ix_spawn(&m->eng, MOG_x_DragonFlame, MOG_t_BankEnemy, (int16_t)(ix_rw(VM, a1 + 4) + 0x37), 0,
              (int16_t)(ix_rw(VM, a1 + 8) + 5), 1, 0x28);
@@ -1801,7 +1801,7 @@ static CtlResult dragon(MogCombat *m, uint32_t a0)
 
     /* LAB_0283 : attaques */
     bclr8(m, DRAGON_STATE, 6);
-    if (hp(m, foe(m)) <= 0 || !ix_rw(VM, MOG_LAB_0F3D))
+    if (hp(m, foe(m)) <= 0 || !ix_rw(VM, MOG_v_AiNear))
         return dragon_done(m);
     if (!btst8(m, DRAGON_STATE, 5)) {                   /* LAB_0286 */
         ix_ww(VM, a1 + 64, 8);
@@ -1858,19 +1858,19 @@ static CtlResult dragon_part(MogCombat *m, uint32_t a0)
 int mog_ai_controller(MogCombat *m, uint32_t fn, uint32_t obj, CtlResult *out)
 {
     switch (fn) {
-    case MOG_LAB_0226: *out = passing_knight(m, obj); return 1;
-    case MOG_LAB_0236: *out = creature_0236(m, obj); return 1;
-    case MOG_LAB_0251: *out = ratman(m, obj); return 1;
-    case MOG_LAB_0EC2: *out = creature_0EC2(m, obj); return 1;
-    case MOG_LAB_0EFF: *out = ai_knight(m, obj); return 1;
-    case MOG_SECSTRT_40: *out = mudman(m, obj); return 1;
-    case MOG_LAB_0ED2: *out = demon(m, obj); return 1;
-    case MOG_LAB_029F: *out = leaper(m, obj); return 1;
-    case MOG_LAB_027A: *out = dragon(m, obj); return 1;
-    case MOG_LAB_0298: *out = dragon_part(m, obj); return 1;
-    case MOG_LAB_0DCF: return mog_map_dragon_ctl(m, obj, out);
-    case MOG_LAB_04AC: return mog_gamble_ctl(m, obj, out);
-    case MOG_LAB_04C4: return mog_sacrifice_ctl(m, obj, out);
+    case MOG_Ctl_PassingKnight: *out = passing_knight(m, obj); return 1;
+    case MOG_Ctl_Trogg: *out = creature_0236(m, obj); return 1;
+    case MOG_Ctl_Ratman: *out = ratman(m, obj); return 1;
+    case MOG_Ctl_Troll: *out = creature_0EC2(m, obj); return 1;
+    case MOG_Ctl_KnightAi: *out = ai_knight(m, obj); return 1;
+    case MOG_Ctl_Mudman: *out = mudman(m, obj); return 1;
+    case MOG_Ctl_Demon: *out = demon(m, obj); return 1;
+    case MOG_Ctl_Leaper: *out = leaper(m, obj); return 1;
+    case MOG_Ctl_Dragon: *out = dragon(m, obj); return 1;
+    case MOG_Ctl_DragonPart: *out = dragon_part(m, obj); return 1;
+    case MOG_Ctl_MapDragon: return mog_map_dragon_ctl(m, obj, out);
+    case MOG_Ctl_Croupier: return mog_gamble_ctl(m, obj, out);
+    case MOG_Ctl_Sacrifice: return mog_sacrifice_ctl(m, obj, out);
     }
     return 0;
 }

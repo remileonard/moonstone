@@ -55,12 +55,12 @@ static void black(MogCombat *m)
 static void menu_background(MogCombat *m)
 {
     black(m);
-    mog_clear_screen(m, rl(m, MOG_SECSTRT_35));
-    mog_set_planes(m, rl(m, MOG_SECSTRT_35));
-    uint32_t s = rl(m, MOG_t_FastBuffers + 56), d = rl(m, MOG_LAB_0D92);
+    mog_clear_screen(m, rl(m, MOG_v_ShowPlanes));
+    mog_set_planes(m, rl(m, MOG_v_ShowPlanes));
+    uint32_t s = rl(m, MOG_t_FastBuffers + 56), d = rl(m, MOG_v_DrawPlanes);
     for (uint32_t i = 0; i < 0x25F7; i++)
         wb(m, d + i, rb(m, s + i));
-    mog_piv_decode(m, rl(m, MOG_LAB_0D92));
+    mog_piv_decode(m, rl(m, MOG_v_DrawPlanes));
 }
 
 /* LAB_00C6 : nombre de joueurs + d0, de 1 à 4 ; texte « Players » */
@@ -78,8 +78,8 @@ static void add_players(MogCombat *m, int16_t d0)
 /* LAB_00C4 : menu dessiné (curseur à la ligne LAB_06DC), montré */
 static void menu_draw(MogCombat *m)
 {
-    mog_set_planes(m, rl(m, MOG_LAB_0D92));
-    mog_copy_screen(m, rl(m, MOG_v_BgPlanes), rl(m, MOG_LAB_0D92));
+    mog_set_planes(m, rl(m, MOG_v_DrawPlanes));
+    mog_copy_screen(m, rl(m, MOG_v_BgPlanes), rl(m, MOG_v_DrawPlanes));
     clear_scraps(m);
     ww(m, MOG_v_MenuCursorY, rw(m, MOG_t_MenuLineY + 2u * rw(m, MOG_v_MenuLine)));
     ww(m, MOG_v_BlitByCpu, 1);
@@ -140,8 +140,8 @@ int mog_menu(MogCombat *m)
     mog_load_cel(VM, MOG_s_SelCel, rl(m, MOG_v_SheetPlanes));
     wl(m, MOG_v_Combatants + 10, rl(m, MOG_t_FontBank + 16));
     menu_background(m);
-    mog_copy_screen(m, rl(m, MOG_SECSTRT_35), rl(m, MOG_LAB_0D92));
-    mog_copy_screen(m, rl(m, MOG_SECSTRT_35), rl(m, MOG_v_BgPlanes));
+    mog_copy_screen(m, rl(m, MOG_v_ShowPlanes), rl(m, MOG_v_DrawPlanes));
+    mog_copy_screen(m, rl(m, MOG_v_ShowPlanes), rl(m, MOG_v_BgPlanes));
     /* Prot_Copylock : disquette d'origine, LAB_0714 = LAB_029F inchangé */
     clear_scraps(m);
     ww(m, MOG_v_MenuCursorX, 0x32);
@@ -152,8 +152,8 @@ int mog_menu(MogCombat *m)
     mog_swap_screens(m);
     wl(m, MOG_v_CursorCel, rl(m, MOG_v_SheetPlanes));
     menu_draw(m);
-    mog_fade_to(m, MOG_LAB_0D2B);
-    wl(m, MOG_v_KnightCtlFn, MOG_LAB_029F);
+    mog_fade_to(m, MOG_t_PivPalette);
+    wl(m, MOG_v_KnightCtlFn, MOG_Ctl_Leaper);
     for (;;) {                                          /* LAB_00B5 */
         busy_tick(m);
         uint16_t d1 = mog_read_joy(m);
@@ -185,8 +185,8 @@ int mog_menu(MogCombat *m)
 /* LAB_00E0 : chevaliers libres (LAB_06F9), curseur LAB_0703, nom en cours */
 static void knights_draw(MogCombat *m)
 {
-    mog_clear_screen(m, rl(m, MOG_LAB_0D92));
-    mog_set_planes(m, rl(m, MOG_LAB_0D92));
+    mog_clear_screen(m, rl(m, MOG_v_DrawPlanes));
+    mog_set_planes(m, rl(m, MOG_v_DrawPlanes));
     mog_text_records(m, MOG_t_SelectKnightText);
     for (uint16_t d7 = 0; d7 < 4; d7++)
         if (rb(m, MOG_v_KnightsFree) & (1u << d7))
@@ -211,7 +211,7 @@ static void enter_name(MogCombat *m)
     ww(m, MOG_v_NameEditing, 1);
     mog_clear_keys(m);                                  /* LAB_0B82 */
     clear_scraps(m);
-    wl(m, MOG_v_NameCursorAnim, MOG_LAB_00E0);
+    wl(m, MOG_v_NameCursorAnim, MOG_Menu_CursorAnim);
     wb(m, MOG_v_NameCursorChar, 0x5C);
     uint32_t a0 = rl(m, MOG_v_NameEdited);
     uint16_t d0 = 0;
@@ -222,13 +222,13 @@ static void enter_name(MogCombat *m)
         /* LAB_00CE : curseur, LAB_05D5 (LAB_00E0), touche oubliée */
         wb(m, rl(m, MOG_v_NameEdited) + rw(m, MOG_v_NameLength), rb(m, MOG_v_NameCursorChar));
         knights_draw(m);
-        ww(m, MOG_SECSTRT_21, 0);
+        ww(m, MOG_v_KeyPressed, 0);
         uint16_t k;
         for (;;) {                                      /* LAB_00CC */
             busy_tick(m);
             if (mog_read_joy(m) & MOG_JOY_FIRE)
                 goto done;
-            k = rw(m, MOG_SECSTRT_21);
+            k = rw(m, MOG_v_KeyPressed);
             if (k)
                 break;
         }
@@ -243,7 +243,7 @@ static void enter_name(MogCombat *m)
             wb(m, n + rw(m, MOG_v_NameLength), 0x20);
             continue;
         }
-        uint8_t c = rb(m, MOG_LAB_0D99 + k);            /* LAB_0D8D */
+        uint8_t c = rb(m, MOG_t_KeyChars + k);            /* LAB_0D8D */
         if (!c)
             continue;
         if ((int16_t)rw(m, MOG_v_NameLength) >= 13) {       /* nom plein : éclair rouge */
@@ -284,10 +284,10 @@ void mog_choose_knights(MogCombat *m)
     wl(m, MOG_v_ChooseKnightObj, MOG_t_KnightObjects);
     ww(m, MOG_v_KnightChoice, 0);
     wl(m, MOG_v_CursorCel, rl(m, MOG_v_SheetPlanes));
-    mog_set_planes(m, rl(m, MOG_LAB_0D92));
+    mog_set_planes(m, rl(m, MOG_v_DrawPlanes));
     knights_draw(m);
     mog_fade_to(m, MOG_t_MenuPalette);
-    wl(m, MOG_LAB_05A5, mog_glow(VM, 0x0F, 0x88, 1, 0));
+    wl(m, MOG_v_LowHpGlowA, mog_glow(VM, 0x0F, 0x88, 1, 0));
     for (;;) {                                          /* LAB_00D4 */
         busy_tick(m);
         uint16_t d1 = mog_read_joy(m);
@@ -320,6 +320,6 @@ void mog_choose_knights(MogCombat *m)
                 }
         }
     }
-    wl(m, rl(m, MOG_LAB_05A5), 0);                      /* LAB_00DA */
+    wl(m, rl(m, MOG_v_LowHpGlowA), 0);                      /* LAB_00DA */
     mog_fade_black(m);
 }

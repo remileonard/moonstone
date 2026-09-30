@@ -66,7 +66,7 @@ void ix_layout_mog(IxLayout *l)
     l->bbox_set     = MOG_v_BBoxSet;
     l->loop_index   = MOG_v_LoopIndex;
     l->loop_entity  = MOG_v_LoopEntity;
-    l->phys_moved   = MOG_LAB_037F;
+    l->phys_moved   = MOG_v_PhysMoved;
     l->flip_buffer  = MOG_v_CelPlanesBuf;
     l->bitrev       = MOG_t_BitReverse;
     l->flip_size    = MOG_v_CelPlaneSize;

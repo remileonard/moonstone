@@ -8,9 +8,173 @@
 
 #include "ix_mog_syms.h"
 
+#define MOG_Call_FoeDown MOG_LAB_0005                        /* un adversaire de moins ; le suivant entre ou le combat finit */
+#define MOG_Call_EndCombat MOG_LAB_0006                      /* fin du combat dans 35 images */
+#define MOG_Call_FreezeOthers MOG_LAB_000A                   /* gèle (ou dégèle) tout le monde sauf le compagnon du Démon, et le Dragon */
+#define MOG_Call_PlayerDies MOG_LAB_000D                     /* le joueur meurt (PV à -1) */
+#define MOG_t_LootSlots MOG_LAB_0028                         /* cases d'inventaire prises au vaincu (LAB_001C) */
+#define MOG_v_EventKnight MOG_LAB_0035                       /* chevalier de l'événement de manche (gardé) */
+#define MOG_Menu_CursorAnim MOG_LAB_00E0                     /* animation du curseur de saisie */
+#define MOG_Load_EnemyKnight MOG_LAB_0116                    /* CEL du chevalier adverse (He1..He3.ob) */
+#define MOG_Load_TroggSpear MOG_LAB_0118                     /* CEL des Troggs à lance */
+#define MOG_Load_TroggAxe MOG_LAB_011A                       /* CEL des Troggs à hache */
+#define MOG_Load_Ratmen MOG_LAB_011C                         /* CEL des hommes-rats */
+#define MOG_Load_Mudmen MOG_LAB_011E                         /* CEL des Mudmen */
+#define MOG_Load_Balok MOG_LAB_011F                          /* CEL de Balok */
+#define MOG_Load_Dragon MOG_LAB_0121                         /* CEL du Dragon */
 #define MOG_s_Dragon5Cel MOG_LAB_0122                        /* "Dragon5.cel" */
+#define MOG_Load_PassingKnight MOG_LAB_0123                  /* CEL du chevalier de passage */
+#define MOG_Load_Demon MOG_LAB_0125                          /* CEL du Démon */
+#define MOG_Load_Troll MOG_LAB_0126                          /* CEL du Troll */
 #define MOG_s_Test MOG_LAB_013B                              /* "Test" */
+#define MOG_t_PassingKnightWalkInit MOG_LAB_015E             /* marche initiale du chevalier de passage */
+#define MOG_Enc_EnemyKnight MOG_LAB_0164                     /* rencontre : chevalier adverse */
+#define MOG_Kit_None MOG_LAB_0166                            /* équipement / adversaire suivant : rien (RTS) */
+#define MOG_Enc_TroggAxe MOG_LAB_0168                        /* rencontre : Troggs à hache */
+#define MOG_Kit_TroggA MOG_LAB_0169                          /* équipement du Trogg (contrôleur $18) */
+#define MOG_Enc_TroggAxe2 MOG_LAB_016A                       /* rencontre : Troggs à hache (2) */
+#define MOG_Next_EntriesA MOG_LAB_016B                       /* adversaire suivant (positions t_EntriesA) */
+#define MOG_Kit_TroggB MOG_LAB_0170                          /* équipement du Trogg à hache (contrôleur $1C) */
+#define MOG_Enc_TroggSpear MOG_LAB_0175                      /* rencontre : Troggs à lance */
+#define MOG_Kit_TroggSpear MOG_LAB_0176                      /* équipement du Trogg à lance (contrôleur $20) */
+#define MOG_t_FoeScaling MOG_LAB_0185                        /* renforts des adversaires selon le niveau */
+#define MOG_v_FoeScale MOG_LAB_0186                          /* renfort choisi (0-2) */
+#define MOG_t_FoeScaledKits MOG_LAB_0187                     /* équipements concernés par le renfort */
+#define MOG_Enc_PassingKnights MOG_LAB_0188                  /* rencontre : chevaliers de passage */
+#define MOG_Next_EntriesB MOG_LAB_0189                       /* adversaire suivant (positions t_EntriesB) */
+#define MOG_Kit_PassingKnight MOG_LAB_018B                   /* équipement du chevalier de passage */
+#define MOG_Enc_Ratmen MOG_LAB_018C                          /* rencontre : hommes-rats */
+#define MOG_Next_EntriesC MOG_LAB_018D                       /* adversaire suivant (positions t_EntriesC) */
+#define MOG_Kit_Ratmen MOG_LAB_018F                          /* équipement des hommes-rats */
+#define MOG_Enc_Dragon MOG_LAB_0192                          /* rencontre : Dragon */
+#define MOG_v_DragonPartA MOG_LAB_0193                       /* première partie du Dragon (objet) */
+#define MOG_v_DragonPartB MOG_LAB_0194                       /* seconde partie du Dragon */
+#define MOG_Enc_Balok MOG_LAB_0196                           /* rencontre : Balok */
+#define MOG_Next_Balok MOG_LAB_0197                          /* adversaire suivant (Balok) */
+#define MOG_Kit_Balok MOG_LAB_0198                           /* équipement de Balok */
+#define MOG_t_EntriesDragon MOG_LAB_0199                     /* position d'entrée du Dragon */
+#define MOG_Enc_Mudmen MOG_LAB_019A                          /* rencontre : Mudmen */
+#define MOG_Next_EntriesC2 MOG_LAB_019B                      /* adversaire suivant (positions t_EntriesC, Mudmen) */
+#define MOG_Kit_Mudmen MOG_LAB_019D                          /* équipement des Mudmen */
+#define MOG_Enc_Troll MOG_LAB_019E                           /* rencontre : Troll */
+#define MOG_Kit_Troll MOG_LAB_019F                           /* équipement du Troll */
+#define MOG_Enc_Demon MOG_LAB_01A0                           /* rencontre : Démon */
+#define MOG_v_DemonObj MOG_LAB_01A1                          /* objet du Démon */
+#define MOG_v_DemonCompanionObj MOG_LAB_01A2                 /* objet du compagnon du Démon */
+#define MOG_v_EntryRank MOG_LAB_01AD                         /* rang d'entrée suivant (0-3) */
+#define MOG_Call_Countdown MOG_LAB_01C8                      /* compte à rebours 13(objet) */
+#define MOG_v_WalkPhase MOG_LAB_01D8                         /* phase de marche gardée à l'arrêt */
+#define MOG_React_KnightHit MOG_LAB_01E1                     /* le chevalier a touché (t_HitFn) */
+#define MOG_v_Parried MOG_LAB_01EB                           /* parade réussie (LAB_01E6) */
+#define MOG_React_Hit8 MOG_LAB_01ED                          /* touché : attaque 8 */
+#define MOG_React_Hit4Or8 MOG_LAB_01EF                       /* touché : attaques 4 et 8 */
+#define MOG_React_KnightHitBy MOG_LAB_01F2                   /* chevalier touché (parade possible) */
+#define MOG_React_Parry MOG_LAB_01F6                         /* touché : parade ou 3 PV */
+#define MOG_React_Hit20 MOG_LAB_01F9                         /* touché : attaque $20 */
+#define MOG_React_Hit7 MOG_LAB_01FD                          /* touché : 7 PV */
+#define MOG_React_Pushed MOG_LAB_0200                        /* touché : repoussé */
+#define MOG_React_Hit30 MOG_LAB_0201                         /* touché : 30 PV (attaque $20) */
+#define MOG_React_Hit10 MOG_LAB_0203                         /* touché : 10 PV */
+#define MOG_React_HitOrDie MOG_LAB_0205                      /* touché : dégâts ou mort */
+#define MOG_React_Hit5 MOG_LAB_0206                          /* touché : 5 PV */
+#define MOG_React_Default MOG_LAB_020B                       /* réaction par défaut (LAB_020D) */
+#define MOG_Call_BackStop MOG_LAB_0210                       /* fin du recul */
+#define MOG_Call_BackStep MOG_LAB_0211                       /* un pas de recul */
+#define MOG_Ctl_PassingKnight MOG_LAB_0226                   /* contrôleur 0 : chevalier qui traverse l'écran */
+#define MOG_v_PassingKnightToggle MOG_LAB_0234               /* bascule du chevalier de passage */
+#define MOG_t_PassingKnightDx MOG_L00_05C20                  /* pas en X du chevalier de passage */
+#define MOG_Ctl_Trogg MOG_LAB_0236                           /* contrôleurs 24, 28, 32 : Troggs */
+#define MOG_t_TroggWalkX MOG_LAB_024E                        /* pas en X des Troggs (LAB_0236) */
+#define MOG_t_TroggWalkY MOG_LAB_024F                        /* pas en Y des Troggs */
+#define MOG_t_TroggWalkDir MOG_LAB_0250                      /* directions des Troggs */
+#define MOG_Ctl_Ratman MOG_LAB_0251                          /* contrôleur 36 : hommes-rats */
+#define MOG_Ctl_Dragon MOG_LAB_027A                          /* contrôleur 20 : Dragon */
+#define MOG_Call_DragonMove MOG_LAB_028E                     /* déplacement du Dragon */
+#define MOG_v_DragonSave118 MOG_LAB_0295                     /* Dragon : champ +118 gardé */
+#define MOG_v_DragonSave116 MOG_L00_06960                    /* Dragon : champ +116 gardé (LAB_0297) */
+#define MOG_Ctl_DragonPart MOG_LAB_0298                      /* contrôleur 44 : partie du Dragon */
+#define MOG_Ctl_Leaper MOG_LAB_029F                          /* contrôleur 48 : créature qui bondit (Balok) */
+#define MOG_Call_Voice1D MOG_LAB_02AC                        /* voix $1D (voie 0) */
+#define MOG_Call_Voice1B MOG_LAB_02AD                        /* voix $1B (voie 1) */
+#define MOG_Call_Sound30_12 MOG_LAB_02AE                     /* sons $30 et $12 */
+#define MOG_Call_Throw MOG_LAB_02CA                          /* lance un objet (contrôleur 52) */
+#define MOG_Ctl_Projectile MOG_LAB_02CB                      /* contrôleur 52 : objet projeté */
+#define MOG_Ctl_Inert MOG_LAB_02D2                           /* contrôleur 40 : objet inerte */
+#define MOG_v_JumpBest MOG_LAB_02DA                          /* meilleure distance du saut visé */
+#define MOG_Call_EnemyActed MOG_LAB_02DB                     /* un adversaire a agi */
+#define MOG_Call_SoundRnd1E MOG_LAB_02DC                     /* son $1E + hasard */
+#define MOG_Call_SoundRnd02DE MOG_LAB_02DE                   /* son au hasard (LAB_02DE) */
+#define MOG_Call_SoundRnd5B MOG_LAB_02E0                     /* son $5B ou $5C */
+#define MOG_Call_SoundRnd6A MOG_LAB_02E1                     /* son $6A ou $6B */
+#define MOG_Call_SoundRnd61 MOG_LAB_02E2                     /* son $61 à $64 */
+#define MOG_Call_SoundRnd65 MOG_LAB_02E3                     /* son $65 ou $66 */
+#define MOG_Call_SoundRnd67 MOG_LAB_02E4                     /* son $67 + hasard */
+#define MOG_Call_Footstep MOG_LAB_02E6                       /* pas (un son sur 5) */
+#define MOG_Call_SoundSeqB MOG_LAB_02E8                      /* suite de sons LAB_02EF */
+#define MOG_Call_SoundSeqA MOG_LAB_02E9                      /* suite de sons LAB_02EE */
+#define MOG_v_NativeCount MOG_LAB_02EC                       /* compteur des routines natives (LAB_02E8) */
+#define MOG_v_SoundSeqPos MOG_L00_072FA                      /* position dans la suite de sons (LAB_02E9) */
+#define MOG_t_SoundSeqA MOG_LAB_02EE                         /* suite de sons (LAB_02E9) */
+#define MOG_t_SoundSeqB MOG_LAB_02EF                         /* suite de sons (LAB_02E8) */
+#define MOG_t_Trajectories MOG_LAB_0301                      /* trajectoires (6 × 20 octets) */
+#define MOG_t_ThrownDamage MOG_LAB_0302                      /* dégâts de l'objet lancé */
+#define MOG_v_FrameStartVbl MOG_LAB_0321                     /* compteur de VBL au début de l'image */
+#define MOG_v_PhysMoved MOG_LAB_037F                         /* l'entité a bougé (physique du moteur) */
+#define MOG_v_AllowedDirs MOG_LAB_03B6                       /* directions permises (LAB_03B5) */
+#define MOG_t_BlockBits MOG_L00_08671                        /* bits de direction bloquée par obstacle */
+#define MOG_v_PaletteKind MOG_LAB_0411                       /* genre de palette du combat (LAB_0409) */
+#define MOG_v_CombatGlow MOG_LAB_0414                        /* pulsation de couleur du combat */
+#define MOG_v_CopySrc MOG_LAB_0424                           /* copie d'écran : source */
+#define MOG_v_CopyDst MOG_LAB_0425                           /* copie d'écran : destination */
+#define MOG_Call_Shake MOG_LAB_0427                          /* tremblement d'écran */
+#define MOG_Vbl_Shake MOG_LAB_042A                           /* tâche VBL du tremblement */
+#define MOG_v_ShakeTable MOG_LAB_042C                        /* tremblement : table des décalages */
+#define MOG_v_ShakeDelay MOG_LAB_042D                        /* tremblement : VBL entre deux pas */
+#define MOG_v_ShakeCount MOG_L00_0915A                       /* tremblement d'écran : secousses restantes */
+#define MOG_v_ShakePlanes MOG_L00_0915E                      /* tremblement : plans décalés */
+#define MOG_t_ShakeOffsets MOG_LAB_0430                      /* décalages du tremblement (LAB_0427) */
 #define MOG_v_TextWidth MOG_LAB_0441                         /* largeur de la chaîne (LAB_043D) */
+#define MOG_v_MasterTexts MOG_LAB_0488                       /* textes choisis par le maître d'armes */
+#define MOG_t_TrainingBonus MOG_LAB_048D                     /* bonus de réussite selon l'or (LAB_0489) */
+#define MOG_Ctl_Croupier MOG_LAB_04AC                        /* contrôleur 68 : croupier des dés */
+#define MOG_v_GambleBet MOG_LAB_04AF                         /* mise posée (jeu de dés) */
+#define MOG_Call_DiceSound MOG_LAB_04BA                      /* dés qui roulent : son */
+#define MOG_t_DiceSounds MOG_LAB_04BB                        /* sons des dés */
+#define MOG_Call_SacrificeSound MOG_LAB_04C2                 /* sacrifice : son au hasard */
+#define MOG_Ctl_Sacrifice MOG_LAB_04C4                       /* contrôleur du sacrifice */
+#define MOG_t_FramesRight MOG_LAB_04F3                       /* cadres du panneau de droite */
+#define MOG_t_FramesLeft MOG_L00_0AFE4                       /* cadres du panneau de gauche */
+#define MOG_t_KnightPanelIcons MOG_LAB_04F5                  /* icônes fixes du panneau du chevalier */
+#define MOG_v_StatOffset MOG_LAB_04F6                        /* caractéristique affichée (décalage dans l'objet) */
+#define MOG_v_StatY MOG_L00_0B042                            /* Y de la ligne de caractéristique */
+#define MOG_v_InvIconX MOG_LAB_0514                          /* X de l'icône d'inventaire */
+#define MOG_v_InvIconFrame MOG_L00_0B85C                     /* frame de l'icône d'inventaire */
+#define MOG_t_Knights MOG_LAB_0525                           /* les quatre objets des chevaliers */
+#define MOG_v_NextKnight MOG_LAB_0526                        /* chevalier suivant (0-3) */
+#define MOG_v_UsedItem MOG_LAB_053B                          /* objet utilisé à l'écran (-1 aucun ; $12 fuite) */
+#define MOG_v_ScreenRedo MOG_LAB_053C                        /* écran à reconstruire */
+#define MOG_t_ZoneValues MOG_LAB_054D                        /* valeur des zones $1B et suivantes */
+#define MOG_Vbl_Pointer MOG_LAB_057D                         /* serveur VBL du pointeur (joystick) */
+#define MOG_t_HpColours MOG_SECSTRT_1                        /* trois couleurs de pulsation des PV */
+#define MOG_v_LowHpGlowA MOG_LAB_05A5                        /* pulsation des PV bas : joueur, couleur 6 */
+#define MOG_v_LowHpGlowB MOG_LAB_05A6                        /* couleur 7 */
+#define MOG_v_LowHpGlowC MOG_LAB_05A7                        /* couleur 8 */
+#define MOG_v_FoeLowHpGlowA MOG_LAB_05A8                     /* pulsation des PV bas : adversaire, couleur 9 */
+#define MOG_v_FoeLowHpGlowB MOG_LAB_05A9                     /* couleur 10 */
+#define MOG_v_FoeLowHpGlowC MOG_LAB_05AA                     /* couleur 11 */
+#define MOG_v_CombatStarted MOG_LAB_05AB                     /* combat en route (Combat_Run) */
+#define MOG_v_CombatStartVbl MOG_LAB_05AC                    /* compteur de VBL au début du combat */
+#define MOG_v_CombatantsSwapped MOG_LAB_05AD                 /* combattants échangés (duel perdu par le premier) */
+#define MOG_v_IconW MOG_LAB_05AE                             /* largeur de l'icône (LAB_0066) */
+#define MOG_v_IconH MOG_LAB_05AF                             /* hauteur de l'icône */
+#define MOG_v_OtherIconH MOG_LAB_05B0                        /* hauteur de l'autre icône (LAB_0067) */
+#define MOG_v_OtherIconW MOG_LAB_05B1                        /* largeur de l'autre icône */
+#define MOG_v_OverlapIcon MOG_LAB_05B2                       /* icône testée */
+#define MOG_v_OverlapX MOG_LAB_05B3                          /* X de l'icône testée */
+#define MOG_v_OverlapY MOG_LAB_05B4                          /* Y de l'icône testée */
+#define MOG_v_OverlapKnightX MOG_LAB_05B5                    /* X de l'icône du chevalier */
+#define MOG_v_OverlapKnightY MOG_LAB_05B6                    /* Y de l'icône du chevalier */
+#define MOG_t_PalTown MOG_LAB_05B7                           /* palette de la ville */
 #define MOG_t_ChipBuffers MOG_LAB_05B8                       /* tampons en mémoire chip (+0 décor, +4 CEL du chevalier, +8 CEL des créatures...) */
 #define MOG_t_FastBuffers MOG_LAB_05B9                       /* tampons en mémoire fast (+8 décors « Test », +84 texte de collide.hit, +88 points d'impact...) */
 #define MOG_b_BloCel MOG_LAB_05BB                            /* CEL blo.cel (banque d'effets LAB_0648) */
@@ -730,7 +894,53 @@
 #define MOG_t_NextKnightText MOG_LAB_09EF                    /* texte du bouton « chevalier suivant » */
 #define MOG_t_ScreenPalette MOG_LAB_09F0                     /* palette des écrans à pointeur */
 #define MOG_t_PanelKnightColours MOG_LAB_09F1                /* couleurs des chevaliers des panneaux */
+#define MOG_v_HitTextSize MOG_SECSTRT_10                     /* taille du texte de collide.hit */
+#define MOG_v_HitDataEnd MOG_LAB_0A4D                        /* fin des points d'impact rangés (LAB_03D2) */
+#define MOG_v_HitByCelNext MOG_LAB_0A4E                      /* entrée libre de t_HitDataByCel */
+#define MOG_v_HitDataEndBase MOG_LAB_0A4F                    /* fin des points d'impact du chevalier (remise à chaque combat) */
+#define MOG_v_HitByCelBase MOG_LAB_0A50                      /* entrée libre après ceux du chevalier */
 #define MOG_v_HitRowBytes MOG_LAB_0A56                       /* octets d'une ligne de la frame testée (Col_PixelHit) */
+#define MOG_t_ZoneTemplate MOG_LAB_0A58                      /* zone modèle (x, y, l, h, texte, identifiant, genre, case) */
+#define MOG_v_ObstacleLimit MOG_SECSTRT_13                   /* limite en Y des obstacles */
+#define MOG_v_ObstacleX0 MOG_LAB_0A77                        /* obstacle testé : X gauche */
+#define MOG_v_ObstacleX1 MOG_LAB_0A78                        /* obstacle testé : X droit */
+#define MOG_v_TileH MOG_LAB_0A79                             /* bloc du terrain : hauteur */
+#define MOG_v_TileW MOG_LAB_0A7A                             /* bloc du terrain : largeur */
+#define MOG_v_TileWCopy MOG_LAB_0A7B                         /* largeur copiée */
+#define MOG_v_TileHClip MOG_LAB_0A7C                         /* hauteur après découpe */
+#define MOG_v_TileSrcMod MOG_LAB_0A7D                        /* modulo de la source (blitter A) */
+#define MOG_v_TileMaskMod MOG_LAB_0A7E                       /* modulo du masque (blitter B) */
+#define MOG_v_TileDstMod MOG_LAB_0A80                        /* modulo de la destination */
+#define MOG_v_TerrainObjPos MOG_LAB_0A81                     /* objet du terrain suivant (décalage, SECSTRT_12) */
+#define MOG_b_Obstacles MOG_SECSTRT_14                       /* obstacles du terrain (mot nombre, 8 octets chacun) ; zones des écrans */
+#define MOG_b_TerrainObjects MOG_LAB_0A83                    /* objets du terrain à dessiner (2400 octets) */
+#define MOG_v_TileCon0B MOG_LAB_0A84                         /* BLTCON0 du masque */
+#define MOG_v_TileCon1 MOG_LAB_0A85                          /* BLTCON1 (décalage) */
+#define MOG_v_TileSrcX MOG_LAB_0A86                          /* X du bloc dans la planche */
+#define MOG_v_TileSrcY MOG_LAB_0A87                          /* Y du bloc dans la planche */
+#define MOG_v_TileX MOG_LAB_0A88                             /* X de destination */
+#define MOG_v_TileY MOG_LAB_0A89                             /* Y de destination */
+#define MOG_v_TileSheet MOG_LAB_0A8A                         /* planche du bloc */
+#define MOG_v_TileDst MOG_LAB_0A8B                           /* plans de destination */
+#define MOG_v_TileIndex MOG_LAB_0A8C                         /* numéro du bloc */
+#define MOG_v_TileClip0A8D MOG_LAB_0A8D                      /* découpe (remis à zéro) */
+#define MOG_v_TileSkipRows MOG_LAB_0A8E                      /* octets sautés en haut (découpe) */
+#define MOG_v_TileMaskSkip MOG_LAB_0A8F                      /* décalage dans le masque (découpe) */
+#define MOG_v_TileClip0A90 MOG_LAB_0A90                      /* découpe (remis à zéro) */
+#define MOG_v_TileClip0A91 MOG_LAB_0A91                      /* découpe (remis à zéro) */
+#define MOG_v_TileSrcPtr MOG_LAB_0A92                        /* source du plan suivant */
+#define MOG_v_TileDstPtr MOG_LAB_0A93                        /* destination du plan suivant */
+#define MOG_v_TileBltSize MOG_LAB_0A94                       /* BLTSIZE */
+#define MOG_v_TileFirstMask MOG_LAB_0A95                     /* masque du premier mot */
+#define MOG_v_TileLastMask MOG_LAB_0A96                      /* masque du dernier mot */
+#define MOG_v_TileMask MOG_LAB_0A97                          /* masque du bloc */
+#define MOG_v_ObstacleMaxY MOG_LAB_0A98                      /* Y le plus bas des obstacles du terrain */
+#define MOG_t_TileMasks MOG_SECSTRT_15                       /* masques des blocs du terrain */
+#define MOG_Call_VoiceOff0 MOG_LAB_0A9E                      /* libère la voie 0 */
+#define MOG_Call_VoiceOff1 MOG_LAB_0A9F                      /* libère la voie 1 */
+#define MOG_Call_VoiceOff2 MOG_LAB_0AA0                      /* libère la voie 2 */
+#define MOG_v_SndNextVoice MOG_LAB_0AA5                      /* voie de l'effet suivant (0-3) */
+#define MOG_v_SndMuted MOG_LAB_0AA6                          /* effets coupés */
 #define MOG_s_KnA MOG_SECSTRT_17                             /* "kn.a" */
 #define MOG_s_BeA MOG_LAB_0AB7                               /* "Be.a" */
 #define MOG_s_BaA MOG_LAB_0AB8                               /* "Ba.a" */
@@ -743,13 +953,22 @@
 #define MOG_s_MuA MOG_LAB_0AC0                               /* "Mu.a" */
 #define MOG_s_ReA MOG_LAB_0AC1                               /* "Re.a" */
 #define MOG_s_HeA MOG_LAB_0AC2                               /* "He.a" */
+#define MOG_v_KeyPressed MOG_SECSTRT_21                      /* dernière touche (code) */
+#define MOG_t_KeysDown MOG_LAB_0B91                          /* touches enfoncées (128 octets) */
+#define MOG_t_VblTasks MOG_LAB_0B96                          /* tâches de l'interruption d'image */
 #define MOG_v_FileSize MOG_L23_0000E                         /* taille du fichier ouvert (répertoire) */
 #define MOG_v_FileError MOG_L23_0001A                        /* 0 ou -1 : fichier introuvable (LAB_0BB5) */
+#define MOG_v_PivData MOG_SECSTRT_25                         /* PIV en cours de décodage */
+#define MOG_v_PivPlanes MOG_LAB_0C59                         /* plans du PIV décodé (4 ou 5) */
 #define MOG_v_CelLastName MOG_LAB_0CC9                       /* nom de la dernière CEL chargée (LAB_0CBB) */
 #define MOG_v_CelLastSize MOG_LAB_0CCA                       /* place occupée par cette CEL (LAB_0CB6 la relit) */
 #define MOG_t_BitReverse MOG_LAB_0CD9                        /* octet aux bits inversés (256 octets, frames retournées) */
 #define MOG_v_ScreenStride MOG_SECSTRT_29                    /* largeur d'une ligne d'écran en octets */
 #define MOG_t_DestPlanes MOG_LAB_0CFF                        /* 5 pointeurs de plans de destination (dessin, décodage des PIV) */
+#define MOG_v_DestPlane1 MOG_LAB_0D00                        /* plan de destination 1 */
+#define MOG_v_DestPlane2 MOG_LAB_0D01                        /* plan de destination 2 */
+#define MOG_v_DestPlane3 MOG_LAB_0D02                        /* plan de destination 3 */
+#define MOG_v_DestPlane4 MOG_LAB_0D03                        /* plan de destination 4 */
 #define MOG_v_CelPlanesMax MOG_LAB_0D04                      /* dernier plan dessiné (4 : 5 plans) */
 #define MOG_v_BlitByCpu MOG_LAB_0D05                         /* copie des plans par le processeur (textes, écrans) plutôt que le blitter */
 #define MOG_v_CelHeader MOG_LAB_0D1C                         /* copie de l'en-tête CEL (10 octets) : mot nombre de frames */
@@ -765,6 +984,7 @@
 #define MOG_v_CelDestOffset MOG_LAB_0D28                     /* décalage ajouté à l'adresse de destination */
 #define MOG_v_CelPlaneSize MOG_LAB_0D29                      /* taille d'un plan de la frame */
 #define MOG_v_CelShift MOG_LAB_0D2A                          /* décalage en pixels (0-15) ; premier mot d'une liste copper */
+#define MOG_t_PivPalette MOG_LAB_0D2B                        /* palette du dernier PIV décodé */
 #define MOG_v_GfxTableB MOG_LAB_0D3D                         /* table de conversion de pixels ($222E octets) */
 #define MOG_v_GfxTableA MOG_LAB_0D3E                         /* table de conversion de pixels ($1000 octets, dans b_Gfx) */
 #define MOG_v_GfxTableC MOG_LAB_0D3F                         /* table de conversion de pixels ($1000 octets) */
@@ -774,12 +994,65 @@
 #define MOG_v_GfxReady MOG_LAB_0D4D                          /* tables graphiques prêtes (sinon SECSTRT_30 au premier dessin) */
 #define MOG_b_Gfx MOG_SECSTRT_32                             /* bloc des tables graphiques et du tampon de frame */
 #define MOG_b_Unpack MOG_LAB_0D4F                            /* tampon des données compressées (41 244 octets) */
+#define MOG_v_ShowPlanes MOG_SECSTRT_35                      /* plans de l'écran montré */
+#define MOG_v_DrawPlanes MOG_LAB_0D92                        /* plans de l'écran de dessin (tampon arrière) */
+#define MOG_t_KeyChars MOG_LAB_0D99                          /* caractère de chaque code de touche */
+#define MOG_Ctl_MapDragon MOG_LAB_0DCF                       /* contrôleur 40 sur la carte : vol du dragon */
+#define MOG_v_CellSlowCount MOG_LAB_0DDA                     /* compteur des images en case lente */
+#define MOG_v_CellSlowSkip MOG_L36_008E4                     /* case lente : image sans mouvement */
+#define MOG_v_DragonMapPhase MOG_LAB_0DDC                    /* phase du vol du dragon sur la carte */
+#define MOG_v_DragonMapDir MOG_L36_008E8                     /* sens du vol du dragon */
+#define MOG_v_MapCycle MOG_LAB_0DDE                          /* rotation de couleurs de la carte */
+#define MOG_v_CellIndex MOG_LAB_0E21                         /* index de la case (40 par ligne) */
+#define MOG_v_SpritePair MOG_LAB_0E82                        /* sprite jumeau (attaché) */
+#define MOG_v_SpriteX MOG_L37_00172                          /* X du sprite placé (LAB_0E78) */
+#define MOG_v_SpriteY MOG_LAB_0E84                           /* Y du sprite placé */
+#define MOG_t_SpriteData MOG_LAB_0E8C                        /* données des 8 sprites matériels */
+#define MOG_v_PointerSpriteBoot MOG_LAB_0E8D                 /* données du sprite du pointeur (po.cel) */
+#define MOG_v_PointerSprite2Boot MOG_LAB_0E8E                /* données du sprite jumeau */
+#define MOG_t_SpriteEmpty MOG_SECSTRT_38                     /* sprite vide (pointeur caché) */
 #define MOG_v_PalFadeTarget MOG_SECSTRT_39                   /* palette visée par le fondu (0 : aucun) */
 #define MOG_v_PalFadeDelay MOG_LAB_0E91                      /* VBL entre deux pas du fondu */
 #define MOG_v_PalFadeCount MOG_LAB_0E92                      /* VBL avant le pas suivant du fondu */
 #define MOG_v_PalCurrent MOG_LAB_0E93                        /* palette courante (pointeur) */
 #define MOG_t_ColourCycles MOG_LAB_0E94                      /* rotations de couleurs (LAB_0E56) */
 #define MOG_t_ColourGlows MOG_LAB_0E95                       /* pulsations de couleurs */
+#define MOG_Ctl_Mudman MOG_SECSTRT_40                        /* contrôleur 4 : Mudmen */
+#define MOG_v_MudState MOG_LAB_0EB6                          /* état commun des Mudmen (octet fort) */
+#define MOG_t_MudmanSteps MOG_L40_0040C                      /* pas du Mudman selon la direction */
+#define MOG_Call_Voice50 MOG_LAB_0EB8                        /* voix $50 (voie 0) */
+#define MOG_Call_MudmenSounds MOG_LAB_0EB9                   /* Mudmen : deux sons */
+#define MOG_Call_SoundRnd0EBD MOG_LAB_0EBD                   /* son au hasard (LAB_0EBD) */
+#define MOG_Call_TrollSound MOG_LAB_0EBE                     /* Troll : son suivant */
+#define MOG_t_TrollSounds MOG_LAB_0EC0                       /* sons du Troll (tirés au hasard) */
+#define MOG_v_TrollSoundIndex MOG_LAB_0EC1                   /* son suivant du Troll */
+#define MOG_Ctl_Troll MOG_LAB_0EC2                           /* contrôleur 64 : Troll */
+#define MOG_t_TrollStepX MOG_L40_00662                       /* pas horizontal du Troll (LAB_0EC6) */
+#define MOG_t_DemonSounds MOG_LAB_0ECF                       /* sons du Démon (LAB_0ED0) */
+#define MOG_Call_DemonSounds MOG_LAB_0ED0                    /* Démon : deux sons */
+#define MOG_Ctl_Demon MOG_LAB_0ED2                           /* contrôleur 8 : Démon */
+#define MOG_v_DemonState MOG_LAB_0EEA                        /* état du Démon (octet fort) */
+#define MOG_Call_DemonCompanion MOG_LAB_0EEB                 /* compagnon du Démon (script LAB_08AF) */
+#define MOG_Call_DemonCompanion2 MOG_LAB_0EEC                /* compagnon du Démon (LAB_0EEC) */
+#define MOG_Call_DemonCompanionKill MOG_LAB_0EED             /* compagnon du Démon retiré */
+#define MOG_Call_Voice4A MOG_LAB_0EEE                        /* voix $4A */
+#define MOG_Call_SoundRnd0EEF MOG_LAB_0EEF                   /* son au hasard (LAB_0EEF) */
+#define MOG_Call_DemonFx MOG_LAB_0EF6                        /* Démon : effet (LAB_0EFD) */
+#define MOG_Call_DemonThrow MOG_LAB_0EF7                     /* le Démon projette le chevalier derrière lui */
+#define MOG_Ctl_KnightAi MOG_LAB_0EFF                        /* contrôleurs 16 et 56 : chevalier géré par l'ordinateur */
+#define MOG_t_KnightAiWalkX MOG_SECSTRT_41                   /* pas en X du chevalier ordinateur */
+#define MOG_t_KnightAiWalkY MOG_LAB_0F36                     /* pas en Y du chevalier ordinateur */
+#define MOG_t_KnightAiWalkDir MOG_LAB_0F37                   /* directions du chevalier ordinateur */
+#define MOG_v_KnightAiLastAtk MOG_LAB_0F38                   /* dernière attaque du chevalier ordinateur */
+#define MOG_v_AiStepX MOG_LAB_0F3A                           /* pas en X de l'approche (LAB_0F20) */
+#define MOG_v_AiStepY MOG_LAB_0F3B                           /* pas en Y de l'approche */
+#define MOG_v_AiStepYAlt MOG_LAB_0F3C                        /* pas en Y de rechange */
+#define MOG_v_AiNear MOG_LAB_0F3D                            /* assez près (approche) */
+#define MOG_v_AiWalkGroup MOG_LAB_0F3E                       /* groupe de la table de marche (0, $20, $40) */
+#define MOG_v_AiArrived MOG_LAB_0F3F                         /* approche terminée */
+#define MOG_t_SacrificeMessage MOG_SECSTRT_42                /* message du sacrifice */
+#define MOG_t_DiceWinText MOG_LAB_0F42                       /* texte des dés : gagné */
+#define MOG_t_DiceLoseText MOG_LAB_0F43                      /* texte des dés : perdu */
 #define MOG_s_GoldPieces MOG_LAB_0F47                        /* "     gold pieces." */
 #define MOG_s_GoldPieces2 MOG_LAB_0F49                       /* "     gold pieces." */
 #define MOG_s_GoldPieces3 MOG_LAB_0F4B                       /* "     gold pieces." */
@@ -788,10 +1061,50 @@
 #define MOG_s_DiceCel MOG_LAB_0F4F                           /* "dice.cel" */
 #define MOG_s_Hen1P MOG_LAB_0F50                             /* "Hen1.p" */
 #define MOG_s_Hen1C MOG_LAB_0F51                             /* "Hen1.c" */
+#define MOG_x_Croupier MOG_LAB_0F54                          /* croupier des dés */
+#define MOG_x_CroupierTake MOG_LAB_0F55                      /* croupier : prend la mise */
+#define MOG_x_SacrificeA MOG_LAB_0F56                        /* sacrifice (A) */
+#define MOG_x_SacrificeB MOG_LAB_0F57                        /* sacrifice (B) */
+#define MOG_v_SacrificeDone MOG_LAB_0F58                     /* sacrifice fait */
+#define MOG_v_GambleKnight MOG_LAB_0F59                      /* chevalier qui joue aux dés */
+#define MOG_t_BankDice MOG_LAB_0F5A                          /* banque CEL des dés (dice.cel) */
+#define MOG_v_GambleState MOG_LAB_0F5B                       /* état du croupier */
+#define MOG_v_DicePlanes MOG_LAB_0F5C                        /* plans de l'écran des dés */
+#define MOG_v_GambleStep MOG_LAB_0F5D                        /* étape du jeu de dés */
+#define MOG_b_DiceGoldText MOG_LAB_0F5E                      /* or écrit (dés) */
+#define MOG_t_Dice MOG_LAB_0F5F                              /* les trois dés (octets) */
+#define MOG_v_Die2 MOG_LAB_0F60                              /* deuxième dé */
+#define MOG_v_Die3 MOG_LAB_0F61                              /* troisième dé */
+#define MOG_v_Bet MOG_LAB_0F62                               /* mise */
+#define MOG_t_DiceOdds MOG_LAB_0F63                          /* gains selon les dés (LAB_04B4) */
+#define MOG_b_PointerSprite MOG_SECSTRT_43                   /* données du sprite du pointeur */
 #define MOG_v_Voice0 MOG_SECSTRT_44                          /* voie 0 du pilote (148 octets) */
 #define MOG_v_Voice1 MOG_LAB_0F66                            /* voie 1 */
 #define MOG_v_Voice2 MOG_LAB_0F67                            /* voie 2 */
 #define MOG_v_Voice3 MOG_LAB_0F68                            /* voie 3 */
 #define MOG_v_SoundFading MOG_LAB_0FC4                       /* fondu en cours : volume des voies baissé (LAB_0FC2) */
+#define MOG_v_SndVoice MOG_L44_00BEE                         /* voie de la suite de sons en cours */
+#define MOG_b_SndSeq0 MOG_L44_00BF0                          /* suite de sons de la voie 0 (128 octets) */
+#define MOG_b_SndSeq1 MOG_L44_00C70                          /* suite de sons de la voie 1 */
+#define MOG_b_SndSeq2 MOG_L44_00CF0                          /* suite de sons de la voie 2 */
+#define MOG_b_SndSeq3 MOG_L44_00D70                          /* suite de sons de la voie 3 */
+#define MOG_t_SndDefault MOG_LAB_0FCA                        /* suite de sons par défaut (fin : $FF) */
+#define MOG_t_SndInstruments MOG_L44_013B6                   /* instruments des effets (15 octets) */
+#define MOG_t_SndEnvelopes MOG_LAB_0FE1                      /* enveloppes des effets (8 octets) */
+#define MOG_t_SndPrograms MOG_LAB_1098                       /* programmes des effets (n × 4) */
+#define MOG_t_SndSilentSample MOG_SECSTRT_45                 /* échantillon silencieux (AUDxLC au repos) */
+#define MOG_t_SndSilence MOG_LAB_10A2                        /* instrument muet */
+#define MOG_t_SndSamplesKnight MOG_LAB_10A3                  /* échantillons du chevalier (kn.a ; 14 octets chacun) */
+#define MOG_t_SndSamplesKnightEnd MOG_LAB_10A4               /* fin des échantillons du chevalier */
+#define MOG_t_SndSamplesA MOG_LAB_10A5                       /* échantillons relogés (bloc A) */
+#define MOG_t_SndSamplesB MOG_LAB_10A6                       /* échantillons relogés (bloc B) */
+#define MOG_t_SndSamplesKnight2End MOG_LAB_10A7              /* fin du second bloc du chevalier */
+#define MOG_t_SndSampleRatmen MOG_LAB_10A8                   /* échantillon des hommes-rats */
+#define MOG_t_SndSampleCreature MOG_LAB_10A9                 /* échantillon de la créature */
+#define MOG_t_SndSampleReplay MOG_LAB_10AA                   /* échantillon Re.a */
+#define MOG_t_SndSampleWizard MOG_LAB_10AB                   /* échantillon du magicien */
+#define MOG_t_SndSampleCreature2 MOG_LAB_10AC                /* échantillon de la créature (2) */
+#define MOG_t_SndSampleReplay2 MOG_LAB_10AD                  /* échantillon Re.a (2) */
+#define MOG_t_SndSampleCreature3 MOG_LAB_10AE                /* échantillon de la créature (3) */
 
 #endif

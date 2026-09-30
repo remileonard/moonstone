@@ -36,9 +36,9 @@ static void apply(MogCombat *m, uint32_t a1, const Kit *k)
 static int creature_setup(MogCombat *m, uint32_t fn, uint32_t a1)
 {
     switch (fn) {
-    case MOG_LAB_0166:                                  /* RTS */
+    case MOG_Kit_None:                                  /* RTS */
         return 1;
-    case MOG_LAB_0169: {                                /* Troggs */
+    case MOG_Kit_TroggA: {                                /* Troggs */
         Kit k = { MOG_t_TroggAAttacks, MOG_t_TroggAScripts, MOG_t_TroggADamage, MOG_t_TroggAWalk, 0x18, 4 };
         apply(m, a1, &k);
         wl(m, a1 + 22, MOG_x_TroggAStand);
@@ -50,7 +50,7 @@ static int creature_setup(MogCombat *m, uint32_t fn, uint32_t a1)
         ww(m, a1 + 84, 0x14);
         return 1;
     }
-    case MOG_LAB_0170: {
+    case MOG_Kit_TroggB: {
         Kit k = { MOG_t_TroggBAttacks, MOG_t_TroggBScripts, MOG_t_TroggBDamage, MOG_t_TroggBWalk, 0x1C, 4 };
         apply(m, a1, &k);
         wl(m, a1 + 22, MOG_x_TroggBStand);
@@ -62,7 +62,7 @@ static int creature_setup(MogCombat *m, uint32_t fn, uint32_t a1)
         ww(m, a1 + 84, 0x14);
         return 1;
     }
-    case MOG_LAB_0176: {
+    case MOG_Kit_TroggSpear: {
         wl(m, a1 + 30, MOG_t_TroggSpearScripts);
         wl(m, a1 + 46, MOG_t_TroggSpearWalk);
         wl(m, a1 + 38, MOG_t_BankEnemy);
@@ -77,7 +77,7 @@ static int creature_setup(MogCombat *m, uint32_t fn, uint32_t a1)
         ww(m, a1 + 84, 0x0F);
         return 1;
     }
-    case MOG_LAB_018B:
+    case MOG_Kit_PassingKnight:
         wl(m, a1 + 30, MOG_t_PassingKnightScripts);
         wl(m, a1 + 46, MOG_t_PassingKnightWalk);
         wl(m, a1 + 38, MOG_t_BankEnemy);
@@ -92,7 +92,7 @@ static int creature_setup(MogCombat *m, uint32_t fn, uint32_t a1)
         ww(m, a1 + 120, 5);
         ww(m, a1 + 118, 1);
         return 1;
-    case MOG_LAB_018F: {                                /* hommes-rats */
+    case MOG_Kit_Ratmen: {                                /* hommes-rats */
         wl(m, a1 + 30, MOG_t_RatmenScripts);
         wl(m, a1 + 46, MOG_t_RatmenWalk);
         wl(m, a1 + 42, MOG_t_RatmenDamage);
@@ -124,7 +124,7 @@ static int creature_setup(MogCombat *m, uint32_t fn, uint32_t a1)
         }
         return 1;
     }
-    case MOG_LAB_0198:
+    case MOG_Kit_Balok:
         wl(m, a1 + 38, MOG_t_BankEnemy);
         wl(m, a1 + 22, MOG_x_BalokStand);
         wl(m, a1 + 26, MOG_x_BalokRecoil);
@@ -137,7 +137,7 @@ static int creature_setup(MogCombat *m, uint32_t fn, uint32_t a1)
         ww(m, a1 + 118, 0x3C);
         ww(m, a1 + 116, 0x50);
         return 1;
-    case MOG_LAB_019D:
+    case MOG_Kit_Mudmen:
         wl(m, a1 + 46, MOG_t_MudmenWalk);
         wl(m, a1 + 42, MOG_t_MudmenDamage);
         wl(m, a1 + 38, MOG_t_BankEnemy);
@@ -153,7 +153,7 @@ static int creature_setup(MogCombat *m, uint32_t fn, uint32_t a1)
         ww(m, a1 + 120, 5);
         ww(m, a1 + 104, 0);
         return 1;
-    case MOG_LAB_019F:
+    case MOG_Kit_Troll:
         wl(m, a1 + 22, MOG_x_TrollStand);
         wl(m, a1 + 26, MOG_x_TrollStand);
         wl(m, a1 + 46, MOG_t_TrollWalk);
@@ -188,7 +188,7 @@ uint32_t mog_alloc_object(MogCombat *m)
 /* LAB_01A5-LAB_01A7 : profondeurs d'entrée (trois rangs) */
 static uint16_t entry_depth(MogCombat *m, int rank)
 {
-    uint16_t v = ix_rw(VM, MOG_LAB_0A98);
+    uint16_t v = ix_rw(VM, MOG_v_ObstacleMaxY);
     uint16_t d = (uint16_t)(200 - v);
     uint16_t r;
     uint32_t var;
@@ -213,8 +213,8 @@ void mog_enter_object_with(MogCombat *m, uint32_t a1, uint32_t script)
 {
     uint16_t n;
     do {
-        n = (uint16_t)((ix_rw(VM, MOG_LAB_01AD) + 1) & 3);
-        ww(m, MOG_LAB_01AD, n);
+        n = (uint16_t)((ix_rw(VM, MOG_v_EntryRank) + 1) & 3);
+        ww(m, MOG_v_EntryRank, n);
     } while (!n);
     ww(m, a1 + 8, entry_depth(m, n));
     ix_start_entity(&m->eng, script, a1, ix_rl(VM, a1 + 38),
@@ -262,12 +262,12 @@ static int spawn_alternating(MogCombat *m, uint32_t table)
 int mog_next_opponent(MogCombat *m, uint32_t fn)
 {
     switch (fn) {
-    case MOG_LAB_0166: return 1;                        /* RTS (duel) */
-    case MOG_LAB_016B: return spawn_alternating(m, MOG_t_EntriesA);
-    case MOG_LAB_0189: return spawn_alternating(m, MOG_t_EntriesB);
-    case MOG_LAB_018D:
-    case MOG_LAB_019B: return spawn_alternating(m, MOG_t_EntriesC);
-    case MOG_LAB_0197: return mog_spawn_opponent(m, MOG_LAB_0199);
+    case MOG_Kit_None: return 1;                        /* RTS (duel) */
+    case MOG_Next_EntriesA: return spawn_alternating(m, MOG_t_EntriesA);
+    case MOG_Next_EntriesB: return spawn_alternating(m, MOG_t_EntriesB);
+    case MOG_Next_EntriesC:
+    case MOG_Next_EntriesC2: return spawn_alternating(m, MOG_t_EntriesC);
+    case MOG_Next_Balok: return mog_spawn_opponent(m, MOG_t_EntriesDragon);
     }
     char t[64];
     snprintf(t, sizeof t, "LAB_05F0 non portée : %08X", fn);

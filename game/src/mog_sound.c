@@ -40,7 +40,7 @@ static const uint32_t voice_of[4] = {                   /* LAB_0F8B */
     MOG_v_Voice0, MOG_v_Voice1, MOG_v_Voice2, MOG_v_Voice3
 };
 static const uint32_t stack_of[4] = {                   /* LAB_0F8E */
-    MOG_L44_00C70, MOG_L44_00CF0, MOG_L44_00D70, MOG_LAB_0FCA
+    MOG_b_SndSeq1, MOG_b_SndSeq2, MOG_b_SndSeq3, MOG_t_SndDefault
 };
 
 /* ------------------------------------------------------------------ */
@@ -123,7 +123,7 @@ static void irq_voice(MogCombat *m, uint32_t a1)
         hw_ww(m, 0xDFF09A, rw(m, a1 + 6));
         hw_ww(m, 0xDFF096, rw(m, a1 + 2));
     } else {                                            /* LAB_0F71 : silence */
-        hw_wl(m, a2, MOG_SECSTRT_45);
+        hw_wl(m, a2, MOG_t_SndSilentSample);
         hw_ww(m, a2 + 4, 1);
     }
     hw_ww(m, 0xDFF09C, rw(m, a1 + 6));                  /* LAB_0F72 */
@@ -168,33 +168,33 @@ static void raise_irq(MogCombat *m, int c)
  * banques chargées (LAB_05C7, LAB_05C8, LAB_05C9, LAB_05CA, LAB_05CB) */
 void mog_snd_relocate(MogCombat *m)
 {
-    uint32_t a0 = MOG_LAB_10A3;
+    uint32_t a0 = MOG_t_SndSamplesKnight;
     do {                                                /* LAB_0FD5 */
         wl(m, a0 + 6, rl(m, a0 + 6) + rl(m, MOG_b_SoundsKnight));
         a0 += 14;
-    } while (a0 != MOG_LAB_10A4);
+    } while (a0 != MOG_t_SndSamplesKnightEnd);
     do {                                                /* LAB_0FD6 */
         wl(m, a0 + 6, rl(m, a0 + 6) + rl(m, MOG_b_SoundsCreature));
         a0 += 14;
-    } while (a0 != MOG_LAB_10A7);
+    } while (a0 != MOG_t_SndSamplesKnight2End);
     static const struct { uint32_t end, bank; } r1[] = {
-        { MOG_LAB_10A8, MOG_b_SoundsRatmen }, { MOG_LAB_10A9, MOG_b_SoundsCreature },
+        { MOG_t_SndSampleRatmen, MOG_b_SoundsRatmen }, { MOG_t_SndSampleCreature, MOG_b_SoundsCreature },
     };
     for (int i = 0; i < 2; i++)
         for (; a0 != r1[i].end; a0 += 14)
             wl(m, a0 + 6, rl(m, a0 + 6) + rl(m, r1[i].bank));
     static const struct { uint32_t a; uint32_t off; } fix[] = {   /* LAB_0FD9 */
-        { MOG_LAB_10A5, 0x31E2 }, { MOG_LAB_10A5 + 14, 0x3DD2 },
-        { MOG_LAB_10A6, 0x4452 }, { MOG_LAB_10A6 + 14, 0x50BE },
-        { MOG_LAB_10A6 + 28, 0x50BE },
+        { MOG_t_SndSamplesA, 0x31E2 }, { MOG_t_SndSamplesA + 14, 0x3DD2 },
+        { MOG_t_SndSamplesB, 0x4452 }, { MOG_t_SndSamplesB + 14, 0x50BE },
+        { MOG_t_SndSamplesB + 28, 0x50BE },
     };
     for (int i = 0; i < 5; i++)
         wl(m, fix[i].a + 6, rl(m, MOG_b_SoundsKnight) + fix[i].off);
-    a0 = MOG_LAB_10A9;
+    a0 = MOG_t_SndSampleCreature;
     static const struct { uint32_t end, bank; } r2[] = {
-        { MOG_LAB_10AA, MOG_b_SoundsReplay }, { MOG_LAB_10AB, MOG_b_SoundsWizard },
-        { MOG_LAB_10AC, MOG_b_SoundsCreature }, { MOG_LAB_10AD, MOG_b_SoundsReplay },
-        { MOG_LAB_10AE, MOG_b_SoundsCreature },
+        { MOG_t_SndSampleReplay, MOG_b_SoundsReplay }, { MOG_t_SndSampleWizard, MOG_b_SoundsWizard },
+        { MOG_t_SndSampleCreature2, MOG_b_SoundsCreature }, { MOG_t_SndSampleReplay2, MOG_b_SoundsReplay },
+        { MOG_t_SndSampleCreature3, MOG_b_SoundsCreature },
     };
     for (int i = 0; i < 5; i++)
         for (; a0 != r2[i].end; a0 += 14)
@@ -204,26 +204,26 @@ void mog_snd_relocate(MogCombat *m)
 /* LAB_0F89 : voies et registres remis à zéro */
 void mog_snd_init(MogCombat *m)
 {
-    wb(m, MOG_LAB_0FCA, 0xFF);                          /* ST */
+    wb(m, MOG_t_SndDefault, 0xFF);                          /* ST */
     if (m->audio) {
         hw_ww(m, 0xDFF096, 0x800F);
         hw_ww(m, 0xDFF09A, 0x0780);
         hw_ww(m, 0xDFF09C, 0x0780);
     }
     for (uint32_t i = 0; i < 0x204; i++)                /* L44_00BF0 */
-        wb(m, MOG_L44_00BF0 + i, 0);
+        wb(m, MOG_b_SndSeq0 + i, 0);
     for (int c = 0; c < 4; c++) {
         uint32_t a = voice_of[c], reg = 0xDFF0A0 + 16u * (unsigned)c;
         if (m->audio) {
             hw_ww(m, reg + 8, 0);
             hw_ww(m, reg + 4, 1);
             hw_ww(m, reg + 6, 1);
-            hw_wl(m, reg, MOG_SECSTRT_45);
+            hw_wl(m, reg, MOG_t_SndSilentSample);
             hw_ww(m, reg + 4, 8);
             hw_ww(m, reg + 6, 0x100);
         }
-        wl(m, a + 28, MOG_SECSTRT_45);
-        wl(m, a + 32, MOG_SECSTRT_45);
+        wl(m, a + 28, MOG_t_SndSilentSample);
+        wl(m, a + 32, MOG_t_SndSilentSample);
         ww(m, a + 40, 8);
         ww(m, a + 14, 2);
         wl(m, a + 24, stack_of[c]);
@@ -235,13 +235,13 @@ void mog_snd_init(MogCombat *m)
     }
     if (m->audio)
         hw_ww(m, 0xDFF096, 0x000F);
-    ww(m, MOG_LAB_0FCA, 0);
+    ww(m, MOG_t_SndDefault, 0);
 }
 
 /* LAB_0F8C : son n sur la voie ch */
 static void play(MogCombat *m, int n, int ch)
 {
-    wb(m, MOG_LAB_0FCA, 0xFF);                          /* ST */
+    wb(m, MOG_t_SndDefault, 0xFF);                          /* ST */
     uint32_t a4 = voice_of[ch & 3];
     for (uint32_t i = 0; i < 128; i++)
         wb(m, a4 + 16 + i, 0);
@@ -250,15 +250,15 @@ static void play(MogCombat *m, int n, int ch)
     hw_ww(m, 0xDFF096, rw(m, a4 + 2));
     uint32_t a3 = rl(m, a4 + 8);
     hw_ww(m, a3 + 8, 0);
-    hw_wl(m, a3, MOG_SECSTRT_45);
+    hw_wl(m, a3, MOG_t_SndSilentSample);
     hw_ww(m, a3 + 4, 1);
     hw_ww(m, a3 + 6, 1);
     hw_ww(m, 0xDFF096, rw(m, a4 + 0));
-    uint32_t a0 = rl(m, MOG_LAB_1098 + (uint32_t)(uint16_t)(n * 4));
+    uint32_t a0 = rl(m, MOG_t_SndPrograms + (uint32_t)(uint16_t)(n * 4));
     wl(m, a4 + 54, a0);
     wl(m, a4 + 58, a0);
     wl(m, a4 + 24, stack_of[ch & 3]);
-    a0 = MOG_LAB_10A2;
+    a0 = MOG_t_SndSilence;
     ww(m, a4 + 36, rw(m, a0));
     ww(m, a4 + 38, rw(m, a0 + 2));
     ww(m, a4 + 40, rw(m, a0 + 4));
@@ -270,7 +270,7 @@ static void play(MogCombat *m, int n, int ch)
     hw_ww(m, a3 + 4, rw(m, a4 + 40));
     hw_ww(m, a3 + 6, 0x100);
     hw_ww(m, 0xDFF096, 0x0002);         /* (l'original arrête ici la voie 1) */
-    ww(m, MOG_LAB_0FCA, 0);
+    ww(m, MOG_t_SndDefault, 0);
 }
 
 /* Voie coupée puis relancée sur un bloc neutre (note, arrêt) */
@@ -307,19 +307,19 @@ static void vib_b(MogCombat *m, uint32_t a4)
 
 static uint32_t prog(MogCombat *m, uint32_t n)
 {
-    return rl(m, MOG_LAB_1098 + (uint32_t)(uint16_t)(n * 4));
+    return rl(m, MOG_t_SndPrograms + (uint32_t)(uint16_t)(n * 4));
 }
 
 /* LAB_0F90 ... LAB_0FA3 : une voie du séquenceur */
 static void step_voice(MogCombat *m, uint32_t a4)
 {
-    uint32_t a6 = MOG_L44_00BEE;
+    uint32_t a6 = MOG_v_SndVoice;
     uint32_t a3 = rl(m, a4 + 24);
     if (!rl(m, a4 + 58))
         return;                                         /* LAB_0FA3 */
     if (!rw(m, a4 + 62)) {
         if (!rw(m, a4 + 38))
-            mute(m, a4, MOG_LAB_10A2, 1);
+            mute(m, a4, MOG_t_SndSilence, 1);
         uint32_t a2 = rl(m, a4 + 58);                   /* LAB_0F91 */
         if (!a2)
             goto vol;                                   /* LAB_0FA1 */
@@ -327,7 +327,7 @@ static void step_voice(MogCombat *m, uint32_t a4)
             uint32_t d0 = rb(m, a2++);
             if (!(d0 & 0x80)) {                         /* LAB_0F94 : note */
                 ww(m, a4 + 42, (uint16_t)d0);
-                mute(m, a4, MOG_LAB_10A2, 0);
+                mute(m, a4, MOG_t_SndSilence, 0);
                 if (rl(m, a4 + 20)) {
                     wb(m, a4 + 50, 0xFF);
                     ww(m, a4 + 52, 0);
@@ -366,7 +366,7 @@ static void step_voice(MogCombat *m, uint32_t a4)
             }
             case 7: {                                               /* vibrato */
                 wb(m, a4 + 138, rb(m, a4 + 138) & 0xFC);
-                uint32_t a0 = MOG_L44_013B6 + (uint32_t)rb(m, a2++) * 15u;
+                uint32_t a0 = MOG_t_SndInstruments + (uint32_t)rb(m, a2++) * 15u;
                 for (uint32_t i = 0; i < 15; i++)
                     ww(m, a4 + 94 + 2 * i, (uint16_t)(int16_t)(int8_t)rb(m, a0 + i));
                 wl(m, a4 + 74, 0);
@@ -419,10 +419,10 @@ static void step_voice(MogCombat *m, uint32_t a4)
                     a3 += 6;
                 }
                 continue;
-            case 18: wl(m, a4 + 20, MOG_LAB_0FE1 + (uint32_t)(uint16_t)(rb(m, a2++) << 3)); continue;
+            case 18: wl(m, a4 + 20, MOG_t_SndEnvelopes + (uint32_t)(uint16_t)(rb(m, a2++) << 3)); continue;
             case 19: wl(m, a4 + 20, 0); continue;
             case 20: {                                              /* instrument */
-                uint32_t a0 = MOG_LAB_10A2 + (uint32_t)rb(m, a2++) * 14u;
+                uint32_t a0 = MOG_t_SndSilence + (uint32_t)rb(m, a2++) * 14u;
                 ww(m, a4 + 36, rw(m, a0));
                 ww(m, a4 + 38, rw(m, a0 + 2));
                 ww(m, a4 + 40, rw(m, a0 + 4));
@@ -571,16 +571,16 @@ static void apply(MogCombat *m, uint32_t a4)
 /* LAB_0F73 : serveur de VBL du pilote */
 void mog_snd_vbl(MogCombat *m)
 {
-    if (!m->audio || rw(m, MOG_LAB_0FCA))
+    if (!m->audio || rw(m, MOG_t_SndDefault))
         return;
-    wb(m, MOG_LAB_0FCA, 0xFF);                          /* LAB_0F8F */
+    wb(m, MOG_t_SndDefault, 0xFF);                          /* LAB_0F8F */
     for (int c = 0; c < 4; c++)
         step_voice(m, voice_of[c]);
     for (int c = 0; c < 4; c++)                         /* LAB_0F7B */
         envelope(m, voice_of[c]);
     for (int c = 0; c < 4; c++)                         /* LAB_0F75 */
         apply(m, voice_of[c]);
-    ww(m, MOG_LAB_0FCA, 0);
+    ww(m, MOG_t_SndDefault, 0);
 }
 
 /* ------------------------------------------------------------------ */
@@ -603,13 +603,13 @@ void mog_snd_effect(MogCombat *m, int n)
             m->out.sound(m->out.user, n);
         return;
     }
-    if ((rb(m, MOG_LAB_0AA6) & 0x0F) == 0x0F)
+    if ((rb(m, MOG_v_SndMuted) & 0x0F) == 0x0F)
         return;                                         /* LAB_0AA4 */
     uint16_t c;
     do {
-        c = (uint16_t)((rw(m, MOG_LAB_0AA5) + 1) & 3);
-        ww(m, MOG_LAB_0AA5, c);
-    } while (rb(m, MOG_LAB_0AA6) & (1u << c));
+        c = (uint16_t)((rw(m, MOG_v_SndNextVoice) + 1) & 3);
+        ww(m, MOG_v_SndNextVoice, c);
+    } while (rb(m, MOG_v_SndMuted) & (1u << c));
     play(m, n, c);
 }
 

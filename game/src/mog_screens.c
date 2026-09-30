@@ -32,7 +32,7 @@ static void wb(MogCombat *m, uint32_t a, uint8_t v)  { ix_wb(VM, a, v); }
 static int16_t sw(uint16_t v) { return (int16_t)v; }
 
 #define KIND (rl(m, MOG_v_ScreenKind))
-#define MOG_EXT_0023 0x7F6AEu              /* pointeurs de sprites de la copper list */
+#define COPPER_SPRITES 0x7F6AEu            /* EXT_0023 : pointeurs de sprites de la copper list */
 
 /* ------------------------------------------------------------------ */
 /* Sprite du pointeur                                                  */
@@ -60,19 +60,19 @@ static void sprite_ctl(MogCombat *m, uint32_t a0, uint16_t d0, uint16_t d1)
 /* LAB_0E78 : sprite n en (x, y), et son jumeau s'il est attaché */
 static void sprite_move(MogCombat *m, uint16_t n, uint16_t x, uint16_t y)
 {
-    ww(m, MOG_LAB_0E82, 0);
-    uint32_t a0 = rl(m, MOG_LAB_0E8C + (uint32_t)(n << 2)) + 2;
+    ww(m, MOG_v_SpritePair, 0);
+    uint32_t a0 = rl(m, MOG_t_SpriteData + (uint32_t)(n << 2)) + 2;
     if (sw(rw(m, a0 - 2)) < 0) {
-        ww(m, MOG_LAB_0E82, (uint16_t)(n & 1 ? n - 1 : n + 1));
-        ww(m, MOG_L37_00172, x);
-        ww(m, MOG_LAB_0E84, y);
+        ww(m, MOG_v_SpritePair, (uint16_t)(n & 1 ? n - 1 : n + 1));
+        ww(m, MOG_v_SpriteX, x);
+        ww(m, MOG_v_SpriteY, y);
     }
     sprite_ctl(m, a0, x, y);
-    uint16_t pair = rw(m, MOG_LAB_0E82);                /* LAB_0E80 */
+    uint16_t pair = rw(m, MOG_v_SpritePair);                /* LAB_0E80 */
     if (pair) {
-        a0 = rl(m, MOG_LAB_0E8C + (uint32_t)(pair << 2)) + 2;
-        ww(m, MOG_LAB_0E82, 0);
-        sprite_ctl(m, a0, rw(m, MOG_L37_00172), rw(m, MOG_LAB_0E84));
+        a0 = rl(m, MOG_t_SpriteData + (uint32_t)(pair << 2)) + 2;
+        ww(m, MOG_v_SpritePair, 0);
+        sprite_ctl(m, a0, rw(m, MOG_v_SpriteX), rw(m, MOG_v_SpriteY));
     }
 }
 
@@ -80,12 +80,12 @@ static void sprite_move(MogCombat *m, uint16_t n, uint16_t x, uint16_t y)
  * list a1 (registres SPRxPT) */
 static void sprite_set(MogCombat *m, uint16_t n, uint32_t a0, uint32_t a1, uint32_t a2)
 {
-    ww(m, MOG_LAB_0E82, 0);
+    ww(m, MOG_v_SpritePair, 0);
     uint32_t a1_saved = a1;
     if (sw(rw(m, a0)) < 0)
-        ww(m, MOG_LAB_0E82, (uint16_t)(n & 1 ? n - 1 : n + 1));
+        ww(m, MOG_v_SpritePair, (uint16_t)(n & 1 ? n - 1 : n + 1));
     for (;;) {                                          /* LAB_0E88 */
-        wl(m, MOG_LAB_0E8C + (uint32_t)(n << 2), a0);
+        wl(m, MOG_t_SpriteData + (uint32_t)(n << 2), a0);
         a0 += 2;
         uint16_t reg = (uint16_t)((n << 2) + 0x120);
         uint32_t a = a1;
@@ -94,10 +94,10 @@ static void sprite_set(MogCombat *m, uint16_t n, uint32_t a0, uint32_t a1, uint3
         a += 2;
         ww(m, a, (uint16_t)(a0 >> 16));
         ww(m, a + 4, (uint16_t)a0);
-        uint16_t pair = rw(m, MOG_LAB_0E82);
+        uint16_t pair = rw(m, MOG_v_SpritePair);
         if (!pair)
             return;
-        ww(m, MOG_LAB_0E82, 0);
+        ww(m, MOG_v_SpritePair, 0);
         n = pair;
         a1 = a1_saved;
         a0 = a2;
@@ -110,13 +110,13 @@ static void pointer_on(MogCombat *m)
     if (rw(m, MOG_v_PointerHidden))
         return;
     ww(m, MOG_v_PointerHidden, 1);
-    sprite_set(m, 0, rl(m, MOG_v_PointerSprite), MOG_EXT_0023, rl(m, MOG_v_PointerSprite2));   /* LAB_0E77 */
+    sprite_set(m, 0, rl(m, MOG_v_PointerSprite), COPPER_SPRITES, rl(m, MOG_v_PointerSprite2));   /* LAB_0E77 */
     sprite_move(m, 0, rw(m, MOG_v_PointerX), rw(m, MOG_v_PointerY));
     ww(m, MOG_v_PointerOn, 1);
-    uint32_t a0 = MOG_LAB_0B96;                         /* serveur d'interruption */
+    uint32_t a0 = MOG_t_VblTasks;                         /* serveur d'interruption */
     while (rl(m, a0))
         a0 += 4;
-    wl(m, a0, MOG_LAB_057D);
+    wl(m, a0, MOG_Vbl_Pointer);
     wl(m, MOG_v_PointerHook, a0);
 }
 
@@ -126,7 +126,7 @@ static void pointer_off(MogCombat *m)
     if (!rw(m, MOG_v_PointerHidden))
         return;
     ww(m, MOG_v_PointerHidden, 0);
-    sprite_set(m, 0, MOG_SECSTRT_38, MOG_EXT_0023, 0);  /* LAB_0E76 */
+    sprite_set(m, 0, MOG_t_SpriteEmpty, COPPER_SPRITES, 0);  /* LAB_0E76 */
     wl(m, rl(m, MOG_v_PointerHook), 0);
 }
 
@@ -160,10 +160,10 @@ void mog_screen_vbl(MogCombat *m)
 void mog_pointer_boot(MogCombat *m)
 {
     /* LAB_0572 : po.cel -> sprite 0 (SECSTRT_37 dans SECSTRT_43) */
-    uint32_t cel = rl(m, MOG_LAB_0D92);
+    uint32_t cel = rl(m, MOG_v_DrawPlanes);
     mog_load_cel(VM, MOG_s_PoCel, cel);
-    uint32_t a3 = MOG_SECSTRT_43;
-    wl(m, MOG_LAB_0E8D, a3);
+    uint32_t a3 = MOG_b_PointerSprite;
+    wl(m, MOG_v_PointerSpriteBoot, a3);
     uint32_t a1 = rl(m, cel + 2) + rl(m, cel + 10);
     uint16_t h = rw(m, cel + 16);
     uint32_t a2 = a1 + (uint32_t)(uint16_t)(h * 2);
@@ -179,11 +179,11 @@ void mog_pointer_boot(MogCombat *m)
          * 80 de SECSTRT_43. Sur l'Amiga, ce bloc de mémoire chip est à part ;
          * ici les sections se suivent et SECSTRT_44 (voie 0 du son) serait
          * écrasée : on s'arrête à la fin du bloc. */
-        for (uint32_t i = 0; i < 4 && a3 + i < MOG_SECSTRT_43 + 80; i++)
+        for (uint32_t i = 0; i < 4 && a3 + i < MOG_b_PointerSprite + 80; i++)
             wb(m, a3 + i, 0);
     }
-    wl(m, MOG_v_PointerSprite, rl(m, MOG_LAB_0E8D));
-    wl(m, MOG_v_PointerSprite2, rl(m, MOG_LAB_0E8E));
+    wl(m, MOG_v_PointerSprite, rl(m, MOG_v_PointerSpriteBoot));
+    wl(m, MOG_v_PointerSprite2, rl(m, MOG_v_PointerSprite2Boot));
 }
 
 /* ------------------------------------------------------------------ */
@@ -193,24 +193,24 @@ void mog_pointer_boot(MogCombat *m)
 /* LAB_044E : zones et modèle LAB_0A58 effacés */
 static void clear_zones(MogCombat *m)
 {
-    uint32_t a0 = rl(m, MOG_SECSTRT_14);
+    uint32_t a0 = rl(m, MOG_b_Obstacles);
     for (uint32_t i = 0; i < 0x960; i++)
         wb(m, a0 + i, 0);
     for (uint32_t i = 0; i < 24; i++)
-        wb(m, MOG_LAB_0A58 + i, 0);
+        wb(m, MOG_t_ZoneTemplate + i, 0);
 }
 
 /* LAB_0448 : le modèle LAB_0A58 copié dans la première zone libre */
 static void add_zone(MogCombat *m)
 {
-    uint32_t a0 = rl(m, MOG_SECSTRT_14);                /* LAB_044B */
+    uint32_t a0 = rl(m, MOG_b_Obstacles);                /* LAB_044B */
     int i;
     for (i = 0; i < 98 && rw(m, a0 + 4); i++)
         a0 += 24;
     if (i == 98)
         return;
     for (uint32_t k = 0; k < 24; k++)
-        wb(m, a0 + k, rb(m, MOG_LAB_0A58 + k));
+        wb(m, a0 + k, rb(m, MOG_t_ZoneTemplate + k));
 }
 
 /* LAB_0451 : zone sous le point (x, y) : son texte est montré ; renvoie
@@ -219,7 +219,7 @@ static uint32_t zone_at(MogCombat *m, uint16_t x, uint16_t y)
 {
     ww(m, MOG_v_HoverX, x);
     ww(m, MOG_v_HoverY, y);
-    for (uint32_t a0 = rl(m, MOG_SECSTRT_14); rw(m, a0 + 4); a0 += 24) {
+    for (uint32_t a0 = rl(m, MOG_b_Obstacles); rw(m, a0 + 4); a0 += 24) {
         int d5 = mog_span(x, (uint16_t)(x + 1), rw(m, a0 + 12),
                           (uint16_t)(rw(m, a0 + 12) + rw(m, a0 + 4)));
         d5 += mog_span(y, (uint16_t)(y + 1), rw(m, a0 + 14),
@@ -236,7 +236,7 @@ static uint32_t zone_at(MogCombat *m, uint16_t x, uint16_t y)
 /* LAB_051A : zone de l'icône dessinée (LAB_0681-LAB_0688) */
 static void icon_zone(MogCombat *m)
 {
-    uint32_t a1 = MOG_LAB_0A58;
+    uint32_t a1 = MOG_t_ZoneTemplate;
     uint32_t e = rl(m, MOG_v_IconCel) + (uint32_t)(int32_t)sw((uint16_t)(rw(m, MOG_v_IconFrame) * 10));
     ww(m, a1 + 4, rw(m, e + 14));
     ww(m, a1 + 6, rw(m, e + 16));
@@ -287,7 +287,7 @@ static void icon_set(MogCombat *m, uint16_t f, uint16_t x, uint16_t y, uint16_t 
 /* LAB_0523 : zone « sortie » (identifiant 7) du grand bouton en (d1, d2) */
 static void exit_zone(MogCombat *m, uint16_t d1, uint16_t d2)
 {
-    uint32_t a0 = MOG_LAB_0A58;
+    uint32_t a0 = MOG_t_ZoneTemplate;
     ww(m, a0 + 12, (uint16_t)(d1 + rw(m, MOG_v_PanelX)));
     ww(m, a0 + 14, d2);
     ww(m, a0 + 4, 0x19);
@@ -326,11 +326,11 @@ static void draw_frames(MogCombat *m)
     mog_set_planes(m, rl(m, MOG_v_BgPlanes));
     mog_clear_screen(m, rl(m, MOG_v_BgPlanes));
     ww(m, MOG_v_PanelX, 0);
-    uint32_t a1 = MOG_LAB_04F3;
+    uint32_t a1 = MOG_t_FramesRight;
     for (uint32_t a2 = MOG_t_PanelFrames; sw(rw(m, a2)) >= 0; a2 += 2)
         if (rw(m, a2) == (uint16_t)KIND) {
             ww(m, MOG_v_PanelX, 0x4A);
-            a1 = MOG_L00_0AFE4;
+            a1 = MOG_t_FramesLeft;
             break;
         }
     draw_list(m, a1);
@@ -411,13 +411,13 @@ static void draw_inventory(MogCombat *m)
     /* LAB_050E : objets 10 à 18 (cinq mots), deux icônes au plus */
     a0 = rl(m, MOG_v_LoadPtr);
     uint16_t d1 = 0x1E, d2 = 0xB7;
-    ww(m, MOG_LAB_0514, d1);
+    ww(m, MOG_v_InvIconX, d1);
     ww(m, MOG_v_IconSlot, 0x0A);
     ww(m, MOG_v_IconKind, 5);
     wl(m, MOG_v_IconId, 0x58);
     uint32_t a1 = a0 + 10;
     uint16_t d0 = 0x0B;
-    ww(m, MOG_L00_0B85C, 0x0B);
+    ww(m, MOG_v_InvIconFrame, 0x0B);
     for (int i = 0; i < 5; i++, a1 += 2) {
         int16_t d5 = (int8_t)rb(m, a1);
         if (d5) {
@@ -438,11 +438,11 @@ static void draw_inventory(MogCombat *m)
                 if (--d5 < 0)
                     break;
             }
-            ww(m, MOG_LAB_0514, (uint16_t)(rw(m, MOG_LAB_0514) + 0x19));
-            d1 = rw(m, MOG_LAB_0514);
+            ww(m, MOG_v_InvIconX, (uint16_t)(rw(m, MOG_v_InvIconX) + 0x19));
+            d1 = rw(m, MOG_v_InvIconX);
         }
-        ww(m, MOG_L00_0B85C, (uint16_t)(rw(m, MOG_L00_0B85C) + 1));
-        d0 = rw(m, MOG_L00_0B85C);
+        ww(m, MOG_v_InvIconFrame, (uint16_t)(rw(m, MOG_v_InvIconFrame) + 1));
+        d0 = rw(m, MOG_v_InvIconFrame);
         ww(m, MOG_v_IconSlot, (uint16_t)(rw(m, MOG_v_IconSlot) + 2));
         wl(m, MOG_v_IconId, rl(m, MOG_v_IconId) + 4);
     }
@@ -470,21 +470,21 @@ static void draw_knight(MogCombat *m)
     stat_icons(m, rb(m, a0 + 72), 0x28, 0x29, 0x31, 0, 4, 3, 0x48);
     stat_icons(m, rb(m, a0 + 71), 0x27, 0x29, 0x2A, 0, 8, 3, 0x47);
     stat_icons(m, 1, 0x2A, 0x59, 0x2A, 0, 0x10, 2, 0x4A);
-    draw_list(m, MOG_LAB_04F5);
+    draw_list(m, MOG_t_KnightPanelIcons);
     a0 = rl(m, MOG_v_LoadPtr);
     number_at(m, rw(m, a0 + 78), 0x70, 0x23);
     a0 = rl(m, MOG_v_LoadPtr);
     wl(m, MOG_b_ScreenNumber, 0);
     number_at(m, rw(m, a0 + 74), 0x70, 0x2A);
-    ww(m, MOG_LAB_04F6, 0x46);
-    ww(m, MOG_L00_0B042, 0x23);
+    ww(m, MOG_v_StatOffset, 0x46);
+    ww(m, MOG_v_StatY, 0x23);
     for (int i = 0; i < 3; i++) {                       /* LAB_04F9 */
         a0 = rl(m, MOG_v_LoadPtr);
-        uint32_t v = rb(m, a0 + (uint32_t)(int32_t)sw(rw(m, MOG_LAB_04F6)));
+        uint32_t v = rb(m, a0 + (uint32_t)(int32_t)sw(rw(m, MOG_v_StatOffset)));
         wl(m, MOG_b_ScreenNumber, 0);
-        number_at(m, v, 0x3F, rw(m, MOG_L00_0B042));
-        ww(m, MOG_LAB_04F6, (uint16_t)(rw(m, MOG_LAB_04F6) + 1));
-        ww(m, MOG_L00_0B042, (uint16_t)(rw(m, MOG_L00_0B042) + 7));
+        number_at(m, v, 0x3F, rw(m, MOG_v_StatY));
+        ww(m, MOG_v_StatOffset, (uint16_t)(rw(m, MOG_v_StatOffset) + 1));
+        ww(m, MOG_v_StatY, (uint16_t)(rw(m, MOG_v_StatY) + 7));
     }
     a0 = rl(m, MOG_v_LoadPtr);
     int32_t lives = (int8_t)rb(m, a0 + 73);
@@ -581,7 +581,7 @@ static void draw_shop(MogCombat *m)
 static void next_button(MogCombat *m)
 {
     mog_draw_cel(VM, &m->blt, rl(m, MOG_v_IconCel), 0x2C, 0x92, 0x47);
-    uint32_t a0 = MOG_LAB_0A58;
+    uint32_t a0 = MOG_t_ZoneTemplate;
     ww(m, a0 + 12, 0x92);
     ww(m, a0 + 14, 0x47);
     ww(m, a0 + 4, 0x14);
@@ -859,18 +859,18 @@ static void select_panels(MogCombat *m)
 static void copy_screen(MogCombat *m, uint32_t a0, uint32_t a1)
 {
     MogBlitter *b = &m->blt;
-    wl(m, MOG_LAB_0424, a0);
-    wl(m, MOG_LAB_0425, a1);
+    wl(m, MOG_v_CopySrc, a0);
+    wl(m, MOG_v_CopyDst, a1);
     for (int p = 0; p < 5; p++) {
-        b->apt = rl(m, MOG_LAB_0424);
-        b->dpt = rl(m, MOG_LAB_0425);
+        b->apt = rl(m, MOG_v_CopySrc);
+        b->dpt = rl(m, MOG_v_CopyDst);
         b->amod = b->dmod = 0;
         b->afwm = b->alwm = 0xFFFF;
         b->con0 = 0x09F0;
         b->con1 = 0;
         mog_blitter_run(VM, b, 0x3214);
-        wl(m, MOG_LAB_0424, rl(m, MOG_LAB_0424) + 0x1F40);
-        wl(m, MOG_LAB_0425, rl(m, MOG_LAB_0425) + 0x1F40);
+        wl(m, MOG_v_CopySrc, rl(m, MOG_v_CopySrc) + 0x1F40);
+        wl(m, MOG_v_CopyDst, rl(m, MOG_v_CopyDst) + 0x1F40);
     }
 }
 
@@ -881,8 +881,8 @@ static void build(MogCombat *m)
         ww(m, MOG_v_BlitByCpu, 1);
         clear_zones(m);                                 /* LAB_044E */
         draw_frames(m);                                 /* LAB_04EA */
-        copy_screen(m, rl(m, MOG_v_BgPlanes), rl(m, MOG_LAB_0D92));
-        mog_set_planes(m, rl(m, MOG_LAB_0D92));
+        copy_screen(m, rl(m, MOG_v_BgPlanes), rl(m, MOG_v_DrawPlanes));
+        mog_set_planes(m, rl(m, MOG_v_DrawPlanes));
         select_panels(m);                               /* LAB_058A */
         for (uint32_t i = 0; i < 0x2D0; i++)            /* LAB_03A7 */
             wb(m, MOG_b_RestoreA + i, 0xFF);
@@ -935,7 +935,7 @@ static void build(MogCombat *m)
     }
     panel_colours(m);                                   /* LAB_04E1 */
     mog_swap_screens(m);                                /* LAB_0416 */
-    copy_screen(m, rl(m, MOG_SECSTRT_35), rl(m, MOG_LAB_0D92));
+    copy_screen(m, rl(m, MOG_v_ShowPlanes), rl(m, MOG_v_DrawPlanes));
     uint16_t c[32];                                     /* LAB_0D8A, LAB_03EE */
     for (int i = 0; i < 32; i++)
         c[i] = rw(m, MOG_t_ScreenPalette + 2u * (unsigned)i);
@@ -979,12 +979,12 @@ static uint32_t d100(MogCombat *m)                      /* LAB_04A3 */
 static void next_knight(MogCombat *m, int reset)
 {
     if (reset)
-        ww(m, MOG_LAB_0526, 0);
+        ww(m, MOG_v_NextKnight, 0);
     uint32_t k;
     do {
-        uint16_t n = (uint16_t)((rw(m, MOG_LAB_0526) + 1) & 3);
-        ww(m, MOG_LAB_0526, n);
-        k = rl(m, MOG_LAB_0525 + 4u * n);
+        uint16_t n = (uint16_t)((rw(m, MOG_v_NextKnight) + 1) & 3);
+        ww(m, MOG_v_NextKnight, n);
+        k = rl(m, MOG_t_Knights + 4u * n);
     } while (k == rl(m, MOG_v_ScreenKnight));
     wl(m, MOG_v_Combatants + 4, k);
     wl(m, MOG_v_ScreenOther, k);
@@ -1093,7 +1093,7 @@ static void trade_shop(MogCombat *m, uint16_t d1, uint8_t d3)
 /* LAB_052D : objet utilisé (potions, sorts, anneaux...) */
 static void use(MogCombat *m, uint16_t flags, uint16_t d1, uint8_t d3)
 {
-    ww(m, MOG_LAB_053B, 0xFFFF);
+    ww(m, MOG_v_UsedItem, 0xFFFF);
     uint32_t a0 = rl(m, MOG_v_ScreenInventory);
     if (KIND == 6) {
         trade_shop(m, d1, d3);
@@ -1105,11 +1105,11 @@ static void use(MogCombat *m, uint16_t flags, uint16_t d1, uint8_t d3)
     }
     mog_message(m, "Casting magic");
     dec(m, a0 + d1);
-    ww(m, MOG_LAB_053B, d1);
+    ww(m, MOG_v_UsedItem, d1);
     if (KIND == 3) {
         mog_sound(m, 0x9C);
         dec(m, a0 + d1);
-        ww(m, MOG_LAB_053B, d1);
+        ww(m, MOG_v_UsedItem, d1);
         ww(m, MOG_v_ScreenChanged, 1);
         build(m);
         return;
@@ -1159,7 +1159,7 @@ static void use(MogCombat *m, uint16_t flags, uint16_t d1, uint8_t d3)
         break;
     case 0x10:
         good_sound(m);
-        ww(m, MOG_LAB_053C, 1);
+        ww(m, MOG_v_ScreenRedo, 1);
         next_knight(m, 1);
         mog_screen_run(m, 0x0B);
         return;
@@ -1270,7 +1270,7 @@ static void click(MogCombat *m, uint32_t z)
         if (d1 == 4)
             wl(m, a0 + 88, 0x16);
         dec(m, a1 + d1);
-        ww(m, MOG_LAB_053B, d1);
+        ww(m, MOG_v_UsedItem, d1);
         ww(m, MOG_v_ScreenChanged, 1);
         traded(m);
         return;
@@ -1300,7 +1300,7 @@ static void click(MogCombat *m, uint32_t z)
         uint32_t d5 = rl(m, a0 + 92);
         if ((int32_t)d5 < (int32_t)rl(m, a1 + 92)) {
             wl(m, a0 + 92, rl(m, a1 + 92));
-            uint16_t v = rw(m, MOG_LAB_054D + (d5 - 0x1B));
+            uint16_t v = rw(m, MOG_t_ZoneValues + (d5 - 0x1B));
             ww(m, a1 + 80, (uint16_t)(rw(m, a1 + 80) - v));
             ww(m, a0 + 80, (uint16_t)(rw(m, a0 + 80) + v));
             wl(m, a1 + 92, 0x1B);
@@ -1355,9 +1355,9 @@ void mog_screen_run(MogCombat *m, uint32_t kind)
     }
     mog_fade_black(m);                                  /* LAB_04D2 */
     pointer_off(m);
-    if (rw(m, MOG_LAB_053C)) {
+    if (rw(m, MOG_v_ScreenRedo)) {
         wl(m, MOG_v_DragonObj + 100, rl(m, MOG_v_Combatants + 4));
-        ww(m, MOG_LAB_053C, 0);
+        ww(m, MOG_v_ScreenRedo, 0);
     }
     ww(m, MOG_v_BlitByCpu, 0);
 }

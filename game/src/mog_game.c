@@ -75,7 +75,7 @@ static int key_code(MogGame *g, int c)
     if (c >= 'a' && c <= 'z')
         c -= 32;
     for (uint32_t i = 1; i < 0x60; i++)
-        if (ix_rb(VM, MOG_LAB_0D99 + i) == (uint8_t)c)
+        if (ix_rb(VM, MOG_t_KeyChars + i) == (uint8_t)c)
             return (int)i;
     return 0;
 }
@@ -116,8 +116,8 @@ static void vbl(void *u)
     if (in.key) {                                       /* LAB_0B66 : touche appuyée */
         int k = in.key == '\r' ? 0x1C : in.key == '\b' ? 0x0E : key_code(g, in.key);
         if (k) {
-            ix_ww(VM, MOG_SECSTRT_21, (uint16_t)k);
-            ix_wb(VM, MOG_LAB_0B91 + (uint32_t)k, 1);
+            ix_ww(VM, MOG_v_KeyPressed, (uint16_t)k);
+            ix_wb(VM, MOG_t_KeysDown + (uint32_t)k, 1);
         }
     }
     if (in.quit)

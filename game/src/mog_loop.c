@@ -31,19 +31,19 @@ static void set_planes(MogCombat *m, uint32_t d0)       /* L00_0908E */
 void mog_swap_screens(MogCombat *m)
 {
     mog_wait_vbls(m, 1);                                /* LAB_0D77 */
-    uint32_t s = ix_rl(VM, MOG_LAB_0D92);
+    uint32_t s = ix_rl(VM, MOG_v_DrawPlanes);
     for (uint32_t p = 0; p < 5; p++) {
         uint32_t d0 = s + p * 0x1F40;
         ix_ww(VM, MOG_COPPER_BPL + 8 * p, (uint16_t)(d0 >> 16));
         ix_ww(VM, MOG_COPPER_BPL + 8 * p + 4, (uint16_t)d0);
     }
-    ix_wl(VM, MOG_LAB_0D92, ix_rl(VM, MOG_SECSTRT_35));
-    ix_wl(VM, MOG_SECSTRT_35, s);
+    ix_wl(VM, MOG_v_DrawPlanes, ix_rl(VM, MOG_v_ShowPlanes));
+    ix_wl(VM, MOG_v_ShowPlanes, s);
     uint32_t a = ix_rl(VM, MOG_v_RestoreFront);
     ix_wl(VM, MOG_v_RestoreFront, ix_rl(VM, MOG_v_RestoreBack));
     ix_wl(VM, MOG_v_RestoreBack, a);
     ix_wl(VM, MOG_v_RestoreNext, ix_rl(VM, MOG_v_RestoreFront));
-    set_planes(m, ix_rl(VM, MOG_LAB_0D92));
+    set_planes(m, ix_rl(VM, MOG_v_DrawPlanes));
     ix_ww(VM, MOG_v_RestoreCount, 0);
 }
 
@@ -105,7 +105,7 @@ static void restore_area(MogCombat *m, uint32_t a6)
     }
     uint16_t off = (uint16_t)((uint16_t)d1 * 40u + (uint16_t)d0);   /* LAB_03A6 */
     uint32_t a0 = ix_rl(VM, MOG_v_BgPlanes) + (uint32_t)(int32_t)(int16_t)off;
-    uint32_t a1 = ix_rl(VM, MOG_LAB_0D92) + (uint32_t)(int32_t)(int16_t)off;
+    uint32_t a1 = ix_rl(VM, MOG_v_DrawPlanes) + (uint32_t)(int32_t)(int16_t)off;
     uint16_t mod = (uint16_t)(40 - d2 - d2);
     for (int p = 0; p < 5; p++, a0 += 8000, a1 += 8000)
         blit_copy(m, a0, a1, mod, mod, (uint16_t)d2, (uint16_t)d3);
@@ -115,7 +115,7 @@ static void restore_area(MogCombat *m, uint32_t a6)
 void mog_restore_areas(MogCombat *m)
 {
     ix_wl(VM, MOG_v_SpawnCount, 0);
-    ix_wl(VM, MOG_v_DrawScreen, ix_rl(VM, MOG_LAB_0D92));
+    ix_wl(VM, MOG_v_DrawScreen, ix_rl(VM, MOG_v_DrawPlanes));
     uint32_t a6 = ix_rl(VM, MOG_v_RestoreFront);
     while (ix_rw(VM, a6 + 4) != 0xFFFF && ix_rl(VM, MOG_v_SpawnCount) != 0x2D
            && ix_rw(VM, a6 + 6) && ix_rw(VM, a6 + 4)) {
@@ -136,7 +136,7 @@ static void hp_colours(MogCombat *m, uint32_t a1)
     uint32_t k = ix_rl(VM, a1 + 54);
     const uint16_t *v = c[k <= 3 ? k : 4];
     for (int i = 0; i < 3; i++)
-        ix_ww(VM, MOG_SECSTRT_1 + 2u * (unsigned)i, v[i]);
+        ix_ww(VM, MOG_t_HpColours + 2u * (unsigned)i, v[i]);
 }
 
 /* Combat_LowHpIndicator [LAB_003E] : PV <= 10, couleurs du chevalier qui
@@ -144,11 +144,11 @@ static void hp_colours(MogCombat *m, uint32_t a1)
 static void low_hp(MogCombat *m)
 {
     static const uint32_t var[2][3] = {
-        { MOG_LAB_05A5, MOG_LAB_05A6, MOG_LAB_05A7 },
-        { MOG_LAB_05A8, MOG_LAB_05A9, MOG_LAB_05AA },
+        { MOG_v_LowHpGlowA, MOG_v_LowHpGlowB, MOG_v_LowHpGlowC },
+        { MOG_v_FoeLowHpGlowA, MOG_v_FoeLowHpGlowB, MOG_v_FoeLowHpGlowC },
     };
     for (int w = 0; w < 2; w++) {
-        if (w == 1 && ix_rl(VM, MOG_LAB_0411) != 12 && ix_rl(VM, MOG_LAB_0411) != 16)
+        if (w == 1 && ix_rl(VM, MOG_v_PaletteKind) != 12 && ix_rl(VM, MOG_v_PaletteKind) != 16)
             break;
         if (ix_rl(VM, var[w][0]))
             continue;
@@ -158,7 +158,7 @@ static void low_hp(MogCombat *m)
         hp_colours(m, a1);
         for (int i = 0; i < 3; i++)
             ix_wl(VM, var[w][i], mog_glow(VM, (uint16_t)(6 + 3 * w + i),
-                                          ix_rw(VM, MOG_SECSTRT_1 + 2u * (unsigned)i), 1, 0));
+                                          ix_rw(VM, MOG_t_HpColours + 2u * (unsigned)i), 1, 0));
     }
 }
 
@@ -166,8 +166,8 @@ static void low_hp(MogCombat *m)
 static void low_hp_off(MogCombat *m)
 {
     static const uint32_t var[2][3] = {
-        { MOG_LAB_05A5, MOG_LAB_05A6, MOG_LAB_05A7 },
-        { MOG_LAB_05A8, MOG_LAB_05A9, MOG_LAB_05AA },
+        { MOG_v_LowHpGlowA, MOG_v_LowHpGlowB, MOG_v_LowHpGlowC },
+        { MOG_v_FoeLowHpGlowA, MOG_v_FoeLowHpGlowB, MOG_v_FoeLowHpGlowC },
     };
     for (int w = 0; w < 2; w++)
         if (ix_rl(VM, var[w][0]))
@@ -179,8 +179,8 @@ static void low_hp_off(MogCombat *m)
 static void clear_keys(MogCombat *m)
 {
     for (uint32_t i = 0; i < 128; i++)
-        ix_wb(VM, MOG_LAB_0B91 + i, 0);
-    ix_ww(VM, MOG_SECSTRT_21, 0);
+        ix_wb(VM, MOG_t_KeysDown + i, 0);
+    ix_ww(VM, MOG_v_KeyPressed, 0);
 }
 
 /* Combat_CheckEnd [LAB_004B] : joueur à terre -> fin dans 50 images ;
@@ -194,10 +194,10 @@ static void check_end(MogCombat *m)
     }
     if (!m->planes)
         return;
-    uint16_t key = ix_rw(VM, MOG_SECSTRT_21);
-    if (ix_rb(VM, MOG_LAB_0D99 + key) == 0x20) {       /* LAB_0D8D */
+    uint16_t key = ix_rw(VM, MOG_v_KeyPressed);
+    if (ix_rb(VM, MOG_t_KeyChars + key) == 0x20) {       /* LAB_0D8D */
         clear_keys(m);
-        while (!ix_rw(VM, MOG_SECSTRT_21) && m->wait_vbl)
+        while (!ix_rw(VM, MOG_v_KeyPressed) && m->wait_vbl)
             mog_wait_vbls(m, 1);
     }
     clear_keys(m);
@@ -207,16 +207,16 @@ static void check_end(MogCombat *m)
 void mog_combat_begin(MogCombat *m)
 {
     ix_ww(VM, MOG_v_EnemyActed, 0);
-    ix_ww(VM, MOG_L00_072FA, 0);
-    ix_wl(VM, MOG_LAB_05A5, 0);
-    ix_wl(VM, MOG_LAB_05A8, 0);
+    ix_ww(VM, MOG_v_SoundSeqPos, 0);
+    ix_wl(VM, MOG_v_LowHpGlowA, 0);
+    ix_wl(VM, MOG_v_FoeLowHpGlowA, 0);
     clear_keys(m);                                      /* LAB_0B82 */
     ix_wb(VM, MOG_v_Combatants + 8, 1);
     ix_wl(VM, MOG_v_PlayerObj, ix_rl(VM, MOG_v_Combatants));
     for (uint32_t i = 0; i < 0x78; i++)                 /* LAB_02F2 : trajectoires */
-        ix_wb(VM, MOG_LAB_0301 + i, 0);
-    ix_ww(VM, MOG_LAB_05AB, 1);
-    ix_wl(VM, MOG_LAB_05AC, ix_rl(VM, MOG_v_VblCounter));
+        ix_wb(VM, MOG_t_Trajectories + i, 0);
+    ix_ww(VM, MOG_v_CombatStarted, 1);
+    ix_wl(VM, MOG_v_CombatStartVbl, ix_rl(VM, MOG_v_VblCounter));
     mog_swap_screens(m);                                /* LAB_0416 */
     uint32_t obj = ix_rl(VM, MOG_v_Objects);             /* LAB_000A : tout gelé */
     for (int i = 0; i < 20; i++, obj += IX_OBJECT_SIZE)
@@ -234,7 +234,7 @@ void mog_combat_begin(MogCombat *m)
         uint32_t cur = ix_rl(VM, MOG_v_PalCurrent);         /* LAB_03EE */
         for (uint32_t i = 0; i < 64; i++)
             ix_wb(VM, cur + i, ix_rb(VM, MOG_t_PalCombat + i));
-        ix_wl(VM, MOG_LAB_0414, mog_glow(VM, 14, 0x100, 2, 0));
+        ix_wl(VM, MOG_v_CombatGlow, mog_glow(VM, 14, 0x100, 2, 0));
     }
 }
 
@@ -295,12 +295,12 @@ void mog_combat_run(MogCombat *m)
         check_end(m);
         mog_frame_wait(m);
     } while (still_running(m));
-    ix_ww(VM, MOG_LAB_0AA6, 0);                         /* LAB_0AA9 */
+    ix_ww(VM, MOG_v_SndMuted, 0);                         /* LAB_0AA9 */
     for (int i = 0; i < 4; i++)
         mog_sound(m, 0xA7);
     check_ko(m);
     if (ix_rb(VM, MOG_v_CreatureLoaded) == 4)                   /* LAB_0114 : LAB_0413 */
-        ix_wl(VM, ix_rl(VM, MOG_LAB_0414), 0);
+        ix_wl(VM, ix_rl(VM, MOG_v_CombatGlow), 0);
     low_hp_off(m);                                      /* LAB_0048 */
     ix_ww(VM, MOG_v_MovesUsed, ix_rw(VM, MOG_v_MovesMax));
     ix_ww(VM, MOG_v_ReversedOn, 0);
@@ -323,7 +323,7 @@ void mog_frame_start(MogCombat *m)
 {
     if (m->frame_start)
         m->frame_start(m->out.user);
-    ix_wl(VM, MOG_LAB_0321, ix_rl(VM, MOG_v_VblCounter));
+    ix_wl(VM, MOG_v_FrameStartVbl, ix_rl(VM, MOG_v_VblCounter));
 }
 
 void mog_wait_vbls(MogCombat *m, unsigned n)
@@ -343,7 +343,7 @@ void mog_wait_vbls(MogCombat *m, unsigned n)
 
 void mog_frame_wait(MogCombat *m)
 {
-    int32_t d0 = (int32_t)(ix_rl(VM, MOG_v_VblCounter) - ix_rl(VM, MOG_LAB_0321));
+    int32_t d0 = (int32_t)(ix_rl(VM, MOG_v_VblCounter) - ix_rl(VM, MOG_v_FrameStartVbl));
     int32_t d1 = (int16_t)ix_rw(VM, MOG_v_FrameVbls) - d0;
     if (d1 < 0)
         d1 = 0;

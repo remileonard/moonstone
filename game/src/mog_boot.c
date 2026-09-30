@@ -94,9 +94,9 @@ static void partition(IxVM *vm, uint32_t chip, uint32_t fast)
     d0 += 0x2328;
     ix_wl(VM, MOG_b_BloCel, d0);
     d0 += 0x2710;
-    ix_wl(VM, MOG_SECSTRT_14, d0);
+    ix_wl(VM, MOG_b_Obstacles, d0);
     d0 += 0x960;
-    ix_wl(VM, MOG_LAB_0A83, d0);
+    ix_wl(VM, MOG_b_TerrainObjects, d0);
     ix_wl(VM, MOG_v_Objects, d0);
 }
 
@@ -257,8 +257,8 @@ void mog_boot_tables(IxVM *vm)
     wl(vm, MOG_t_PassingKnightScripts + 20, MOG_x_PassingKnightReact2);
     wl(vm, MOG_t_PassingKnightScripts + 24, MOG_x_PassingKnightReact8);
     wl(vm, MOG_t_PassingKnightScripts + 16, MOG_x_PassingKnightStand);
-    copy(vm, MOG_t_PassingKnightWalk + 0, MOG_LAB_015E + 0, 20);
-    copy(vm, MOG_t_PassingKnightWalk + 32, MOG_LAB_015E + 20, 20);
+    copy(vm, MOG_t_PassingKnightWalk + 0, MOG_t_PassingKnightWalkInit + 0, 20);
+    copy(vm, MOG_t_PassingKnightWalk + 32, MOG_t_PassingKnightWalkInit + 20, 20);
     wl(vm, MOG_t_RatmenScripts + 8, MOG_x_RatmenReact2);
     wl(vm, MOG_t_RatmenScripts + 4, MOG_x_RatmenReact1);
     wl(vm, MOG_t_RatmenScripts + 20, MOG_x_RatmenReact1);
@@ -353,14 +353,14 @@ void mog_boot_engine(IxVM *vm)
 /* Col_InitHitFile [LAB_03DA] : collide.hit (texte) en mémoire */
 void mog_hit_init(IxVM *vm)
 {
-    ix_wl(vm, MOG_LAB_0A4D, ix_rl(vm, MOG_t_FastBuffers + 88));
-    ix_wl(vm, MOG_LAB_0A4F, ix_rl(vm, MOG_t_FastBuffers + 88));
-    ix_wl(vm, MOG_LAB_0A4E, MOG_t_HitDataByCel);
+    ix_wl(vm, MOG_v_HitDataEnd, ix_rl(vm, MOG_t_FastBuffers + 88));
+    ix_wl(vm, MOG_v_HitDataEndBase, ix_rl(vm, MOG_t_FastBuffers + 88));
+    ix_wl(vm, MOG_v_HitByCelNext, MOG_t_HitDataByCel);
     MogFile f;
     mog_file_open(vm, MOG_s_CollideHit, &f);
     mog_file_read(vm, &f, ix_rl(vm, MOG_t_FastBuffers + 84), 0x2328);
     mog_file_close(&f);
-    ix_wl(vm, MOG_SECSTRT_10, ix_rl(vm, MOG_v_FileSize));
+    ix_wl(vm, MOG_v_HitTextSize, ix_rl(vm, MOG_v_FileSize));
 }
 
 /* Col_LoadHitData [LAB_03CE] : points d'impact de la CEL `name` (lus dans
@@ -372,7 +372,7 @@ void mog_hit_init(IxVM *vm)
 int mog_load_hit_cel(IxVM *vm, uint32_t name, uint32_t dest)
 {
     uint32_t text = ix_rl(vm, MOG_t_FastBuffers + 84);
-    uint32_t len = ix_rl(vm, MOG_SECSTRT_10);
+    uint32_t len = ix_rl(vm, MOG_v_HitTextSize);
     char key[64];
     unsigned i;
     for (i = 0; i < sizeof key - 1 && ix_rb(vm, name + i); i++)
@@ -386,10 +386,10 @@ int mog_load_hit_cel(IxVM *vm, uint32_t name, uint32_t dest)
         moon_hit_free(hit);
         return -1;
     }
-    uint32_t a3 = ix_rl(vm, MOG_LAB_0A4D), a4 = ix_rl(vm, MOG_LAB_0A4E);
+    uint32_t a3 = ix_rl(vm, MOG_v_HitDataEnd), a4 = ix_rl(vm, MOG_v_HitByCelNext);
     ix_wl(vm, a4, dest);
     ix_wl(vm, a4 + 4, a3);
-    ix_wl(vm, MOG_LAB_0A4E, a4 + 8);
+    ix_wl(vm, MOG_v_HitByCelNext, a4 + 8);
     for (int f = 0; f < sp->frame_count; f++) {
         const MoonHitFrame *fr = &sp->frames[f];
         ix_wb(vm, a3++, fr->n_points);
@@ -404,7 +404,7 @@ int mog_load_hit_cel(IxVM *vm, uint32_t name, uint32_t dest)
         }
     }
     moon_hit_free(hit);
-    ix_wl(vm, MOG_LAB_0A4D, a3);                        /* LAB_03D6 */
+    ix_wl(vm, MOG_v_HitDataEnd, a3);                        /* LAB_03D6 */
     mog_load_cel(vm, name, dest);
     return 0;
 }
@@ -424,8 +424,8 @@ void mog_boot_knight_cels(IxVM *vm)
         ix_wl(vm, MOG_t_BankKnight + 4u * (unsigned)i + 4, a1);
     }
     mog_load_hit_cel(vm, MOG_s_Kn4Ob, a1);
-    ix_wl(vm, MOG_LAB_0A4F, ix_rl(vm, MOG_LAB_0A4D));
-    ix_wl(vm, MOG_LAB_0A50, ix_rl(vm, MOG_LAB_0A4E));
+    ix_wl(vm, MOG_v_HitDataEndBase, ix_rl(vm, MOG_v_HitDataEnd));
+    ix_wl(vm, MOG_v_HitByCelBase, ix_rl(vm, MOG_v_HitByCelNext));
     mog_load_cel(vm, MOG_s_BloCel, ix_rl(vm, MOG_b_BloCel));
     read_file(vm, MOG_s_KnA, ix_rl(vm, MOG_b_SoundsKnight), 0x20, 0x57F8);   /* LAB_0AAA */
 }
@@ -435,17 +435,17 @@ void mog_boot_knight_cels(IxVM *vm)
 void mog_boot_reactions(IxVM *vm)
 {
     static const struct { uint8_t off; uint32_t fn; } hit_by[] = {
-        { 0, MOG_LAB_0206 }, { 4, MOG_LAB_020B }, { 8, MOG_LAB_01F9 }, { 12, MOG_LAB_0205 },
-        { 16, MOG_LAB_0205 }, { 20, MOG_LAB_0200 }, { 24, MOG_LAB_01F2 }, { 28, MOG_LAB_01F2 },
-        { 32, MOG_LAB_01F6 }, { 48, MOG_LAB_01ED }, { 52, MOG_LAB_020B }, { 36, MOG_LAB_01EF },
-        { 44, MOG_LAB_0203 }, { 64, MOG_LAB_01FD }, { 40, MOG_LAB_0201 },
+        { 0, MOG_React_Hit5 }, { 4, MOG_React_Default }, { 8, MOG_React_Hit20 }, { 12, MOG_React_HitOrDie },
+        { 16, MOG_React_HitOrDie }, { 20, MOG_React_Pushed }, { 24, MOG_React_KnightHitBy }, { 28, MOG_React_KnightHitBy },
+        { 32, MOG_React_Parry }, { 48, MOG_React_Hit8 }, { 52, MOG_React_Default }, { 36, MOG_React_Hit4Or8 },
+        { 44, MOG_React_Hit10 }, { 64, MOG_React_Hit7 }, { 40, MOG_React_Hit30 },
     };
     for (unsigned i = 0; i < sizeof hit_by / sizeof hit_by[0]; i++)
         wl(vm, MOG_t_HitByFn + hit_by[i].off, hit_by[i].fn);
     static const uint8_t knights[] = { 0, 4, 8, 12, 16, 20, 24, 28, 32, 48, 52, 36, 44, 64 };
     for (unsigned i = 0; i < sizeof knights; i++)
-        wl(vm, MOG_t_HitFn + knights[i], MOG_LAB_01E1);
-    wl(vm, MOG_t_HitFn + 40, MOG_LAB_0201);
+        wl(vm, MOG_t_HitFn + knights[i], MOG_React_KnightHit);
+    wl(vm, MOG_t_HitFn + 40, MOG_React_Hit30);
 }
 
 /* Charge une suite de CEL à la suite dans la banque `bank` (5 poignées),
@@ -534,7 +534,7 @@ void mog_boot_ui(IxVM *vm)
     ix_wl(vm, MOG_t_FontBank + 16, ix_rl(vm, MOG_t_FastBuffers + 40));
     mog_load_cel(vm, MOG_s_BoldF, ix_rl(vm, MOG_t_FontBank + 16));
     read_file(vm, MOG_s_ReA, ix_rl(vm, MOG_b_SoundsReplay), 0x20, 0xD924);   /* LAB_0AA7 */
-    ix_ww(vm, MOG_LAB_0AA6, 0);
+    ix_ww(vm, MOG_v_SndMuted, 0);
     ix_wl(vm, MOG_t_FontBank, ix_rl(vm, MOG_t_FontBank + 16) + mog_cel_size(vm, MOG_s_BoldF));
     mog_load_cel(vm, MOG_s_SmallFont, ix_rl(vm, MOG_t_FontBank));
     read_file(vm, MOG_s_ChPiv, ix_rl(vm, MOG_t_FastBuffers + 56), 0, 0x25F6);
