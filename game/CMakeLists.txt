@@ -66,4 +66,22 @@ if(SDL2_mixer_FOUND)
     target_compile_definitions(moonstone PRIVATE HAVE_SDL2_MIXER=1)
 endif()
 
-install(TARGETS moonstone RUNTIME DESTINATION bin)
+if(EMSCRIPTEN)
+    # Un seul moonstone.html : wasm intégré (SINGLE_FILE), données du jeu
+    # intégrées sous /data si MOON_WEB_DATA est donné ; ASYNCIFY rend la
+    # main au navigateur à chaque attente d'image (hal_vbl_wait).
+    set(MOON_WEB_DATA "" CACHE PATH "Dossier des fichiers du jeu à intégrer (usage personnel)")
+    set_target_properties(moonstone PROPERTIES SUFFIX ".html")
+    target_link_options(moonstone PRIVATE
+        -sASYNCIFY -sALLOW_MEMORY_GROWTH -sSINGLE_FILE -sEXIT_RUNTIME=0
+        "--shell-file=${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html")
+    set_property(TARGET moonstone APPEND PROPERTY LINK_DEPENDS
+        ${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html)
+    if(MOON_WEB_DATA)
+        target_link_options(moonstone PRIVATE "--embed-file=${MOON_WEB_DATA}@/data")
+    else()
+        message(WARNING "MOON_WEB_DATA non donné : moonstone.html sans données du jeu")
+    endif()
+else()
+    install(TARGETS moonstone RUNTIME DESTINATION bin)
+endif()

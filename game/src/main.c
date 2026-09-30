@@ -27,7 +27,11 @@
 
 int main(int argc, char *argv[])
 {
+#ifdef __EMSCRIPTEN__
+    const char *asset_dir = "/data";    /* intégrées au build (MOON_WEB_DATA) */
+#else
     const char *asset_dir = ".";
+#endif
     int scale = 2;
     int combat = -1, combat_all = 0, place = -1, ending = -1;
     for (int i = 1; i < argc; i++)

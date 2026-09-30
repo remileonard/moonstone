@@ -28,6 +28,18 @@ Commandes : flèches + Espace = joystick 1 ; W A S D + F = joystick 2
 (second joueur d'un duel) ; lettres, chiffres, Tab (barre d'espace),
 Entrée, retour arrière = clavier de l'Amiga ; Échap = quitter.
 
+## Version web (un seul fichier HTML, usage personnel)
+
+```sh
+emcmake cmake -S . -B build-web -DMOON_WEB_DATA=<dossier_des_fichiers_du_jeu>
+cmake --build build-web          # -> build-web/game/moonstone.html
+```
+
+Emscripten (emsdk) est requis. Le fichier produit contient le jeu, le wasm
+et les données du jeu : il s'ouvre d'un double-clic, sans serveur, mais ne
+doit pas être publié. Le son démarre au premier clic ou à la première
+touche ; Échap ne quitte pas la page.
+
 ## Documentation
 
 - `docs/DOC_METHODE_PORTAGE.md` : méthode, bancs de référence,

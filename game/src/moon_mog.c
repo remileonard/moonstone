@@ -116,8 +116,14 @@ static int s_rate, s_fast;
 static void intro_vbl(ProgIntro *p)
 {
     GameCtx *ctx = p->user;
-    if (s_fast)
-        return;                                         /* défilement rapide */
+    if (s_fast) {                                       /* défilement rapide */
+#ifdef __EMSCRIPTEN__
+        static unsigned n;
+        if (!(++n & 63))
+            hal_delay(0);                               /* la page reste vivante */
+#endif
+        return;
+    }
     if (s_rate > 0) {
         static int16_t buf[2 * 2048];
         int n = s_rate / 50;

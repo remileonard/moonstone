@@ -37,6 +37,25 @@ target_include_directories(moon_assets
 )
 
 # ---------------------------------------------------------------
+# Version web (Emscripten) : le jeu seul, en un fichier HTML
+#   emcmake cmake -S . -B build-web -DMOON_WEB_DATA=<dossier des données>
+# (voir game/web/README.md)
+# ---------------------------------------------------------------
+if(EMSCRIPTEN)
+    add_library(SDL2::SDL2 INTERFACE IMPORTED)
+    set_target_properties(SDL2::SDL2 PROPERTIES
+        INTERFACE_COMPILE_OPTIONS "-sUSE_SDL=2"
+        INTERFACE_LINK_OPTIONS "-sUSE_SDL=2")
+    add_library(SDL2_mixer::SDL2_mixer INTERFACE IMPORTED)
+    set_target_properties(SDL2_mixer::SDL2_mixer PROPERTIES
+        INTERFACE_COMPILE_OPTIONS "-sUSE_SDL_MIXER=2;-sSDL2_MIXER_FORMATS=[]"
+        INTERFACE_LINK_OPTIONS "-sUSE_SDL_MIXER=2;-sSDL2_MIXER_FORMATS=[]")
+    set(SDL2_mixer_FOUND TRUE)
+    add_subdirectory(game)
+    return()
+endif()
+
+# ---------------------------------------------------------------
 # SDL2 and SDL2_mixer (both required) for tools
 # ---------------------------------------------------------------
 find_package(SDL2 REQUIRED)

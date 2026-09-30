@@ -13,6 +13,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 /* ------------------------------------------------------------------ */
 /* Module state                                                        */
@@ -50,7 +53,7 @@ int hal_init(const char *title, int scale)
 {
     s_scale = (scale < 1) ? 1 : scale;
 
-    Uint32 flags = SDL_INIT_VIDEO | SDL_INIT_TIMER;
+    Uint32 flags = SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_JOYSTICK;
 #ifdef HAVE_SDL2_MIXER
     flags |= SDL_INIT_AUDIO;
 #endif
@@ -161,9 +164,14 @@ void hal_vbl_wait(void)
 {
     uint32_t now = SDL_GetTicks();
     uint32_t elapsed = now - s_last_frame_ticks;
+#ifdef __EMSCRIPTEN__
+    /* Navigateur : on lui rend la main (ASYNCIFY), même sans attente */
+    emscripten_sleep(elapsed < TARGET_MS_PER_FRAME ? TARGET_MS_PER_FRAME - elapsed : 0);
+#else
     if (elapsed < TARGET_MS_PER_FRAME) {
         SDL_Delay(TARGET_MS_PER_FRAME - elapsed);
     }
+#endif
     s_last_frame_ticks = SDL_GetTicks();
 }
 
@@ -174,7 +182,11 @@ uint32_t hal_ticks(void)
 
 void hal_delay(uint32_t ms)
 {
+#ifdef __EMSCRIPTEN__
+    emscripten_sleep(ms);
+#else
     SDL_Delay(ms);
+#endif
 }
 
 /* ------------------------------------------------------------------ */
@@ -191,8 +203,12 @@ int hal_poll(MoonInput *inp)
     while (SDL_PollEvent(&ev)) {
         switch (ev.type) {
         case SDL_QUIT:
+#ifndef __EMSCRIPTEN__
             inp->quit = 1;
             return 1;
+#else
+            break;
+#endif
         case SDL_KEYDOWN:
             switch (ev.key.keysym.sym) {
             case SDLK_ESCAPE: inp->escape = 1; break;
@@ -224,6 +240,9 @@ int hal_poll(MoonInput *inp)
     if (inp->keys[SDL_SCANCODE_X] || inp->keys[SDL_SCANCODE_LALT])
         inp->joy[0].fire2 = 1;
 
+#ifdef __EMSCRIPTEN__
+    inp->escape = inp->quit = 0;        /* une page ne se quitte pas */
+#endif
     /* Check for quit via Escape or window close */
     if (inp->escape || inp->quit)
         return 1;

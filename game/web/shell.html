@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Moonstone</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; color: #aaa;
+               font: 14px/1.4 system-ui, sans-serif; }
+  body { display: flex; flex-direction: column; align-items: center;
+         justify-content: center; gap: 12px; }
+  /* 320 × 200 agrandi en gardant les pixels nets */
+  #canvas { width: min(96vw, 150vh); aspect-ratio: 16 / 10; outline: none;
+            image-rendering: pixelated; image-rendering: crisp-edges;
+            background: #000; }
+  #status { min-height: 1.4em; }
+  #keys { font-size: 12px; color: #777; text-align: center; max-width: 96vw; }
+  kbd { color: #bbb; }
+</style>
+</head>
+<body>
+<canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
+<div id="status">Chargement…</div>
+<div id="keys">
+  Joystick 1 : <kbd>flèches</kbd> + <kbd>Espace</kbd> · joystick 2 :
+  <kbd>W A S D</kbd> + <kbd>F</kbd> · manettes · lettres, chiffres,
+  <kbd>Tab</kbd> (barre d'espace), <kbd>Entrée</kbd> : clavier de l'Amiga
+</div>
+<script>
+  var canvas = document.getElementById('canvas');
+  var statusEl = document.getElementById('status');
+  var Module = {
+    canvas: canvas,
+    print: function (t) { console.log(t); },
+    printErr: function (t) { console.warn(t); },
+    setStatus: function (t) { statusEl.textContent = t; },
+    onRuntimeInitialized: function () { canvas.focus(); }
+  };
+  function audioContext() {
+    return Module.SDL2 && Module.SDL2.audioContext
+        || window.SDL2 && window.SDL2.audioContext;
+  }
+  /* Le navigateur n'autorise le son qu'après un geste de l'utilisateur */
+  function wake() {
+    var ctx = audioContext();
+    if (ctx && ctx.state === 'suspended')
+      ctx.resume();
+    canvas.focus();
+  }
+  setInterval(function () {
+    var ctx = audioContext();
+    statusEl.textContent = ctx && ctx.state === 'suspended'
+      ? 'Cliquer ou appuyer sur une touche pour le son' : '';
+  }, 500);
+  ['keydown', 'mousedown', 'touchstart'].forEach(function (e) {
+    window.addEventListener(e, wake, true);
+  });
+  /* Les touches du jeu ne font pas défiler la page */
+  window.addEventListener('keydown', function (e) {
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Tab'].indexOf(e.key) >= 0)
+      e.preventDefault();
+  });
+</script>
+{{{ SCRIPT }}}
+</body>
+</html>
