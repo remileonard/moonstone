@@ -2,6 +2,10 @@
  * moon_mog.c — le jeu complet de mog porté en C (mog_game.c) dans la
  * fenêtre SDL : une VBL = image présentée, 1/50 s, entrées lues.
  *
+ * Au lancement, l'intro de l'original (program, prog_intro.c) : une touche
+ * pendant le générique la saute (comme l'original), Entrée ou le bouton
+ * de la manette la fait défiler sans attendre.
+ *
  * Commandes : flèches (ou manette) = joystick, Espace / Ctrl / Z / bouton
  * de la manette = feu ; touches de l'Amiga : I ou Tab = barre d'espace
  * (inventaire sur la carte, pause en combat), E = fin du tour, 1-9 =
@@ -11,6 +15,9 @@
 #include "moon_hal.h"
 #include "mog_game.h"
 #include "mog_map.h"
+#include "prog_intro.h"
+#include "prog_vbl.h"
+#include "ix_program_syms.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,7 +25,7 @@
 
 enum {                                  /* codes SDL_Scancode */
     SC_A = 4, SC_E = 8, SC_I = 12, SC_Q = 20, SC_Z = 29, SC_1 = 30, SC_9 = 38,
-    SC_TAB = 43, SC_SPACE = 44, SC_RIGHT = 79, SC_LEFT = 80, SC_DOWN = 81,
+    SC_RETURN = 40, SC_TAB = 43, SC_SPACE = 44, SC_RIGHT = 79, SC_LEFT = 80, SC_DOWN = 81,
     SC_UP = 82, SC_LCTRL = 224, SC_RCTRL = 228
 };
 
@@ -78,14 +85,74 @@ static void host_audio(void *user, const int16_t *stereo, int frames)
     hal_audio_stream_push(stereo, frames);
 }
 
+/* ------------------------------------------------------------ intro */
+
+static uint32_t s_fb[320 * 200];
+static int s_rate, s_fast;
+
+static void intro_vbl(ProgIntro *p)
+{
+    GameCtx *ctx = p->user;
+    if (s_fast)
+        return;                                         /* défilement rapide */
+    if (s_rate > 0) {
+        static int16_t buf[2 * 2048];
+        int n = s_rate / 50;
+        prog_music_mix(p, buf, n, s_rate);
+        hal_audio_stream_push(buf, n);
+    }
+    prog_screen(p->vm, p->colour, s_fb);
+    hal_present(s_fb);
+    hal_vbl_wait();
+    MoonInput *in = &ctx->input;
+    if (hal_poll(in) && (in->quit || in->escape)) {
+        hal_quit();
+        exit(0);
+    }
+    int any = 0;
+    for (int sc = 4; sc < 232 && sc < in->n_keys; sc++)
+        if (pressed(in, sc)) {
+            any = 1;
+            if (sc == SC_RETURN)
+                s_fast = 1;
+        }
+    if (in->joy[0].fire)
+        s_fast = 1;
+    if (any)                                            /* LAB_0342 : touche notée */
+        ix_ww(p->vm, PROGRAM_SECSTRT_16, 1);
+}
+
+/* program : démarrage et intro, jusqu'au chargement de mog */
+static void run_intro(GameCtx *ctx)
+{
+    static IxVM vm;
+    static ProgIntro p;
+    uint32_t fast;
+    memset(&p, 0, sizeof p);
+    if (prog_boot_memory(&vm, &fast) < 0) {
+        fprintf(stderr, "intro : mémoire de program impossible\n");
+        return;
+    }
+    p.vm = &vm;
+    p.vbl = intro_vbl;
+    p.user = ctx;
+    p.potgor = 0xFFFF;                                  /* bouton droit relâché */
+    s_fast = 0;
+    prog_boot(&p, PROG_CHIP_BLOCK, PROG_CHIP_SIZE, fast, PROG_FAST_SIZE);
+    prog_intro(&p);
+    ix_vm_free(&vm);
+}
+
 void game_run_mog(GameCtx *ctx)
 {
+    s_rate = hal_audio_stream_open();
+    run_intro(ctx);
     for (;;) {
         memset(&s_game, 0, sizeof s_game);
         s_game.vbl = host_vbl;
         s_game.user = ctx;
         s_game.seed = (int)(hal_ticks() & 3);           /* LAB_04A5 : faisceau */
-        s_game.audio_rate = hal_audio_stream_open();
+        s_game.audio_rate = s_rate;
         s_game.audio = s_game.audio_rate ? host_audio : NULL;
         if (mog_game_boot(&s_game) < 0) {
             fprintf(stderr, "démarrage de mog impossible (fichiers du jeu ?)\n");
