@@ -17,7 +17,8 @@
 #include "mog_vbl.h"
 #include "mog_sound.h"
 #include "mog_private.h"
-#include "ix_mog_syms.h"
+#include "ix_mog_names.h"
+#include "mog_struct.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -37,11 +38,11 @@ static uint32_t argb(uint16_t c)
 /* Sprite 0 (pointeur, 2 plans, couleurs 17 à 19) en (LAB_097F, LAB_0980) */
 static void draw_pointer(MogGame *g)
 {
-    if (!ix_rw(VM, MOG_LAB_097C))
+    if (!ix_rw(VM, MOG_v_PointerHidden))
         return;
-    uint32_t s = ix_rl(VM, MOG_LAB_097D);
+    uint32_t s = ix_rl(VM, MOG_v_PointerSprite);
     int h = ix_rw(VM, s);
-    int x0 = (int16_t)ix_rw(VM, MOG_LAB_097F), y0 = (int16_t)ix_rw(VM, MOG_LAB_0980);
+    int x0 = (int16_t)ix_rw(VM, MOG_v_PointerX), y0 = (int16_t)ix_rw(VM, MOG_v_PointerY);
     for (int r = 0; r < h; r++) {
         int y = y0 + r;
         if (y < 0 || y >= MOG_GAME_H)
@@ -75,7 +76,7 @@ static int key_code(MogGame *g, int c)
     if (c >= 'a' && c <= 'z')
         c -= 32;
     for (uint32_t i = 1; i < 0x60; i++)
-        if (ix_rb(VM, MOG_LAB_0D99 + i) == (uint8_t)c)
+        if (ix_rb(VM, MOG_t_KeyChars + i) == (uint8_t)c)
             return (int)i;
     return 0;
 }
@@ -100,7 +101,7 @@ static void vbl(void *u)
     MogGame *g = u;
     ix_wl(VM, MOG_v_VblCounter, ix_rl(VM, MOG_v_VblCounter) + 1);
     mog_vbl_colours(VM, NULL);                          /* LAB_0E5D */
-    uint32_t pal = ix_rl(VM, MOG_LAB_0E93);             /* registres couleur */
+    uint32_t pal = ix_rl(VM, MOG_v_PalCurrent);             /* registres couleur */
     for (int i = 0; i < 32; i++)
         g->colour[i] = ix_rw(VM, pal + 2u * (unsigned)i);
     if (g->m.color00)                                   /* COLOR00 écrit à part */
@@ -116,8 +117,8 @@ static void vbl(void *u)
     if (in.key) {                                       /* LAB_0B66 : touche appuyée */
         int k = in.key == '\r' ? 0x1C : in.key == '\b' ? 0x0E : key_code(g, in.key);
         if (k) {
-            ix_ww(VM, MOG_SECSTRT_21, (uint16_t)k);
-            ix_wb(VM, MOG_LAB_0B91 + (uint32_t)k, 1);
+            ix_ww(VM, MOG_v_KeyPressed, (uint16_t)k);
+            ix_wb(VM, MOG_t_KeysDown + (uint32_t)k, 1);
         }
     }
     if (in.quit)
@@ -145,16 +146,16 @@ int mog_game_boot(MogGame *g)
     if (mog_boot_memory(VM) < 0)
         return -1;
     /* LAB_04A5 : graine du hasard selon le faisceau (VHPOSR & 3) */
-    ix_wl(VM, MOG_LAB_0973, ix_rl(VM, MOG_LAB_0974 + 4u * (unsigned)(g->seed & 3)));
+    ix_wl(VM, MOG_v_RandomSeed, ix_rl(VM, MOG_t_RandomSeeds + 4u * (unsigned)(g->seed & 3)));
     mog_boot_graphics(VM);                              /* SECSTRT_30, SECSTRT_28 */
-    ix_wl(VM, MOG_LAB_0E93, MOG_LAB_08D6);              /* LAB_0E53 : palette courante */
+    ix_wl(VM, MOG_v_PalCurrent, MOG_t_FightPalette);              /* LAB_0E53 : palette courante */
     mog_boot_ui(VM);                                    /* LAB_012C */
     mog_boot_engine(VM);                                /* LAB_0303 */
     mog_boot_map(VM);                                   /* LAB_0128 */
     mog_hit_init(VM);
     mog_boot_knight_cels(VM);                           /* LAB_0115 */
     mog_boot_backgrounds(VM);                           /* LAB_013A */
-    ix_ww(VM, MOG_LAB_05C5, 1);                         /* un joueur */
+    ix_ww(VM, MOG_v_Players, 1);                         /* un joueur */
     mog_boot_tables(VM);                                /* LAB_0152 / LAB_0156 */
 
     static const IxHost host = { NULL, NULL, NULL, NULL, NULL, message };
@@ -179,18 +180,18 @@ int mog_game_boot(MogGame *g)
             break;
         mog_practice(m);                                /* LAB_0002 : entraînement */
         mog_combat_run(m);                              /* Combat_Run */
-        ix_ww(VM, MOG_LAB_05C5, ix_rw(VM, MOG_LAB_05DB));
+        ix_ww(VM, MOG_v_Players, ix_rw(VM, MOG_v_PlayersSaved));
         mog_boot_tables(VM);                            /* LAB_0152 / LAB_0156 */
     }
     mog_new_game_full(m);                               /* LAB_01AE */
     for (uint32_t i = 0; i < 4; i++)                    /* LAB_0011 */
-        mog_update_knight(m, MOG_LAB_0613 + i * IX_OBJECT_SIZE);
+        mog_update_knight(m, MOG_t_KnightObjects + i * IX_OBJECT_SIZE);
     if (g->vbl)
         mog_choose_knights(m);                          /* LAB_00D3 */
     else {                                              /* outils : un joueur */
-        ix_wl(VM, MOG_LAB_06B4, MOG_LAB_06B6);          /* nom du chevalier 1 */
-        ix_wl(VM, MOG_LAB_0613 + 54, 0);                /* chevalier 1 : joueur */
-        ix_wb(VM, MOG_LAB_0613 + 11, 2);                /* joystick (port 1) */
+        ix_wl(VM, MOG_v_NameEdited, MOG_s_SirGodber);          /* nom du chevalier 1 */
+        ix_wl(VM, MOG_t_KnightObjects + OBJ_KNIGHT, 0);                /* chevalier 1 : joueur */
+        ix_wb(VM, MOG_t_KnightObjects + OBJ_PORT, 2);                /* joystick (port 1) */
     }
     mog_new_game_players(m);                            /* LAB_01BE */
     mog_boot_reactions(VM);                             /* LAB_020F */

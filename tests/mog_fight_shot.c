@@ -11,7 +11,7 @@
  */
 #include "mog_fight.h"
 #include "moon_assets.h"
-#include "ix_mog_syms.h"
+#include "ix_mog_names.h"
 
 #include <stdio.h>
 #include <stdlib.h>

@@ -13,7 +13,7 @@
 #include "mog_sound.h"
 #include "mog_encounter.h"
 #include "../game/src/mog_private.h"
-#include "ix_mog_syms.h"
+#include "ix_mog_names.h"
 
 #include <stdio.h>
 #include <stdlib.h>

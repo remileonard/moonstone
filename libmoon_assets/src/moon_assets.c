@@ -1,10 +1,10 @@
 /*
  * moon_assets.c — library lifecycle and file I/O.
  *
- * Implements moon_init, moon_shutdown, and moon_file_read.
+ * Implements moon_init, moon_shutdown, moon_file_read and moon_file_kind.
  * Format-specific loaders are in their own files:
  *   cel.c    — CEL sprite sheets
- *   piv.c    — PIV background bitmaps (decoder in packbits_piv.c)
+ *   piv.c    — PIV background bitmaps
  *   stile.c  — STILE tile maps
  *   mod.c    — MOD / CMP ProTracker modules
  *   ob.c     — OB character sprite sheets
@@ -132,4 +132,45 @@ uint8_t *moon_file_read(const char *name, size_t *out_size)
     if (out_size)
         *out_size = (size_t)sz;
     return buf;
+}
+
+/* ------------------------------------------------------------------ */
+/* File kinds                                                          */
+/* ------------------------------------------------------------------ */
+
+static int same_nocase(const char *a, const char *b)
+{
+    while (*a && tolower((unsigned char)*a) == tolower((unsigned char)*b))
+        a++, b++;
+    return !*a && !*b;
+}
+
+MoonFileKind moon_file_kind(const char *name)
+{
+    static const struct { const char *ext; MoonFileKind kind; } by_ext[] = {
+        { "cel", MOON_KIND_CEL }, { "ob", MOON_KIND_CEL }, { "c", MOON_KIND_CEL },
+        { "f", MOON_KIND_CEL }, { "font", MOON_KIND_CEL },
+        { "piv", MOON_KIND_PIV }, { "p", MOON_KIND_PIV },
+        { "cmp", MOON_KIND_MOD }, { "stile", MOON_KIND_STILE },
+        { "a", MOON_KIND_SFX }, { "t", MOON_KIND_TERRAIN },
+    };
+    if (!name)
+        return MOON_KIND_UNKNOWN;
+    const char *base = name;
+    for (const char *p = name; *p; p++)
+        if (*p == '/' || *p == '\\')
+            base = p + 1;
+    if (same_nocase(base, "test"))
+        return MOON_KIND_TESTMAP;
+    if (same_nocase(base, "mindscape"))
+        return MOON_KIND_PIV;
+    if (same_nocase(base, "collide.hit"))
+        return MOON_KIND_HIT;
+    const char *dot = strrchr(base, '.');
+    if (!dot)
+        return MOON_KIND_UNKNOWN;
+    for (size_t i = 0; i < sizeof by_ext / sizeof by_ext[0]; i++)
+        if (same_nocase(dot + 1, by_ext[i].ext))
+            return by_ext[i].kind;
+    return MOON_KIND_UNKNOWN;
 }

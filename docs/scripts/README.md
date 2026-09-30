@@ -73,7 +73,3 @@ s'arrêtait au label suivant (et incluait donc des octets situés après le
 `FF FF` final), le nouveau suit le moteur ; il compte aussi les octets des
 scripts atteints par des sauts.
 
-Les fichiers `tools/moon_anim_*.c` et `tools/moon_anim_registry.h`
-(visualiseur `moon-anim-viewer`) proviennent de l'ancien outil et ne sont
-pas régénérés : le visualiseur utilise le moteur de l'intro
-(`tools/imagexcel.c`), qui ne sait pas exécuter les opcodes de `mog`.

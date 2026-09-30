@@ -7,14 +7,15 @@
  *
  * File formats supported:
  *   - CEL     : sprite sheets (LZSS compressed, proprietary Mindscape header)
- *   - PIV     : background bitmaps (proprietary Mindscape, LZSS body)
- *   - STILE   : tile maps (2-bit RLE)
- *   - CMP     : ProTracker modules (RNC ProPack 1 compressed)
+ *   - PIV     : background bitmaps (proprietary Mindscape, LZSS body; also
+ *               the .p pictures)
+ *   - STILE   : tile maps (uncompressed, one big-endian word per tile)
+ *   - CMP     : ProTracker modules (RNC "\x01" packed, Unpack_Rnc1)
  *   - OB      : character sprite sheets (same format as CEL, LZSS compressed)
  *   - HIT     : hitbox definitions (ASCII text, collide.hit)
  *   - SFX     : raw 8-bit PCM audio sample banks (.a files, no header)
  *   - TERRAIN : combat arena terrain data (.t files — FO/Sw/GL/Wa families,
- *               LZSS compressed; contain obstacle collision table and visual
+ *               packed size + LZSS; contain obstacle collision table and visual
  *               object placement records for the combat background)
  *
  * All multi-byte values in Mindscape files are big-endian (Amiga/68000).
@@ -65,9 +66,11 @@ void moon_shutdown(void);
 typedef struct {
     uint16_t width;        /* frame width in pixels */
     uint16_t height;       /* frame height in lines  */
-    uint8_t  planes;       /* number of bitplanes active (1..5) */
-    uint8_t  draw_flags;   /* blit flags from CEL header */
+    uint8_t  planes;       /* number of bitplanes active (0..5; 0 = empty) */
+    uint8_t  plane_mask;   /* frame table byte 9: bit n = bitplane n stored */
+    uint8_t  draw_flags;   /* frame table byte 8 (bit 0 = draw toggle) */
     uint8_t  minterm;      /* blitter minterm byte */
+    uint32_t offset;       /* frame table long 0: offset in the pixel data */
     uint8_t *data;         /* planar pixel data (owned by MoonCel) */
 } MoonCelFrame;
 
@@ -98,7 +101,7 @@ void moon_cel_free(MoonCel *cel);
  * MoonPiv - a decoded PIV background bitmap.
  *
  * Bitmap data is plane-sequential (matching Amiga hardware layout and
- * the LAB_0408 / LAB_043A output in program.asm):
+ * the LZSS output of LAB_0402 in program.asm / LAB_0C27 in mog.asm):
  *   bitplane 0 occupies bytes [0 .. row_bytes*height - 1],
  *   bitplane 1 occupies bytes [row_bytes*height .. 2*row_bytes*height - 1],
  *   …
@@ -131,6 +134,13 @@ MoonPiv *moon_piv_load(const char *name);
  */
 MoonPiv *moon_piv_load_from_buffer(const uint8_t *buf, size_t len);
 
+/**
+ * moon_piv_colour - colour register value of a stored palette word: a word
+ * with bit 15 set is used as it is (bit 15 cleared), any other is shifted
+ * left once (LAB_03F4 / LAB_03FF).
+ */
+uint16_t moon_piv_colour(uint16_t stored);
+
 /** moon_piv_free - release a MoonPiv. */
 void moon_piv_free(MoonPiv *piv);
 
@@ -139,28 +149,32 @@ void moon_piv_free(MoonPiv *piv);
 /* ------------------------------------------------------------------ */
 
 /**
- * MoonStile - decompressed tilemap data.
+ * MoonStile - a tile map (.stile), used by the intro's tile scroll.
  *
- * `data` holds the raw decompressed bitplane data for all tiles.
- * The layout mirrors the original Amiga bitplane format.
+ * The file is not compressed: `data` holds its bytes as they are, a
+ * sequence of big-endian words, one tile number per map cell (960 bytes
+ * for intro.stile and co.stile).
  */
 typedef struct {
     size_t   size;  /* byte count of `data` */
-    uint8_t *data;  /* decompressed bitplane bytes */
+    uint8_t *data;  /* raw file bytes (big-endian tile words) */
 } MoonStile;
 
 /**
- * moon_stile_load - load and decompress a .stile file.
+ * moon_stile_load - load a .stile tile map.
  * @name: filename (e.g. "intro.stile").
  * Returns a newly allocated MoonStile, or NULL on error.
  */
 MoonStile *moon_stile_load(const char *name);
 
+/** moon_stile_tile - tile number of map cell @index (0 past the end). */
+uint16_t moon_stile_tile(const MoonStile *stile, size_t index);
+
 /** moon_stile_free - release a MoonStile. */
 void moon_stile_free(MoonStile *stile);
 
 /* ------------------------------------------------------------------ */
-/* CMP — ProTracker modules (RNC ProPack 1 compressed)                */
+/* CMP — ProTracker modules (RNC packed, see moon_rnc1_decompress)    */
 /* ------------------------------------------------------------------ */
 
 /**
@@ -308,6 +322,13 @@ typedef struct {
  * The caller must free the result with moon_hit_free().
  */
 MoonHit *moon_hit_load(const char *name);
+
+/**
+ * moon_hit_parse - parse collide.hit text already in memory.
+ * @buf: the text; @len: its byte count.
+ * Returns a newly allocated MoonHit (free with moon_hit_free()), or NULL.
+ */
+MoonHit *moon_hit_parse(const uint8_t *buf, size_t len);
 
 /**
  * moon_hit_find - look up a sprite by name within a MoonHit.
@@ -485,15 +506,37 @@ void moon_terrain_free(MoonTerrain *terrain);
  */
 uint8_t *moon_file_read(const char *name, size_t *out_size);
 
+/* Kind of a game file.  The game names its files by type: .cel, .ob, .c,
+ * .f and .font are CEL sprite sheets, .piv and .p (and "mindscape") PIV
+ * pictures, .cmp RNC-packed modules, .a sound banks, .t terrains; "test"
+ * is the container of the overworld pictures. */
+typedef enum {
+    MOON_KIND_UNKNOWN,
+    MOON_KIND_CEL,
+    MOON_KIND_PIV,
+    MOON_KIND_MOD,
+    MOON_KIND_STILE,
+    MOON_KIND_SFX,
+    MOON_KIND_TERRAIN,
+    MOON_KIND_TESTMAP,
+    MOON_KIND_HIT
+} MoonFileKind;
+
+/**
+ * moon_file_kind - kind of a game file, from its name (a path is allowed).
+ */
+MoonFileKind moon_file_kind(const char *name);
+
 /* ------------------------------------------------------------------ */
 /* Decompressors (also usable standalone)                              */
 /* ------------------------------------------------------------------ */
 
 /**
- * moon_rnc1_decompress - decompress a RNC ProPack type-1 buffer.
- * @src: pointer to compressed data (including 18-byte RNC header).
+ * moon_rnc1_decompress - decompress a .cmp file (Unpack_Rnc1 of program).
+ * @src: the whole file: 12-byte header ("RNC\x01", unpacked size, packed
+ *       size) then the packed data, read backwards.
  * @src_len: total byte count of src.
- * @dst: output buffer (must be large enough for the decompressed data).
+ * @dst: output buffer (at least the unpacked size of the header).
  * @dst_len: capacity of dst.
  * Returns the number of bytes written to dst, or -1 on error.
  */
@@ -506,32 +549,21 @@ int moon_rnc1_decompress(const uint8_t *src, size_t src_len,
  * @src_len: byte count of src.
  * @dst: output buffer.
  * @dst_len: capacity of dst.
- * Returns the number of bytes written, or -1 on error.
+ * Returns the number of bytes written, or -1 on error (a token that does
+ * not fit, or a back-reference before dst).
  */
 int moon_lzss_decompress(const uint8_t *src, size_t src_len,
                          uint8_t *dst, size_t dst_len);
 
 /**
- * moon_rle_stile_decompress - decompress 2-bit RLE bitplane data.
- * @src: compressed data.
- * @src_len: byte count of src.
- * @dst: output buffer.
- * @dst_len: capacity of dst.
- * Returns the number of bytes written, or -1 on error.
+ * moon_lzss_decompress_window - the same, writing at buf + start: the
+ * @start bytes before the output are the window a back-reference may
+ * reach, as when the original decompresses into memory.  An offset of 0
+ * leaves the bytes already in buf (each byte is copied onto itself).
+ * Returns the number of bytes written from buf + start, or -1.
  */
-int moon_rle_stile_decompress(const uint8_t *src, size_t src_len,
-                              uint8_t *dst, size_t dst_len);
-
-/**
- * moon_packbits_decompress - decompress PackBits-encoded data.
- * @src: compressed data.
- * @src_len: byte count.
- * @dst: output buffer.
- * @dst_len: capacity.
- * Returns the number of bytes written, or -1 on error.
- */
-int moon_packbits_decompress(const uint8_t *src, size_t src_len,
-                             uint8_t *dst, size_t dst_len);
+int moon_lzss_decompress_window(const uint8_t *src, size_t src_len,
+                                uint8_t *buf, size_t start, size_t buf_len);
 
 #ifdef __cplusplus
 }

@@ -163,9 +163,9 @@ LAB_012C:
 
 ### 2.2 Tileset `.stile` — décors de tuiles
 
-Le fichier `co.stile` (960 octets, magic `0000 0000`) est le **tileset de
-décors de combat**. Il est décompressé par `LAB_0448` / `SECSTRT_21`
-(décompresseur bitplane RLE 2 bits, `program.asm#L7923`) :
+Le fichier `co.stile` (960 octets, magic `0000 0000`) est une **carte de
+tuiles** lue telle quelle (pas de compression : `LAB_0185` la lit avec
+`LAB_03B2` ; le RLE `LAB_0448` est du code mort) :
 
 | Fichier        | Taille | Magic       | Rôle                                           |
 |----------------|--------|-------------|------------------------------------------------|
@@ -980,7 +980,7 @@ du chevalier.
 |---------------|-------|------------|-----------------------------------------|
 | `ch.piv`      | PIV   | `LAB_07AF` | Fond de combat (320×200, 5 plans)       |
 | `message.piv` | PIV   | `LAB_07AE` | Fond écran de messages / butin          |
-| `co.stile`    | STILE | —          | Tileset décors de combat (RLE 2 bits)   |
+| `co.stile`    | STILE | —          | Carte de tuiles (brute, mots)           |
 | `bold.f`      | CEL   | `LAB_078B` | Police de caractères bold (textes butin/inventaire) |
 | `Small.font`  | font  | `LAB_078C` | Police de caractères petite             |
 | `vmusic.cmp`  | CMP   | —          | Module SoundTracker musique de combat   |

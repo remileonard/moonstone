@@ -508,6 +508,9 @@ python3 tools/prog_lockstep.py <données> --scene intro
 # la fin (partie gagnée : EXT_0007 = $80 | chevalier | lieu), sans jouer
 python3 tools/prog_lockstep.py <données> --scene intro --flags 0x91
 build/tests/prog_intro_shot <données> <préfixe> 100 [0x91]
+
+# libmoon_assets contre les décodeurs du portage, fichier par fichier
+build/tests/lib_audit <données>
 ```
 
 Les fichiers du jeu d'origine ne sont pas dans le dépôt. Le dossier
@@ -530,6 +533,11 @@ Les fichiers du jeu d'origine ne sont pas dans le dépôt. Le dossier
 | `tools/*check.py`, `tools/*lockstep.py` | comparaisons (§3, §4, §7 bis, §8 bis) |
 | `tests/mog_run.c`, `tests/prog_run.c` | côté C des comparaisons |
 | `tests/mog_game_shot.c`, `tests/prog_intro_shot.c` | jeu et intro sans écran (PNG, WAV) |
+| `game/data/*_names.txt`, `tools/ix_names.py` | noms des labels utilisés par le C (§10 ter) |
+| `game/include/mog_struct.h` | champs des enregistrements en mémoire émulée (§10 quater) |
+| `libmoon_assets/` | lecture des fichiers du jeu (CEL, PIV et `.p`, LZSS, RNC, MOD, stile, `.t`, `.a`, collide.hit) |
+| `tests/lib_audit.c`, `tests/lib_audit_ref.c` | audit de la bibliothèque : chaque fichier comparé aux décodeurs d'origine du portage, figés (§10 bis) |
+| `tools/moon_info.c`, `moon_dump.c`, `moon_view.c` | inspection des fichiers du jeu par la bibliothèque (`DOC_TECHNIQUE.md` §11.3) |
 
 L'ancienne version non fidèle (moteur de rendu et d'entités à part,
 modules par lieu) est supprimée. Les documents d'analyse écrits pour elle
@@ -537,10 +545,133 @@ modules par lieu) est supprimée. Les documents d'analyse écrits pour elle
 `DOC_ANIMATIONS_INTRO_FIN.md`, `DOC_COMPARAISON_ASM_C.md`) restent pour
 leur lecture de l'assembleur ; la référence est désormais le code porté.
 
+### 10 bis. libmoon_assets
+
+La bibliothèque lit les formats du jeu hors de la mémoire émulée.
+`tests/lib_audit.c` la compare, fichier par fichier, aux décodeurs du
+portage (eux-mêmes vérifiés contre l'original) : les 221 vérifications
+sont identiques. L'audit a corrigé :
+
+- CEL : une frame de masque 0 n'a aucun plan (et non 5) ; la taille des
+  pixels vient de l'en-tête (+6, en bits, comme `LAB_0CB6`) ; masque et
+  décalage de chaque frame sont exposés ;
+- LZSS : décalage 0 fidèle (l'octet est recopié sur lui-même), fenêtre
+  avant la sortie (`moon_lzss_decompress_window`) ;
+- `.p` : ce sont des PIV (`LAB_0C27`), pas des CEL ;
+- terrain `.t` : un long (taille compressée) précède le flux LZSS ;
+- RNC `.cmp` : décodeur remplacé par `Unpack_Rnc1` de program (en-tête de
+  12 octets, flux lu à rebours) ; les MOD se chargent ;
+- stile : pas de compression, carte de tuiles brute (`moon_stile_tile`) ;
+- collide.hit : les 14 sprites sont lus (fin de section `99`), chiffres
+  lus comme `LAB_03D8` / `LAB_03D9` (maximum signé).
+
+Code mort retiré (blocs jamais atteints de l'original) : le codeur à bits
+`LAB_0408`, le RLE `Unpack_StileRle` (`LAB_0448`), la variante IFF/PackBits
+(`LAB_0434`) et l'outil `moon-view-stile` qui s'appuyait sur ce RLE.
+
+Le jeu décode par la bibliothèque, directement dans la mémoire émulée :
+
+| Routine du portage | Original | Bibliothèque |
+|---|---|---|
+| `mog_unpack` (et `prog_unpack`, son jumeau) : CEL, PIV, `.p`, `.t` | `LAB_0CC2` / `LAB_049C` | `moon_lzss_decompress_window` (fenêtre = mémoire sous la sortie) |
+| `rnc_unpack` (`prog_intro.c`) : `music.cmp`, `vmusic.cmp` | `Unpack_Rnc1` | `moon_rnc1_decompress`, puis recopie en place et mise à zéro comme l'original |
+| `mog_load_hit_cel` (`mog_boot.c`) : collide.hit | `LAB_03CE` / `LAB_03D2` | `moon_hit_parse` + `moon_hit_find` |
+| palettes des PIV (`mog_encounter.c`, `prog_intro.c`) | `LAB_03F4` / `LAB_03FF` | `moon_piv_colour` |
+
+La lecture des fichiers en mémoire (`mog_file_read`) reste celle de
+l'original : elle fait partie de l'état comparé. Seule différence connue :
+l'original cherche le nom d'une CEL n'importe où dans collide.hit (suivi
+d'un saut de ligne), la bibliothèque compare des lignes entières ; les
+noms du jeu sont tous des lignes entières.
+
+Les décodeurs d'avant la bibliothèque restent, figés, dans
+`tests/lib_audit_ref.c` : ils servent de référence indépendante à
+`lib_audit`. Vérifications après le passage : `mog_bootcheck.py`,
+`mog_gamecheck.py` (mêmes résultats qu'avant), lockstep de l'intro, de la
+fin et d'un combat Practice.
+
+### 10 ter. Noms des labels
+
+Le C ne cite plus aucun label brut (`LAB_xxxx`, `L00_xxxxx`, `SECSTRT_n`) :
+chaque adresse de mog ou de program utilisée a un nom, donné dans
+`game/data/mog_names.txt` et `game/data/program_names.txt` (label, nom,
+description). `tools/ix_names.py` en tire `game/data/ix_mog_names.h` et
+`ix_program_names.h` (`#define MOG_v_PlayerObj MOG_LAB_05F2 /* ... */`), que
+les sources incluent à la place de `ix_*_syms.h`.
+
+Conventions (celles des labels déjà nommés dans l'assembleur) :
+
+| Préfixe | Genre | Exemples |
+|---|---|---|
+| `Module_Verbe` | routine | `Ctl_Dragon`, `Kit_Troll`, `Enc_Balok`, `React_Parry`, `Call_Shake`, `IxOpA0_Move` |
+| `v_` | variable | `v_PlayerObj`, `v_TurnKnight`, `v_ScrollPos` |
+| `t_` | table | `t_KnightAttacks`, `t_PalForest`, `t_LairTerrain` |
+| `s_` | chaîne | `s_Dragon1Cel`, `s_EnterLair` |
+| `b_` | tampon | `b_Unpack`, `b_TerrainObjects` |
+| `x_` | script IMAGEXCEL | `x_KnightAtk3`, `x_RatBite`, `x_DruidKnighting` |
+
+Les jumeaux de program (code de mog compilé pour program) portent le nom
+de leur label de mog ; `tools/prog_twins.py` passe par les tables.
+
+```sh
+python3 tools/ix_names.py gen            # en-têtes
+python3 tools/ix_names.py apply          # MOG_LAB_xxxx -> MOG_<nom> dans les sources
+python3 tools/ix_names.py rename a b     # renommer (table et sources à la fois)
+python3 tools/ix_names.py check          # labels bruts restants
+```
+
+L'assembleur n'est pas touché : les commentaires du C (« LAB_0CBB : ... »)
+et les bancs de comparaison continuent de s'y référer par ses labels ; la
+table fait le lien. Un renommage ne change pas le code : chaque lot a été
+vérifié en comparant le code objet de tout le jeu avant et après
+(identique octet pour octet).
+
+
+### 10 quater. Structures
+
+Les données du jeu restent dans la mémoire émulée, à leurs adresses
+d'origine (les bancs de comparaison lisent cette mémoire) ; ce sont les
+décalages qui sont nommés. `game/include/mog_struct.h` décrit chaque
+enregistrement par un `enum` (taille du champ en commentaire : b, w, l) :
+
+| Préfixe | Enregistrement |
+|---|---|
+| `OBJ_` | objet combattant (132 octets : position, scripts, caractéristiques, inventaire, IA, carte) |
+| `INV_` | inventaire (24 octets : un compte par objet, clés et pierres de lune en bits) |
+| `LAIR_` | repaire de la carte (20 octets) |
+| `CMB_` | `v_Combatants` (joueur, adversaire, police, lune, jour) |
+| `ENT_`, `CTX_` | entité et contexte du moteur IMAGEXCEL (ceux de program aussi, avec `PENT_`, `PCTX_`) |
+| `TRAJ_`, `FLY_` | demande de vol et vols en cours (`t_Trajectory`, `t_Trajectories`) |
+| `CEL_`, `CELF_` | en-tête d'un fichier CEL et entrée de frame |
+| `ZONE_`, `TXT_` | zone d'un écran à pointeur, enregistrement de texte |
+| `SCR_`, `DL_` | zone à restaurer, frame dessinée (listes de corps et de frappe) |
+| `VOX_`, `INS_`, `ENV_`, `AUD_`, `HW_` | pilote son : voie, instrument, enveloppe, registres de Paula |
+
+Le lecteur de modules de program garde sa voie (`CH_`) dans
+`prog_music.c`. Les tailles servent aux pas des boucles (`LAIR_SIZE`,
+`INV_SIZE`, `ZONE_SIZE`...) et les numéros de champ passés comme données
+reçoivent aussi leur nom (case d'une zone d'écran : `OBJ_GOLD`,
+`INV_KEYS` ; objets du butin : `INV_MOONSTONES`...).
+
+Comme pour les noms de labels, chaque lot a été vérifié par le code objet
+de tout le jeu (identique) ; un décalage mal attribué (même nombre, autre
+enregistrement) ne se voit pas ainsi : les variables ont été classées
+par leur origine (`me(m)`, `rl(v_CurObj)`, `+ OBJ_INVENTORY`...) et les
+cas ambigus relus un par un. Les réutilisations d'origine restent
+visibles : champs de l'objet écrits dans l'entité par le Dragon
+(`mog_ai.c`), `OBJ_MAP_X` / `OBJ_MAP_Y` servant de cible du saut en
+combat.
+
 ---
 
 ## 11. Ce qui reste
 
+- **`mog_setupcheck.py`** : les 11 rencontres montrent de 17 à 151 octets
+  d'écart (tampons `LAB_0D21`, `LAB_0D29`, écran `LAB_0D4F`) et un message
+  « KNIGHT DAMAGE » côté C ; c'était déjà le cas avant les passes de
+  nommage et de structures (même résultat sur `c87f563`). Le banc
+  côte à côte (`mog_lockstep.py`), qui traverse les rencontres, reste la
+  référence ; ce banc isolé est à remettre d'accord.
 - **Essais réels** : la fenêtre SDL, le clavier, les manettes et le son
   n'ont été vérifiés que sans écran (captures, lancements courts) ; le
   paquet Windows n'a pas été essayé sur Windows.

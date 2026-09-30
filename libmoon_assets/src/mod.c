@@ -20,8 +20,8 @@
  *   MOVEQ  #30,D0       → loop for 31 sample descriptors
  *   ADDA.L #$1E,A0      → descriptor stride = 30 bytes
  *
- * .cmp files are the same ProTracker MOD compressed with RNC ProPack 1.
- * The RNC decompressor is in rnc1.c.
+ * .cmp files are the same ProTracker MOD packed by RNC (Unpack_Rnc1 of
+ * program, 12-byte header); the decompressor is in rnc1.c.
  */
 
 #include "moon_private.h"

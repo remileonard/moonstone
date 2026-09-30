@@ -17,16 +17,18 @@
  * Frame line with no hit points:
  *   00\n
  *
- * Frame line with n hit points:
- *   CC TT XXX₁YYY₁XXX₂YYY₂…XXXₙYYYₙ\n
+ * Frame with n hit points (three lines):
+ *   CC\n
+ *   TT\n
+ *   XXX₁YYY₁XXX₂YYY₂…XXXₙYYYₙ\n
  *
  *   CC  — 2-digit decimal count (01–98).  "99" terminates the section.
  *   TT  — 2-digit decimal hit-type / weight byte (matches LAB_0A55 table).
- *          Separated from CC by a single ASCII space.
  *   XXX — 3-digit decimal x offset (0–255) from sprite origin.
  *   YYY — 3-digit decimal y offset (0–255) from sprite origin.
- *          XYY pairs are concatenated with no separator between them; the
- *          whole coordinate string is separated from TT by one ASCII space.
+ *          The pairs are concatenated with no separator between them.
+ *   The parser skips one byte after CC, after TT and after the pairs,
+ *   whatever it is.
  *
  * Parsing mirrors LAB_03D9 (2-digit read), LAB_03D8 (3-digit read), and
  * the main loop LAB_03D2 (mog.asm lines 8280–8317).
@@ -52,28 +54,29 @@
 /* Internal helpers                                                    */
 /* ------------------------------------------------------------------ */
 
-/* Read a 2-digit decimal integer from *p and advance *p by 2.
- * Returns the value (0–99), or -1 if fewer than 2 bytes remain.
- * Mirrors LAB_03D9 (mog.asm line 8332). */
-static int read2(const uint8_t **p, const uint8_t *end)
+/* Read an n-digit decimal number from *p and advance *p by n, exactly as
+ * LAB_03D9 (2 digits) and LAB_03D8 (3 digits) in mog.asm: the digit is
+ * added to the low byte only (ADD.B, no carry), so a 3-digit value of 208
+ * or more comes out as a negative word whose low byte is still the value.
+ * Returns the 16-bit word, or -1 if fewer than n bytes remain. */
+static int read_digits(const uint8_t **p, const uint8_t *end, int n)
 {
-    if (*p + 2 > end)
+    if (*p + n > end)
         return -1;
-    int v = ((*p)[0] - '0') * 10 + ((*p)[1] - '0');
-    *p += 2;
-    return v;
+    uint16_t d0 = (uint16_t)((*p)[0] - 0x30);
+    for (int i = 1; i < n; i++) {
+        d0 = (uint16_t)(d0 * 10u);
+        d0 = (uint16_t)((d0 & 0xFF00u) | (uint8_t)(d0 + (*p)[i]));
+        d0 = (uint16_t)(d0 - 0x30);
+    }
+    *p += n;
+    return d0;
 }
 
-/* Read a 3-digit decimal integer from *p and advance *p by 3.
- * Returns the value (0–255), or -1 if fewer than 3 bytes remain.
- * Mirrors LAB_03D8 (mog.asm line 8321). */
-static int read3(const uint8_t **p, const uint8_t *end)
+static int read2(const uint8_t **p, const uint8_t *end)
 {
-    if (*p + 3 > end)
-        return -1;
-    int v = ((((*p)[0] - '0') * 10) + ((*p)[1] - '0')) * 10 + ((*p)[2] - '0');
-    *p += 3;
-    return v;
+    int v = read_digits(p, end, 2);
+    return v < 0 ? -1 : (uint8_t)v;
 }
 
 /* Skip one byte (space, newline, or other delimiter). */
@@ -139,6 +142,7 @@ static int count_sprites_in_file(const uint8_t *p, const uint8_t *end)
             if (cnt == 99) {
                 count++;
                 found_term = 1;
+                skip1(&p, end); /* newline after "99" */
                 break;
             }
             if (cnt == 0) {
@@ -168,28 +172,32 @@ MoonHit *moon_hit_load(const char *name)
     uint8_t *raw       = moon_file_read(name, &file_size);
     if (!raw)
         return NULL;
+    MoonHit *hit = moon_hit_parse(raw, file_size);
+    free(raw);
+    return hit;
+}
 
-    const uint8_t *buf = raw;
+MoonHit *moon_hit_parse(const uint8_t *buf, size_t file_size)
+{
+    if (!buf)
+        return NULL;
     const uint8_t *end = buf + file_size;
     const uint8_t *p   = buf;
 
     /* ---- Pass 1: count sprite sections ---- */
     int n_sprites = count_sprites_in_file(p, end);
     if (n_sprites <= 0) {
-        free(raw);
         return NULL;
     }
 
     /* ---- Allocate top-level structure ---- */
     MoonHit *hit = calloc(1, sizeof(*hit));
     if (!hit) {
-        free(raw);
         return NULL;
     }
     hit->sprites = calloc((size_t)n_sprites, sizeof(MoonHitSprite));
     if (!hit->sprites) {
         free(hit);
-        free(raw);
         return NULL;
     }
 
@@ -219,8 +227,7 @@ MoonHit *moon_hit_load(const char *name)
             if (!sp->frames) {
                 hit->sprite_count = si;
                 moon_hit_free(hit);
-                free(raw);
-                return NULL;
+                        return NULL;
             }
         }
 
@@ -250,33 +257,34 @@ MoonHit *moon_hit_load(const char *name)
             if (!fr->points) {
                 hit->sprite_count = si + 1;
                 moon_hit_free(hit);
-                free(raw);
-                return NULL;
+                        return NULL;
             }
 
-            uint8_t max_dx = 0, max_dy = 0;
+            /* max_dx / max_dy compare the signed words (LAB_03D2) */
+            int16_t max_dx = 0, max_dy = 0;
             for (int i = 0; i < cnt; i++) {
-                int dx = read3(&p, end);
-                int dy = read3(&p, end);
+                int dx = read_digits(&p, end, 3);
+                int dy = read_digits(&p, end, 3);
                 fr->points[i].dx = (dx >= 0) ? (uint8_t)dx : 0;
                 fr->points[i].dy = (dy >= 0) ? (uint8_t)dy : 0;
-                if (fr->points[i].dx > max_dx) max_dx = fr->points[i].dx;
-                if (fr->points[i].dy > max_dy) max_dy = fr->points[i].dy;
+                if (dx >= 0 && (int16_t)dx > max_dx) max_dx = (int16_t)dx;
+                if (dy >= 0 && (int16_t)dy > max_dy) max_dy = (int16_t)dy;
             }
-            fr->max_dx = max_dx;
-            fr->max_dy = max_dy;
+            fr->max_dx = (uint8_t)max_dx;
+            fr->max_dy = (uint8_t)max_dy;
 
             skip1(&p, end); /* newline at end of coordinate line */
         }
 
-        /* consume "99" terminator newline (read2 already consumed "99") */
+        /* consume the "99" terminator and its newline */
+        if (read2(&p, end) != 99)
+            break;
         skip1(&p, end);
 
         si++;
     }
 
     hit->sprite_count = si;
-    free(raw);
     return hit;
 }
 

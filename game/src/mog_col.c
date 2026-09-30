@@ -10,7 +10,8 @@
  * cible.18 = attaquant, cible.122/124 = point d'impact.
  */
 #include "mog_combat.h"
-#include "ix_mog_syms.h"
+#include "ix_mog_names.h"
+#include "mog_struct.h"
 
 #define VM (m->eng.vm)
 
@@ -31,14 +32,14 @@ static int span(uint32_t d0, uint32_t d1, uint32_t d2, uint32_t d3)
 /* Combat_ClearHitLinks [LAB_0161] */
 void mog_clear_hit_links(MogCombat *m)
 {
-    ix_wl(VM, MOG_LAB_0617 + 14, 0);
-    ix_wl(VM, MOG_LAB_0617 + 18, 0);
-    uint32_t a1 = ix_rl(VM, MOG_LAB_05C3);
+    ix_wl(VM, MOG_v_DragonObj + OBJ_HIT, 0);
+    ix_wl(VM, MOG_v_DragonObj + OBJ_HIT_BY, 0);
+    uint32_t a1 = ix_rl(VM, MOG_v_Objects);
     for (int i = 0; i < 21; i++, a1 += IX_OBJECT_SIZE) {    /* DBF sur 20 : 21 objets */
         ix_wl(VM, a1 + 14, 0);
         ix_wl(VM, a1 + 18, 0);
     }
-    a1 = MOG_LAB_0613;
+    a1 = MOG_t_KnightObjects;
     for (int i = 0; i < 4; i++, a1 += IX_OBJECT_SIZE) {
         ix_wl(VM, a1 + 14, 0);
         ix_wl(VM, a1 + 18, 0);
@@ -85,7 +86,7 @@ static int pixel_hit(MogCombat *m, uint32_t bcel, uint16_t bframe, uint16_t bx, 
     /* LAB_03E4 : points d'impact contre les pixels du corps */
     uint32_t a3 = ix_rl(VM, bcel + 2) + ix_rl(VM, be);
     uint16_t row = (uint16_t)(((uint16_t)(bw + 15) >> 4) * 2);
-    ix_ww(VM, MOG_LAB_0A56, (uint16_t)(row * bh));
+    ix_ww(VM, MOG_v_HitRowBytes, (uint16_t)(row * bh));
     unsigned n = ix_rb(VM, a1);
     a1 += 4;
     for (unsigned p = 0; p < n; p++) {
@@ -114,7 +115,7 @@ static int pixel_hit(MogCombat *m, uint32_t bcel, uint16_t bframe, uint16_t bx, 
         for (uint32_t q = 0; q <= np; q++) {            /* DBF */
             if (ix_rw(VM, a4 + (uint32_t)(int32_t)sw(off)) & (1u << bit))
                 return 1;                               /* LAB_03E8 */
-            a4 += (uint32_t)(int32_t)sw(ix_rw(VM, MOG_LAB_0A56));
+            a4 += (uint32_t)(int32_t)sw(ix_rw(VM, MOG_v_HitRowBytes));
         }
     }
     return 0;
@@ -147,9 +148,9 @@ void mog_collisions(MogCombat *m)
                         continue;
                     uint32_t o6 = ix_rl(VM, a6 + 24), o5 = ix_rl(VM, a5 + 24);
                     ix_wl(VM, o6 + 14, o5);
-                    ix_wl(VM, o5 + 18, o6);
-                    ix_ww(VM, o5 + 122, ix_rw(VM, MOG_v_HitX));
-                    ix_ww(VM, o5 + 124, ix_rw(VM, MOG_v_HitY));
+                    ix_wl(VM, o5 + OBJ_HIT_BY, o6);
+                    ix_ww(VM, o5 + OBJ_IMPACT_X, ix_rw(VM, MOG_v_HitX));
+                    ix_ww(VM, o5 + OBJ_IMPACT_Y, ix_rw(VM, MOG_v_HitY));
                     hit = 1;
                     break;
                 }

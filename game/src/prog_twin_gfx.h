@@ -1,22 +1,22 @@
 /* Généré par tools/prog_twins.py mog_gfx.c : ne pas modifier. */
-#include "ix_mog_syms.h"
-#include "ix_program_syms.h"
-#undef MOG_LAB_0CD9
-#define MOG_LAB_0CD9 PROGRAM_LAB_04B3
-#undef MOG_LAB_0D04
-#define MOG_LAB_0D04 PROGRAM_LAB_04DE
-#undef MOG_LAB_0D3D
-#define MOG_LAB_0D3D PROGRAM_LAB_0518
-#undef MOG_LAB_0D3E
-#define MOG_LAB_0D3E PROGRAM_LAB_0519
-#undef MOG_LAB_0D3F
-#define MOG_LAB_0D3F PROGRAM_LAB_051A
-#undef MOG_LAB_0D40
-#define MOG_LAB_0D40 PROGRAM_LAB_051B
-#undef MOG_LAB_0D41
-#define MOG_LAB_0D41 PROGRAM_LAB_051C
-#undef MOG_LAB_0D4D
-#define MOG_LAB_0D4D PROGRAM_LAB_0528
-#undef MOG_SECSTRT_32
-#define MOG_SECSTRT_32 PROGRAM_SECSTRT_27
+#include "ix_mog_names.h"
+#include "ix_program_names.h"
+#undef MOG_b_Gfx
+#define MOG_b_Gfx PROGRAM_b_Gfx
+#undef MOG_t_BitReverse
+#define MOG_t_BitReverse PROGRAM_t_BitReverse
+#undef MOG_v_CelPlanesBuf
+#define MOG_v_CelPlanesBuf PROGRAM_v_CelPlanesBuf
+#undef MOG_v_CelPlanesMax
+#define MOG_v_CelPlanesMax PROGRAM_v_CelPlanesMax
+#undef MOG_v_GfxReady
+#define MOG_v_GfxReady PROGRAM_v_GfxReady
+#undef MOG_v_GfxTableA
+#define MOG_v_GfxTableA PROGRAM_v_GfxTableA
+#undef MOG_v_GfxTableB
+#define MOG_v_GfxTableB PROGRAM_v_GfxTableB
+#undef MOG_v_GfxTableC
+#define MOG_v_GfxTableC PROGRAM_v_GfxTableC
+#undef MOG_v_GfxTableD
+#define MOG_v_GfxTableD PROGRAM_v_GfxTableD
 #define mog_boot_graphics prog_boot_graphics
