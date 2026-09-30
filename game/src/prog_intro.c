@@ -1522,6 +1522,8 @@ static uint32_t rnc_unpack(ProgIntro *p, uint32_t a0)
     return d0;
 }
 
+uint32_t prog_rnc_unpack(ProgIntro *p, uint32_t a0) { return rnc_unpack(p, a0); }
+
 /* LAB_0325 (partie mémoire) : état de la souris, vecteurs d'interruption */
 static void interrupts_init(ProgIntro *p)
 {
