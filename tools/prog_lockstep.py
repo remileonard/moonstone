@@ -38,7 +38,6 @@ class Bench:
         self.ref = ref = ProgRef(data)
         S = ref.S
         self.events = []
-        ref.hook(S['SECSTRT_1'], lambda: self.events.append('M'))
         self.rts = ref.stack_top - 0x80 + 28          # RTS du code de VBL
         self.skip = False
         self.stopped = False
@@ -161,7 +160,7 @@ def main():
         p.stdin.write('C\n')
         p.stdin.flush()
     p.wait()
-    print('scène %s : %d VBL identiques (musique : %d départ(s))' % (label, vbl - 1, len(cev)))
+    print('scène %s : %d VBL identiques' % (label, vbl - 1))
 
 
 if __name__ == '__main__':

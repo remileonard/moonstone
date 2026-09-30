@@ -42,12 +42,6 @@ static void on_vbl(ProgIntro *p)
         exit(0);
 }
 
-static void on_music(ProgIntro *p)
-{
-    (void)p;
-    printf("M\n");
-}
-
 static void scene_0054(ProgIntro *p) { prog_text_screen(p, PROGRAM_LAB_00AA); }
 
 int main(int argc, char **argv)
@@ -70,7 +64,6 @@ int main(int argc, char **argv)
     static ProgIntro p;
     p.vm = &vm;
     p.vbl = on_vbl;
-    p.music_start = on_music;
     if (argc > 4)
         p.a1 = (uint32_t)strtoul(argv[4], NULL, 16);
     static const struct { const char *n; void (*f)(ProgIntro *); } sc[] = {
@@ -80,6 +73,16 @@ int main(int argc, char **argv)
         { "002d", prog_scene_002d }, { "002f", prog_scene_002f },
         { "002e", prog_scene_002e }, { "0054", scene_0054 },
     };
+    if (!strcmp(argv[2], "mem")) {                      /* mémoire initiale en C */
+        static IxVM v;
+        uint32_t fast;
+        if (prog_boot_memory(&v, &fast) < 0)
+            return 1;
+        vm = v;
+        dump();
+        printf("fast %x\n", fast);
+        return 0;
+    }
     if (!strcmp(argv[2], "intro")) {
         if (argc < 7 || moon_init(argv[5]) != 0)
             return 2;

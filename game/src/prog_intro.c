@@ -10,6 +10,7 @@
 #include "prog_blit.h"
 #include "prog_vbl.h"
 #include "ix_program_syms.h"
+#include "ix_data.h"
 
 #include <stdio.h>
 
@@ -34,10 +35,9 @@ static void servers(ProgIntro *p)
         uint32_t s = rl(p, a);
         if (s == PROGRAM_LAB_057D)
             prog_vbl_colours(VM, p->colour);
-        else if (s == PROGRAM_LAB_005C) {
-            if (p->music_vbl)
-                p->music_vbl(p);
-        } else {
+        else if (s == PROGRAM_LAB_005C)
+            prog_music_vbl(p);
+        else {
             static int warned;
             if (!warned++)
                 fprintf(stderr, "prog : serveur VBL inconnu %06X\n", s);
@@ -45,8 +45,19 @@ static void servers(ProgIntro *p)
     }
 }
 
+/* LAB_0598 (fondu de la musique, prog_vbl.c) : AUDxVOL */
+static ProgIntro *s_cur;
+
+static void audvol(int voice, uint16_t vol)
+{
+    if (s_cur)
+        prog_music_volume(s_cur, voice, vol);
+}
+
 void prog_wait_vbl(ProgIntro *p)
 {
+    s_cur = p;
+    prog_audvol_hook = audvol;
     /* LAB_0331 (VBL) ; LAB_034D (souris) n'est pas repris */
     if (rw(p, PROGRAM_LAB_0363))
         wl(p, PROGRAM_LAB_0379, rl(p, PROGRAM_LAB_0379) + 1);
@@ -1023,8 +1034,8 @@ void prog_scene_05a5(ProgIntro *p)
         frame_mark(p);
         scroll(p, 4);
         swap_screens(p);
-        if (rw(p, PROGRAM_L31_00850) == 4 && p->music_start)
-            p->music_start(p);                          /* SECSTRT_1 */
+        if (rw(p, PROGRAM_L31_00850) == 4)
+            prog_music_start(p);                        /* SECSTRT_1 */
         frame_wait(p);
     } while ((int16_t)rw(p, PROGRAM_LAB_05B8) < 1000);
     copy_screen(p, rl(p, PROGRAM_SECSTRT_30), rl(p, PROGRAM_LAB_056C));
@@ -1916,4 +1927,17 @@ void prog_intro(ProgIntro *p)
     wait_vbls(p, 420);
     prog_fade_black(p);
     wl(p, rl(p, PROGRAM_LAB_0060), 0);                  /* LAB_005B */
+}
+
+/* Mémoire de program comme la donne le lanceur (même disposition que
+ * tools/prog_ref.py) : hunks relogés, bloc fast à la suite, pile. */
+int prog_boot_memory(IxVM *vm, uint32_t *fast)
+{
+    uint32_t end = IX_VM_BASE + ix_program_image.total_size;
+    *fast = (end + 0xFFF) & ~0xFFFu;
+    uint32_t top = ((*fast + PROG_FAST_SIZE + 0xFFF) & ~0xFFFu) + 0x4000 + 0x1000;
+    if (ix_vm_load_at(vm, &ix_program_image, 0, top - end) < 0)
+        return -1;
+    vm->heap = top;
+    return 0;
 }

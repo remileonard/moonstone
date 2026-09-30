@@ -141,10 +141,26 @@ target_link_libraries(mog_game_shot PRIVATE moon_assets)
 add_executable(prog_run prog_run.c
     ${CMAKE_SOURCE_DIR}/game/src/ix_vm.c
     ${CMAKE_SOURCE_DIR}/game/src/prog_intro.c
+    ${CMAKE_SOURCE_DIR}/game/src/prog_music.c
     ${CMAKE_SOURCE_DIR}/game/src/prog_blit.c
     ${CMAKE_SOURCE_DIR}/game/src/prog_gfx.c
     ${CMAKE_SOURCE_DIR}/game/src/prog_vbl.c
-    ${CMAKE_SOURCE_DIR}/game/src/prog_files.c)
+    ${CMAKE_SOURCE_DIR}/game/src/prog_files.c
+    ${CMAKE_SOURCE_DIR}/game/data/ix_program.c)
 target_include_directories(prog_run PRIVATE
     ${CMAKE_SOURCE_DIR}/game/include ${CMAKE_SOURCE_DIR}/game/data)
 target_link_libraries(prog_run PRIVATE moon_assets)
+
+# Intro de program en C sans écran : images et musique
+add_executable(prog_intro_shot prog_intro_shot.c
+    ${CMAKE_SOURCE_DIR}/game/src/ix_vm.c
+    ${CMAKE_SOURCE_DIR}/game/src/prog_intro.c
+    ${CMAKE_SOURCE_DIR}/game/src/prog_music.c
+    ${CMAKE_SOURCE_DIR}/game/src/prog_blit.c
+    ${CMAKE_SOURCE_DIR}/game/src/prog_gfx.c
+    ${CMAKE_SOURCE_DIR}/game/src/prog_vbl.c
+    ${CMAKE_SOURCE_DIR}/game/src/prog_files.c
+    ${CMAKE_SOURCE_DIR}/game/data/ix_program.c)
+target_include_directories(prog_intro_shot PRIVATE
+    ${CMAKE_SOURCE_DIR}/game/include ${CMAKE_SOURCE_DIR}/game/data)
+target_link_libraries(prog_intro_shot PRIVATE moon_assets)

@@ -11,6 +11,19 @@
 
 typedef struct ProgIntro ProgIntro;
 
+typedef struct {
+    uint32_t lc;            /* AUDxLC (latché)              */
+    uint16_t len, per, vol; /* AUDxLEN (mots), PER, VOL     */
+    uint32_t ptr, words, pos;
+    double   frac;
+    int      on;
+} ProgPaulaCh;
+
+typedef struct {
+    ProgPaulaCh ch[4];
+    uint16_t dmacon;
+} ProgPaula;
+
 struct ProgIntro {
     IxVM *vm;
     MogBlitter blt;
@@ -19,10 +32,9 @@ struct ProgIntro {
     uint32_t a1;                    /* registre A1 (gardé dans les entités) */
     /* Fin de chaque VBL (serveurs passés) : image à montrer, entrées */
     void (*vbl)(ProgIntro *p);
-    /* SECSTRT_1 : départ de la musique (NULL : rien) */
-    void (*music_start)(ProgIntro *p);
-    /* Serveur VBL de la musique LAB_005C (NULL : rien) */
-    void (*music_vbl)(ProgIntro *p);
+    ProgPaula paula;                /* voies audio (musique)             */
+    uint16_t potgor;                /* POTGOR ($DFF016) : bit 10 = bouton
+                                       droit relâché (banc : 0)          */
     void *user;
 };
 
@@ -46,9 +58,22 @@ void prog_scene_002e(ProgIntro *p);
 void prog_fade_black(ProgIntro *p);
 void prog_text_screen(ProgIntro *p, uint32_t a0);
 
+#define PROG_CHIP_BLOCK 0x00008000u   /* A1 du lanceur */
+#define PROG_CHIP_SIZE  (0x6B000u - PROG_CHIP_BLOCK)
+#define PROG_FAST_SIZE  0x00060000u   /* D0 du lanceur */
+
+/* Mémoire initiale (hunks de program relogés) ; *fast : bloc fast (A0) */
+int prog_boot_memory(IxVM *vm, uint32_t *fast);
+
 /* SECSTRT_0 : démarrage (blocs du lanceur), puis l'intro jusqu'à mog */
 void prog_boot(ProgIntro *p, uint32_t chip, uint32_t chip_size, uint32_t fast, uint32_t fast_size);
 int prog_loading(ProgIntro *p);
 void prog_intro(ProgIntro *p);
+
+/* prog_music.c : SECSTRT_1 (départ), LAB_005C (une VBL), mixage Paula */
+void prog_music_start(ProgIntro *p);
+void prog_music_vbl(ProgIntro *p);
+void prog_music_volume(ProgIntro *p, int voice, uint16_t vol);
+void prog_music_mix(ProgIntro *p, int16_t *out, int frames, int rate);
 
 #endif /* PROG_INTRO_H */

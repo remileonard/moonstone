@@ -48,6 +48,7 @@ set(GAME_SOURCES
     src/prog_gfx.c
     src/prog_vbl.c
     src/prog_intro.c
+    src/prog_music.c
     data/ix_program.c
     data/ix_mog.c
 )
