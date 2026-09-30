@@ -24,7 +24,7 @@ static void ww(ProgIntro *p, uint32_t a, uint16_t v) { ix_ww(VM, a, v); }
 static void wb(ProgIntro *p, uint32_t a, uint8_t v)  { ix_wb(VM, a, v); }
 
 static const uint32_t voice_of[4] = {
-    PROGRAM_LAB_009D, PROGRAM_LAB_009E, PROGRAM_LAB_009F, PROGRAM_LAB_00A0
+    PROGRAM_v_Chan0, PROGRAM_v_Chan1, PROGRAM_v_Chan2, PROGRAM_v_Chan3
 };
 
 /* ------------------------------------------------------------- Paula */
@@ -98,7 +98,7 @@ void prog_music_mix(ProgIntro *p, int16_t *out, int frames, int rate)
 /* LAB_0061 : instruments placés après le dernier motif utilisé */
 static void music_init(ProgIntro *p)
 {
-    uint32_t a0 = rl(p, PROGRAM_LAB_0124), a1 = a0 + 0x3B8;
+    uint32_t a0 = rl(p, PROGRAM_b_Music), a1 = a0 + 0x3B8;
     uint16_t d0 = 127;
     uint32_t d1 = 0, d2;
 new_max:                                                /* LAB_0062 */
@@ -113,38 +113,38 @@ new_max:                                                /* LAB_0062 */
     }
     d2 = (d2 & ~0xFFu) | (uint8_t)(d2 + 1);
     uint32_t a2 = (d2 << 10) + 0x43C + a0;
-    a1 = PROGRAM_LAB_009C;
+    a1 = PROGRAM_t_SampleStarts;
     for (int i = 0; i < 31; i++, a0 += 30) {
         wl(p, a2, 0);
         wl(p, a1, a2);
         a1 += 4;
         a2 += (uint32_t)rw(p, a0 + 42) * 2;
     }
-    wb(p, PROGRAM_LAB_0096, 6);
+    wb(p, PROGRAM_v_MusicSpeed, 6);
     for (int v = 0; v < 4; v++)
         prog_music_volume(p, v, 0);
-    wb(p, PROGRAM_L01_0069F, 0);
-    wb(p, PROGRAM_LAB_0099, 0);
-    ww(p, PROGRAM_L01_006A0, 0);
+    wb(p, PROGRAM_v_MusicPosition, 0);
+    wb(p, PROGRAM_v_MusicTick, 0);
+    ww(p, PROGRAM_v_MusicRow, 0);
 }
 
 /* SECSTRT_1 : lecteur ajouté aux serveurs VBL (une fois) */
 void prog_music_start(ProgIntro *p)
 {
-    if (rl(p, PROGRAM_LAB_0060))
+    if (rl(p, PROGRAM_v_MusicServer))
         return;
     music_init(p);
-    uint32_t a1 = PROGRAM_LAB_0372;
+    uint32_t a1 = PROGRAM_t_VblServers;
     while (rl(p, a1))
         a1 += 4;
-    wl(p, a1, PROGRAM_LAB_005C);
-    wl(p, PROGRAM_LAB_0060, a1);
+    wl(p, a1, PROGRAM_Vbl_Music);
+    wl(p, PROGRAM_v_MusicServer, a1);
 }
 
 /* LAB_0067 : arpège (période, +x, +y demi-tons, table LAB_0095) */
 static void arpeggio(ProgIntro *p, uint32_t a6, int v)
 {
-    unsigned m = rb(p, PROGRAM_LAB_0099) % 3;
+    unsigned m = rb(p, PROGRAM_v_MusicTick) % 3;
     if (m == 0) {
         aud_per(p, v, rw(p, a6 + 16));
         return;
@@ -152,7 +152,7 @@ static void arpeggio(ProgIntro *p, uint32_t a6, int v)
     uint16_t d0 = m == 2 ? (uint16_t)(rb(p, a6 + 3) & 0x0F) : (uint16_t)(rb(p, a6 + 3) >> 4);
     d0 = (uint16_t)(d0 * 2);
     int16_t d1 = (int16_t)rw(p, a6 + 16);
-    uint32_t a0 = PROGRAM_LAB_0095;
+    uint32_t a0 = PROGRAM_t_Periods;
     for (int d7 = 36; d7 >= 0; d7--, a0 += 2) {
         uint16_t d2 = rw(p, a0 + d0);
         if (d1 >= (int16_t)rw(p, a0)) {
@@ -210,7 +210,7 @@ static void vibrato(ProgIntro *p, uint32_t a6, int v)
     if (s)
         wb(p, a6 + 26, s);
     uint8_t ph = rb(p, a6 + 27);
-    uint16_t d2 = rb(p, PROGRAM_LAB_0094 + ((ph >> 2) & 0x1F));
+    uint16_t d2 = rb(p, PROGRAM_t_Vibrato + ((ph >> 2) & 0x1F));
     d2 = (uint16_t)((uint16_t)(d2 * (rb(p, a6 + 26) & 0x0F)) >> 6);
     uint16_t d0 = rw(p, a6 + 16);
     d0 = (int8_t)ph < 0 ? (uint16_t)(d0 - d2) : (uint16_t)(d0 + d2);
@@ -266,11 +266,11 @@ static void row_command(ProgIntro *p, uint32_t a6, int v)
     uint8_t cmd = rb(p, a6 + 2) & 0x0F;
     switch (cmd) {
     case 0x0D:
-        wb(p, PROGRAM_L01_006A3, (uint8_t)~rb(p, PROGRAM_L01_006A3));
+        wb(p, PROGRAM_v_MusicFilter, (uint8_t)~rb(p, PROGRAM_v_MusicFilter));
         break;
     case 0x0B:
-        wb(p, PROGRAM_L01_0069F, (uint8_t)(rb(p, a6 + 3) - 1));
-        wb(p, PROGRAM_L01_006A3, (uint8_t)~rb(p, PROGRAM_L01_006A3));
+        wb(p, PROGRAM_v_MusicPosition, (uint8_t)(rb(p, a6 + 3) - 1));
+        wb(p, PROGRAM_v_MusicFilter, (uint8_t)~rb(p, PROGRAM_v_MusicFilter));
         break;
     case 0x0C:
         if ((int8_t)rb(p, a6 + 3) > 0x40)
@@ -280,8 +280,8 @@ static void row_command(ProgIntro *p, uint32_t a6, int v)
     case 0x0F: {
         uint8_t d0 = rb(p, a6 + 3) & 0x1F;
         if (d0) {
-            wb(p, PROGRAM_LAB_0099, 0);
-            wb(p, PROGRAM_LAB_0096, d0);
+            wb(p, PROGRAM_v_MusicTick, 0);
+            wb(p, PROGRAM_v_MusicSpeed, d0);
         }
         break;
     }
@@ -296,7 +296,7 @@ static void new_note(ProgIntro *p, uint32_t a6, int v, uint32_t a0, uint32_t a3,
     uint32_t d2 = (uint32_t)(((rb(p, a6 + 2) & 0xF0) >> 4) | (rb(p, a6) & 0xF0));
     if (d2) {
         uint32_t d4 = (uint32_t)(uint16_t)d2 * 30u;
-        wl(p, a6 + 4, rl(p, PROGRAM_LAB_009C + (d2 - 1) * 4));
+        wl(p, a6 + 4, rl(p, PROGRAM_t_SampleStarts + (d2 - 1) * 4));
         ww(p, a6 + 8, rw(p, a3 + d4));
         ww(p, a6 + 18, rw(p, a3 + d4 + 2));
         uint16_t d3 = rw(p, a3 + d4 + 4);
@@ -318,7 +318,7 @@ static void new_note(ProgIntro *p, uint32_t a6, int v, uint32_t a0, uint32_t a3,
             aud_lc(p, v, rl(p, a6 + 4));
             aud_len(p, v, rw(p, a6 + 8));
             aud_per(p, v, rw(p, a6 + 16) & 0x0FFF);
-            ww(p, PROGRAM_L01_006A4, (uint16_t)(rw(p, PROGRAM_L01_006A4) | rw(p, a6 + 20)));
+            ww(p, PROGRAM_v_MusicDmaOn, (uint16_t)(rw(p, PROGRAM_v_MusicDmaOn) | rw(p, a6 + 20)));
         }
     }
     row_command(p, a6, v);
@@ -327,53 +327,53 @@ static void new_note(ProgIntro *p, uint32_t a6, int v, uint32_t a0, uint32_t a3,
 /* LAB_0075 : position suivante de la liste (L01_0069F), bouclée */
 static void next_position(ProgIntro *p)
 {
-    ww(p, PROGRAM_L01_006A0, 0);
-    wb(p, PROGRAM_L01_006A3, 0);
-    uint8_t pos = (uint8_t)((rb(p, PROGRAM_L01_0069F) + 1) & 0x7F);
-    wb(p, PROGRAM_L01_0069F, pos);
-    if (pos == rb(p, rl(p, PROGRAM_LAB_0124) + 0x3B6))
-        wb(p, PROGRAM_L01_0069F, 0);
+    ww(p, PROGRAM_v_MusicRow, 0);
+    wb(p, PROGRAM_v_MusicFilter, 0);
+    uint8_t pos = (uint8_t)((rb(p, PROGRAM_v_MusicPosition) + 1) & 0x7F);
+    wb(p, PROGRAM_v_MusicPosition, pos);
+    if (pos == rb(p, rl(p, PROGRAM_b_Music) + 0x3B6))
+        wb(p, PROGRAM_v_MusicPosition, 0);
 }
 
 /* LAB_005C / LAB_0065 : une VBL du lecteur */
 void prog_music_vbl(ProgIntro *p)
 {
-    uint8_t t = (uint8_t)(rb(p, PROGRAM_LAB_0099) + 1);
-    wb(p, PROGRAM_LAB_0099, t);
-    if ((int8_t)t < (int8_t)rb(p, PROGRAM_LAB_0096)) {
+    uint8_t t = (uint8_t)(rb(p, PROGRAM_v_MusicTick) + 1);
+    wb(p, PROGRAM_v_MusicTick, t);
+    if ((int8_t)t < (int8_t)rb(p, PROGRAM_v_MusicSpeed)) {
         for (int v = 0; v < 4; v++)                     /* LAB_0066 */
             effects(p, voice_of[v], v);
     } else {
-        wb(p, PROGRAM_LAB_0099, 0);                     /* LAB_006D : ligne */
-        uint32_t a0 = rl(p, PROGRAM_LAB_0124);
+        wb(p, PROGRAM_v_MusicTick, 0);                     /* LAB_006D : ligne */
+        uint32_t a0 = rl(p, PROGRAM_b_Music);
         uint32_t a3 = a0 + 12, a2 = a0 + 0x3B8;
         a0 += 0x43C;
-        uint32_t d1 = (uint32_t)rb(p, a2 + rb(p, PROGRAM_L01_0069F)) << 10;
-        d1 = (d1 & 0xFFFF0000u) | (uint16_t)(d1 + rw(p, PROGRAM_L01_006A0));
-        ww(p, PROGRAM_L01_006A4, 0);
+        uint32_t d1 = (uint32_t)rb(p, a2 + rb(p, PROGRAM_v_MusicPosition)) << 10;
+        d1 = (d1 & 0xFFFF0000u) | (uint16_t)(d1 + rw(p, PROGRAM_v_MusicRow));
+        ww(p, PROGRAM_v_MusicDmaOn, 0);
         for (int v = 0; v < 4; v++)
             new_note(p, voice_of[v], v, a0, a3, &d1);
-        dmacon(p, (uint16_t)(rw(p, PROGRAM_L01_006A4) | 0x8000));  /* LAB_0072 */
+        dmacon(p, (uint16_t)(rw(p, PROGRAM_v_MusicDmaOn) | 0x8000));  /* LAB_0072 */
         for (int v = 3; v >= 0; v--) {
             aud_lc(p, v, rl(p, voice_of[v] + 10));
             aud_len(p, v, rw(p, voice_of[v] + 14));
         }
-        ww(p, PROGRAM_L01_006A0, (uint16_t)(rw(p, PROGRAM_L01_006A0) + 16));
-        if (rw(p, PROGRAM_L01_006A0) == 0x400)
+        ww(p, PROGRAM_v_MusicRow, (uint16_t)(rw(p, PROGRAM_v_MusicRow) + 16));
+        if (rw(p, PROGRAM_v_MusicRow) == 0x400)
             next_position(p);
     }
-    while (rb(p, PROGRAM_L01_006A3))                    /* LAB_0076 */
+    while (rb(p, PROGRAM_v_MusicFilter))                    /* LAB_0076 */
         next_position(p);
     /* LAB_005C : compteurs sur le bouton droit (POTGOR bit 10), sans usage */
     if (p->potgor & 0x400) {
-        uint8_t c = (uint8_t)(rb(p, PROGRAM_LAB_005E) - 1);
-        wb(p, PROGRAM_LAB_005E, c);
+        uint8_t c = (uint8_t)(rb(p, PROGRAM_v_MusicSpeedCount) - 1);
+        wb(p, PROGRAM_v_MusicSpeedCount, c);
         if (!c) {
-            wb(p, PROGRAM_LAB_005E, 2);
-            c = (uint8_t)(rb(p, PROGRAM_LAB_005F) - 1);
-            wb(p, PROGRAM_LAB_005F, c);
+            wb(p, PROGRAM_v_MusicSpeedCount, 2);
+            c = (uint8_t)(rb(p, PROGRAM_v_MusicSpeedCount2) - 1);
+            wb(p, PROGRAM_v_MusicSpeedCount2, c);
             if (!c)
-                wb(p, PROGRAM_LAB_005F, 8);
+                wb(p, PROGRAM_v_MusicSpeedCount2, 8);
         }
     }
 }

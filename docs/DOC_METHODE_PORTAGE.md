@@ -533,6 +533,7 @@ Les fichiers du jeu d'origine ne sont pas dans le dépôt. Le dossier
 | `tools/*check.py`, `tools/*lockstep.py` | comparaisons (§3, §4, §7 bis, §8 bis) |
 | `tests/mog_run.c`, `tests/prog_run.c` | côté C des comparaisons |
 | `tests/mog_game_shot.c`, `tests/prog_intro_shot.c` | jeu et intro sans écran (PNG, WAV) |
+| `game/data/*_names.txt`, `tools/ix_names.py` | noms des labels utilisés par le C (§10 ter) |
 | `libmoon_assets/` | lecture des fichiers du jeu (CEL, PIV et `.p`, LZSS, RNC, MOD, stile, `.t`, `.a`, collide.hit) |
 | `tests/lib_audit.c`, `tests/lib_audit_ref.c` | audit de la bibliothèque : chaque fichier comparé aux décodeurs d'origine du portage, figés (§10 bis) |
 
@@ -586,6 +587,42 @@ Les décodeurs d'avant la bibliothèque restent, figés, dans
 `lib_audit`. Vérifications après le passage : `mog_bootcheck.py`,
 `mog_gamecheck.py` (mêmes résultats qu'avant), lockstep de l'intro, de la
 fin et d'un combat Practice.
+
+### 10 ter. Noms des labels
+
+Le C ne cite plus aucun label brut (`LAB_xxxx`, `L00_xxxxx`, `SECSTRT_n`) :
+chaque adresse de mog ou de program utilisée a un nom, donné dans
+`game/data/mog_names.txt` et `game/data/program_names.txt` (label, nom,
+description). `tools/ix_names.py` en tire `game/data/ix_mog_names.h` et
+`ix_program_names.h` (`#define MOG_v_PlayerObj MOG_LAB_05F2 /* ... */`), que
+les sources incluent à la place de `ix_*_syms.h`.
+
+Conventions (celles des labels déjà nommés dans l'assembleur) :
+
+| Préfixe | Genre | Exemples |
+|---|---|---|
+| `Module_Verbe` | routine | `Ctl_Dragon`, `Kit_Troll`, `Enc_Balok`, `React_Parry`, `Call_Shake`, `IxOpA0_Move` |
+| `v_` | variable | `v_PlayerObj`, `v_TurnKnight`, `v_ScrollPos` |
+| `t_` | table | `t_KnightAttacks`, `t_PalForest`, `t_LairTerrain` |
+| `s_` | chaîne | `s_Dragon1Cel`, `s_EnterLair` |
+| `b_` | tampon | `b_Unpack`, `b_TerrainObjects` |
+| `x_` | script IMAGEXCEL | `x_KnightAtk3`, `x_RatBite`, `x_DruidKnighting` |
+
+Les jumeaux de program (code de mog compilé pour program) portent le nom
+de leur label de mog ; `tools/prog_twins.py` passe par les tables.
+
+```sh
+python3 tools/ix_names.py gen            # en-têtes
+python3 tools/ix_names.py apply          # MOG_LAB_xxxx -> MOG_<nom> dans les sources
+python3 tools/ix_names.py rename a b     # renommer (table et sources à la fois)
+python3 tools/ix_names.py check          # labels bruts restants
+```
+
+L'assembleur n'est pas touché : les commentaires du C (« LAB_0CBB : ... »)
+et les bancs de comparaison continuent de s'y référer par ses labels ; la
+table fait le lien. Un renommage ne change pas le code : chaque lot a été
+vérifié en comparant le code objet de tout le jeu avant et après
+(identique octet pour octet).
 
 ---
 

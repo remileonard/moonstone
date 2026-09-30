@@ -22,8 +22,8 @@ static void audvol(int voice, uint16_t vol)
  * baisse de 4 des volumes LAB_059D, bornés à 0. */
 static void music_fade(IxVM *vm)
 {
-    uint32_t a = PROGRAM_LAB_059D;
-    if (ix_rw(vm, PROGRAM_SECSTRT_32) == 1) {
+    uint32_t a = PROGRAM_t_MusicFade;
+    if (ix_rw(vm, PROGRAM_v_MusicFading) == 1) {
         for (int v = 0; v < 4; v++)
             audvol(v, 0);
         uint16_t d0 = ix_rw(vm, a), d1 = ix_rw(vm, a + 2);
@@ -51,6 +51,6 @@ static void music_fade(IxVM *vm)
 }
 
 #define VBL_FADE_STEP(vm) do { \
-        if (ix_rw(vm, PROGRAM_SECSTRT_32)) music_fade(vm); } while (0)
+        if (ix_rw(vm, PROGRAM_v_MusicFading)) music_fade(vm); } while (0)
 
 #include "mog_vbl.c"

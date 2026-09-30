@@ -1,2 +1,331 @@
 # Noms des labels de amiga_asm/program.asm utilisés par le C (tools/ix_names.py).
 # label     nom     description
+
+# --- Démarrage, mémoire, tampons ---
+LAB_00C2    v_ChipFree          bloc chip du lanceur (LAB_0044 le découpe)
+LAB_00C3    v_ChipSize          taille du bloc chip
+LAB_00C4    v_FastFree          bloc fast du lanceur
+LAB_00C5    v_FastSize          taille du bloc fast
+LAB_0045    v_CelArea           zone des CEL de l'intro
+LAB_0124    b_Music             module de musique (music.cmp puis vmusic.cmp)
+SECSTRT_3   t_TextBackgrounds   fonds des écrans de texte
+LAB_011A    t_FontBank          banques de polices (+16 grande police, +20 fond des textes)
+LAB_00C6    v_BgPlanes          plans du décor courant
+LAB_00C7    v_BgSceneA          décor d'une scène (plans)
+LAB_00C8    v_BgSceneB          décor d'une scène
+LAB_00C9    v_BgSceneC          décor d'une scène (« mindscape »)
+LAB_00CA    v_BgSceneD          décor d'une scène
+LAB_00CB    b_PivBg4            PIV compressé : bg4 / bg5
+LAB_00CC    b_PivBg5a           PIV compressé : bg5a
+LAB_00CD    b_PivBg3            PIV compressé : bg3
+LAB_00CE    b_PivBg2            PIV compressé : bg2
+LAB_00CF    b_PivBg2a           PIV compressé : bg2a
+SECSTRT_33  b_TileMap           carte de tuiles (intro.stile / co.stile)
+
+# --- Chaînes ---
+LAB_0052    s_MessagePiv        "message.piv"
+LAB_0053    s_BoldF             "bold.f"
+SECSTRT_8   s_Au1Cel            "au1.cel"
+LAB_0163    s_Li1Cel            "li1.cel"
+LAB_0164    s_Da1Cel            "da1.cel"
+LAB_0165    s_Dw1Cel            "dw1.cel"
+LAB_0166    s_Ha1Cel            "ha1.cel"
+LAB_0167    s_Ov1Cel            "ov1.cel"
+LAB_0168    s_Co1Cel            "co1.cel"
+LAB_0169    s_Dg1Cel            "dg1.cel"
+LAB_016A    s_Klift1Cel         "klift1.cel"
+L08_0004B   s_Bg4Piv            "bg4.piv"
+L08_00053   s_Bg5aPiv           "bg5a.piv"
+LAB_016D    s_Bg3Piv            "bg3.piv"
+LAB_016E    s_Bg2aPiv           "bg2a.piv"
+L08_0006D   s_Bg2Piv            "bg2.piv"
+L08_00075   s_Bg5Piv            "bg5.piv"
+L08_0007D   s_Bg7Piv            "bg7.piv"
+L08_00085   s_Bg8Piv            "bg8.piv"
+LAB_017E    s_Bg1aPiv           "bg1a.piv"
+L08_00105   s_Bg1cPiv           "bg1c.piv"
+LAB_0181    s_Bg1bPiv           "bg1b.piv"
+L08_00117   s_IntroStile        "intro.stile"
+L08_00123   s_CoStile           "co.stile"
+LAB_0184    s_Mindscape         "mindscape"
+LAB_018D    s_MusicCmp          "music.cmp"
+LAB_01B6    s_VmusicCmp         "vmusic.cmp"
+
+# --- Textes ---
+LAB_0002    t_TheEndText        écran « The End »
+LAB_00A2    t_EndingText        écran de texte de la fin
+LAB_00AA    t_IntroText         écran de texte de l'intro
+LAB_00B0    t_LastScreenText    dernier écran de la fin (LAB_003B)
+SECSTRT_2   v_TextScreen        écran de texte en cours (LAB_0054)
+LAB_00F1    v_GlyphWidth        largeur de la lettre courante
+LAB_00F2    v_GlyphHeight       hauteur de la lettre courante
+LAB_00F3    v_TextX             X de la lettre suivante
+LAB_00F4    v_TextY             Y de la ligne
+LAB_00F5    v_TextLineX         X de début de ligne
+LAB_00F6    v_TextTopY          Y de la première ligne
+LAB_00F7    v_TextChar          caractère courant (pointeur dans la chaîne)
+LAB_00F8    t_FontGlyphFrame    frame de la police pour chaque caractère
+LAB_0296    v_TextRecord        enregistrement de texte courant
+LAB_029A    v_TextWidth         largeur de la chaîne (LAB_0297)
+LAB_05B0    v_CreditIndex       texte suivant du générique (0-5)
+LAB_05B1    t_CreditTexts       textes du générique
+
+# --- Scènes et cadence ---
+LAB_0005    v_EndFlags          drapeaux de la fin, écrits par mog ($3E0 : $80 | chevalier | lieu)
+LAB_00D0    v_FrameVbls         VBL par image (avec LAB_0123)
+LAB_0123    v_FrameVblsExtra    VBL par image en plus
+LAB_0122    v_FrameStartVbl     compteur de VBL au début de l'image
+LAB_00D1    v_SceneOverlay      cercle de pierres dessiné par-dessus
+LAB_003E    v_OverlayMode       mode du cercle de pierres (2 : ...)
+LAB_0121    v_OverlayCel        CEL du cercle de pierres
+LAB_011D    v_ScenePalette      palette de la scène
+LAB_011E    v_ScenePaletteMode  2 fondu, 3 vers le noir
+LAB_011F    v_ScenePaletteDone  palette de la scène posée
+LAB_0120    v_ScriptEnded       un script est fini (LAB_0014)
+LAB_0028    v_FrameCount        images de la scène
+LAB_0029    v_ProcessionCount   personnages de la procession
+L00_00602   v_ProcessionIndex   personnage suivant de la procession
+L00_0060A   t_Procession        liste des personnages de la procession
+L00_0060E   v_ProcessionGap     images entre deux personnages
+LAB_0026    v_ProcessionSide    côté de l'entrée suivante (LAB_001F)
+LAB_0023    t_ProcessionCircle  procession du cercle vu de haut (LAB_001A)
+LAB_0024    t_ProcessionForest  procession des druides dans la forêt (LAB_001B)
+LAB_0025    t_ProcessionStonehenge procession à Stonehenge (LAB_001C)
+LAB_003A    t_ProcessionEnding  procession de la fin (LAB_0037)
+LAB_00EF    v_LeftDepth         profondeur des entités à gauche
+LAB_00F0    v_RightDepth        profondeur des entités à droite
+LAB_0261    v_FadeSpeed         vitesse du fondu (LAB_0260)
+LAB_0033    v_EndGlowA          pulsation de la fin (couleur 12)
+LAB_0034    v_EndGlowB          pulsation de la fin (couleur 15)
+LAB_0035    v_EndGlowC          pulsation de la fin (couleur 23)
+SECSTRT_9   v_EndColourA        couleur de la fin selon le chevalier (12)
+LAB_01C9    v_EndColourB        couleur de la fin (15)
+LAB_01CA    v_EndColourC        couleur de la fin (23)
+LAB_0042    t_FlashLightning    palette de l'éclair
+LAB_0043    t_FlashStorm        palette de l'orage
+LAB_0060    v_MusicServer       serveur VBL de la musique (retiré à la fin)
+
+# --- Palettes des scènes ---
+LAB_01CB    t_PalForest         palette de la forêt (bg1a ; défilement)
+LAB_01CC    t_PalDruid          palette du grand druide (bg1c)
+LAB_01CD    t_PalCircle         palette du cercle vu de haut (bg1b)
+LAB_01CE    t_PalBg4            palette de bg4 / bg5
+LAB_01CF    t_PalBg5a           palette de bg5a (adoubement)
+LAB_01D0    t_PalBg3            palette de bg3
+LAB_01D1    t_PalBg2            palette de bg2 (Stonehenge)
+LAB_01D2    t_PalBg2a           palette de bg2a (le chevalier à Stonehenge)
+LAB_026D    t_PalBlack          palette noire (fondus)
+LAB_0274    t_PalCurrent        palette courante (SECSTRT_31)
+LAB_056E    t_PalDisplay        palette de départ de l'affichage
+LAB_05CF    v_PalFadeTarget     palette visée par le fondu
+LAB_05D0    v_PalFadeDelay      VBL entre deux pas du fondu
+LAB_05D1    v_PalFadeCount      VBL avant le pas suivant
+LAB_05D2    v_PalCurrent        palette courante (pointeur)
+
+# --- Scripts d'animation des scènes (entités) ---
+LAB_00D2    x_Druid             grand druide (LAB_002C, plan 8)
+LAB_00D3    x_DruidKnighting    druide qui adoube (LAB_002E)
+LAB_00D4    x_DruidClose        grand druide de près (LAB_002C, plan 9)
+LAB_00D5    x_EndingA           fin : premier plan (LAB_0039)
+LAB_00D6    x_KnightStonehenge  le chevalier à Stonehenge (LAB_002D)
+LAB_00D9    x_CircleDruidD9     druide du cercle (miroir)
+LAB_00DA    x_CircleDruidDA     druide du cercle
+LAB_00DB    x_CircleDruidDB     druide du cercle
+LAB_00DC    x_CircleDruidDC     druide du cercle
+LAB_00DD    x_CircleDruidDD     druide du cercle
+LAB_00DF    x_CircleDruidDF     druide du cercle
+LAB_00E1    x_CircleDruidE1     druide du cercle
+LAB_00E3    x_CentralDruid      druide central (LAB_001A)
+LAB_00E4    x_CircleIdle        druides en cercle au repos
+LAB_00E5    x_KnightEntersCircle chevalier entrant dans le cercle
+LAB_00E6    x_EndingStonehenge  fin : retour à Stonehenge
+LAB_00E8    x_EndingCharA       fin : personnage (LAB_0037)
+LAB_00E9    x_EndingCharB       fin : personnage (LAB_0037, LAB_0039)
+LAB_00EA    x_EndingCharC       fin : personnage (LAB_0037)
+LAB_00EB    x_EndingB           fin : deuxième plan (LAB_0039)
+LAB_00EC    x_EndingC           fin : troisième plan (LAB_0039)
+LAB_00ED    x_EndingCircle      fin : le cercle des druides
+LAB_00EE    x_EndingMoonRise    fin : la montée vers la lune (LAB_003B)
+
+# --- Routines appelées par les scripts, contrôleurs ---
+LAB_0014    Ctl_ScriptEnd       contrôleur : fin du script (LAB_0120)
+LAB_0032    Call_EndGlows       fin : pulsations des couleurs
+LAB_003F    Call_Lightning      éclair
+LAB_0040    Call_Storm          orage (six éclairs)
+LAB_05AE    Call_ScrollEnd      fin du défilement
+LAB_05AF    Call_ScrollSlow     défilement ralenti
+
+# --- Moteur d'entités de l'intro ---
+LAB_011B    t_Controllers       contrôleurs des entités
+LAB_0276    t_Banks             planches de CEL des entités
+LAB_0277    v_NoFreeEntity      aucune entité libre (2)
+LAB_0278    v_EntIndex          entité en cours de dessin
+LAB_0279    v_RestoreFront      zones à restaurer de cette image
+LAB_027A    v_RestoreBack       zones de l'image précédente
+LAB_027B    v_EntRenderPtr      entité dessinée
+LAB_027C    v_RestoreNext       zone suivante à noter
+LAB_027D    v_DrawScreen        écran de dessin
+LAB_027E    v_ListBody          liste des frames (A)
+LAB_027F    v_ListStrike        liste des frames (B)
+LAB_0281    t_EntSheets         planches des entités
+LAB_0282    t_Entities          40 entités de 42 octets
+LAB_0283    b_EntitySwap        entité temporaire (tri)
+LAB_0284    t_Contexts          contextes des scripts ($30 octets)
+LAB_0285    v_ShadowCtx         contexte des ombres
+LAB_0286    b_RestoreA          zones à restaurer A
+LAB_0287    b_RestoreB          zones à restaurer B
+LAB_0288    t_IxOpcodes         commandes des scripts (octet >= $80)
+LAB_011C    v_RestoreCount      zones restaurées
+SECSTRT_11  v_BBoxX1            boîte englobante : X droit
+LAB_0270    v_BBoxX0            boîte englobante : X gauche
+LAB_0271    v_BBoxY0            boîte englobante : Y haut
+LAB_0272    v_BBoxY1            boîte englobante : Y bas
+LAB_0273    v_BBoxSet           boîte englobante commencée
+LAB_0215    IxOp80_SetDir       commande : sens
+LAB_0218    IxOp84_Jump         commande : saut / suite
+LAB_021A    IxOp88_Hold         commande : répétition du groupe
+LAB_021E    IxOp8C_Skip         commande : +8
+LAB_021F    IxOp94_Loop         commande : boucle
+LAB_0220    IxOp98_Nop          commande sans effet (RTS)
+LAB_0221    IxOpA4_Sound        commande : son
+LAB_0222    IxOpA0_Move         commande : déplacement
+LAB_022C    IxOpB0_Nop          commande sans effet
+LAB_022D    IxOpAC_Nop          commande sans effet
+LAB_022F    IxOpB4_Call         commande : appel d'une routine
+LAB_0232    IxOpC8_Skip6        commande : +6
+LAB_0233    IxOpB8_Skip6        commande : +6
+LAB_0234    IxOpBC_Skip6        commande : +6
+LAB_0235    IxOpC0_End          commande : fin de l'entité
+LAB_0236    IxOpC4_SetBank      commande : planches
+LAB_0237    IxOpCC_IfZero       commande : test (saut si nul)
+LAB_023B    IxOpD0_IfNonZero    commande : test (saut si non nul)
+LAB_023F    IxOpD4_Reset        commande : remise à zéro
+LAB_0241    IxOpA8_Nop          commande sans effet
+
+# --- Dessin, tables graphiques, copies ---
+LAB_04B3    t_BitReverse        octet aux bits inversés
+LAB_04D9    t_DestPlanes        5 pointeurs de plans de destination
+LAB_04DA    v_DestPlane1        plan de destination 1
+LAB_04DB    v_DestPlane2        plan de destination 2
+LAB_04DC    v_DestPlane3        plan de destination 3
+LAB_04DD    v_DestPlane4        plan de destination 4
+LAB_04DE    v_CelPlanesMax      dernier plan dessiné (4 : 5 plans)
+LAB_04DF    v_BlitByCpu         copie des plans par le processeur
+LAB_0501    v_ClipHeight        hauteur de la zone de dessin (200)
+LAB_0502    v_ClipWidth         largeur de la zone de dessin en octets (40)
+LAB_0503    v_CelDestOffset     décalage ajouté à l'adresse de destination
+LAB_0504    v_CelPlaneSize      taille d'un plan de la frame
+LAB_051B    v_CelPlanesBuf      tampon de la frame (retournement)
+LAB_0518    v_GfxTableB         table de conversion de pixels
+LAB_0519    v_GfxTableA         table de conversion de pixels
+LAB_051A    v_GfxTableC         table de conversion de pixels
+LAB_0507    t_GfxSeedA          données des tables de pixels (LAB_04E4)
+LAB_0508    t_GfxTablesA        pointeurs des tables de pixels (A)
+LAB_0510    t_GfxTablesB        pointeurs des tables de pixels (B)
+LAB_051D    t_GfxSeedB          données des tables de pixels (LAB_04EC)
+LAB_051E    t_GfxSeedC          données des tables de pixels
+LAB_046C    t_GfxSeedD          données des tables (LAB_046F)
+LAB_046E    t_GfxSeedE          données des tables
+LAB_0528    v_GfxReady          tables graphiques prêtes
+LAB_0434    v_PivPlanes         plans du PIV décodé (4 ou 5)
+LAB_0506    t_PivPalette        palette du dernier PIV décodé
+SECSTRT_20  v_PivData           PIV en cours de décodage
+LAB_0266    v_CopySrc           copie d'écran : source
+LAB_0267    v_CopyDst           copie d'écran : destination
+LAB_056C    v_DrawPlanes        plans de l'écran de dessin
+SECSTRT_30  v_ShowPlanes        plans de l'écran montré
+LAB_056F    v_DisplayInit       valeur de départ de l'affichage (LAB_0570)
+LAB_0570    v_CopperList        liste copper
+
+# --- Défilement de tuiles (LAB_05A5, LAB_05AB) ---
+LAB_05A9    t_ScrollSpeedLimits bornes de vitesse selon la position
+L31_00674   t_ScrollSpeeds      vitesses du défilement
+L31_00850   v_ScrollSpeed       lignes par image
+LAB_05B8    v_ScrollPos         position dans la carte (lignes ; 0-1000)
+LAB_05BC    v_ScrollRows        lignes de tuiles montrées
+LAB_05BD    v_ScrollTopRow      première ligne de la fenêtre
+LAB_05C3    v_ScrollRow         ligne de tuiles en cours
+L31_009DC   v_ScrollRowsLeft    lignes restantes
+L31_0090C   t_TileBankBase      premier numéro de tuile de chaque planche
+LAB_05D6    t_TileBanks         planches de tuiles (3)
+LAB_05D7    v_TileScreen        écran des tuiles
+LAB_05D8    v_TileSrcX          X de la tuile dans la planche
+LAB_05D9    v_TileSrcY          Y de la tuile dans la planche
+LAB_05DA    v_TileX             X de destination
+LAB_05DB    v_TileY             Y de destination
+LAB_05DC    v_TileSheet         planche de la tuile
+LAB_05DD    v_TileDst           écran de destination
+LAB_05DE    v_TileIndex         numéro de la tuile
+LAB_05DF    v_TileClip05DF      découpe (remis à zéro)
+LAB_05E0    v_TileSkipRows      octets sautés en haut (découpe)
+LAB_05E1    v_TileClip05E1      découpe (remis à zéro)
+LAB_05E2    v_TileClip05E2      découpe (remis à zéro)
+LAB_05E3    v_TileClip05E3      découpe (remis à zéro)
+LAB_05E4    v_TileSrcPtr        source de la copie
+LAB_05E5    v_TileDstPtr        destination de la copie
+LAB_00F9    v_TileH             tuile : hauteur
+LAB_00FA    v_TileW             tuile : largeur
+LAB_00FB    v_TileWCopy         largeur copiée
+LAB_00FC    v_TileHClip         hauteur après découpe
+LAB_05E6    v_ScrollDone        fin du défilement (LAB_05AE)
+LAB_05E7    v_IntroSkipped      intro sautée par une touche
+
+# --- Interruptions, clavier, VBL ---
+LAB_0326    Irq_Level1          interruption de niveau 1
+LAB_032A    Irq_Level2          interruption de niveau 2 (clavier)
+LAB_0331    Irq_Level3          interruption de niveau 3 (VBL)
+LAB_0337    Irq_Level4          interruption de niveau 4 (son)
+LAB_033C    Irq_Level5          interruption de niveau 5
+LAB_033F    Irq_Level6          interruption de niveau 6
+LAB_0363    v_VblWait           attente de VBL active
+LAB_0368    v_Joy0Dat           JOY0DAT gardé
+LAB_0369    v_Joy1Dat           JOY1DAT gardé
+LAB_036D    t_KeysDown          touches enfoncées (128 octets)
+SECSTRT_16  v_KeyPressed        dernière touche (code)
+LAB_0372    t_VblServers        serveurs de la VBL
+LAB_0379    v_VblCounter        compteur de VBL
+LAB_038D    v_RightButtonCount  compteur du bouton droit (POTGOR)
+L18_0003A   v_RightButtonOff    bouton droit ignoré
+LAB_057D    Vbl_Screen          serveur VBL : écran montré (LAB_054C)
+LAB_005C    Vbl_Music           serveur VBL : une image de la musique
+LAB_059D    t_MusicFade         fondu de la musique (volumes)
+SECSTRT_32  v_MusicFading       fondu de la musique demandé
+
+# --- Musique (NoiseTracker, LAB_005C) ---
+LAB_005E    v_MusicSpeedCount   compteur de vitesse (octet)
+LAB_005F    v_MusicSpeedCount2  second compteur (octet)
+LAB_0094    t_Vibrato           table du vibrato (LAB_007E)
+LAB_0095    t_Periods           périodes des notes (arpèges)
+LAB_0096    v_MusicSpeed        vitesse (6)
+LAB_0099    v_MusicTick         image dans la ligne
+LAB_009C    t_SampleStarts      début de chaque instrument (31)
+LAB_009D    v_Chan0             voie 0 du lecteur
+LAB_009E    v_Chan1             voie 1
+LAB_009F    v_Chan2             voie 2
+LAB_00A0    v_Chan3             voie 3
+L01_0069F   v_MusicPosition     position dans la liste
+L01_006A0   v_MusicRow          ligne dans le motif
+L01_006A3   v_MusicFilter       filtre (inversé par la commande E0)
+L01_006A4   v_MusicDmaOn        voies à lancer (DMACON)
+
+# --- Labels des jumeaux (code de mog compilé pour program) ---
+L18_0000E   v_FileSize          taille du fichier ouvert (répertoire) (jumeau)
+L18_0001A   v_FileError         0 ou -1 : fichier introuvable (LAB_0BB5) (jumeau)
+LAB_04A3    v_CelLastName       nom de la dernière CEL chargée (LAB_0CBB) (jumeau)
+LAB_04A4    v_CelLastSize       place occupée par cette CEL (LAB_0CB6 la relit) (jumeau)
+LAB_04F7    v_CelHeader         copie de l'en-tête CEL (10 octets) : mot nombre de frames (jumeau)
+LAB_04F8    v_CelHeaderPacked   en-tête CEL +2 : taille compressée (jumeau)
+LAB_04FA    v_CelHeaderBits     en-tête CEL +6 : taille décompressée en bits (jumeau)
+LAB_04FC    v_CelPlaneMask      masque des plans de la frame (table des frames +9) (jumeau)
+LAB_04FD    v_CelSkipLeft       octets sautés à gauche (coupe) (jumeau)
+LAB_04FE    v_CelSkipRight      octets sautés à droite (coupe) (jumeau)
+LAB_04FF    v_CelClipLeft       frame coupée au bord gauche (jumeau)
+LAB_0500    v_CelClipRight      frame coupée au bord droit (jumeau)
+LAB_0505    v_CelShift          décalage en pixels (0-15) ; premier mot d'une liste copper (jumeau)
+LAB_051C    v_GfxTableD         table de conversion de pixels (jumeau)
+LAB_0527    v_ScreenStrideSet   non nul : largeur de ligne v_ScreenStride au lieu de 40 (jumeau)
+LAB_052A    b_Unpack            tampon des données compressées (41 244 octets) (jumeau)
+LAB_05D3    t_ColourCycles      rotations de couleurs (LAB_0E56) (jumeau)
+LAB_05D4    t_ColourGlows       pulsations de couleurs (jumeau)
+SECSTRT_24  v_ScreenStride      largeur d'une ligne d'écran en octets (jumeau)
+SECSTRT_27  b_Gfx               bloc des tables graphiques et du tampon de frame (jumeau)

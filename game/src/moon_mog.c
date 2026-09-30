@@ -142,7 +142,7 @@ static void intro_vbl(ProgIntro *p)
     if (in->joy[0].fire)
         s_fast = 1;
     if (any)                                            /* LAB_0342 : touche notée */
-        ix_ww(p->vm, PROGRAM_SECSTRT_16, 1);
+        ix_ww(p->vm, PROGRAM_v_KeyPressed, 1);
 }
 
 /* program : démarrage, puis l'intro, ou la fin si mog a été gagné
