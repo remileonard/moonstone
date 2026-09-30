@@ -27,7 +27,8 @@ import unicorn.m68k_const as M  # noqa: E402
 from prog_ref import ProgRef, STACK_SIZE, CHIP_BLOCK, FAST_SIZE, write_png  # noqa: E402
 
 RUN = os.path.join(ROOT, 'build', 'tests', 'prog_run')
-SCENES = {'05a5': 'LAB_05A5'}
+SCENES = {k: 'LAB_' + k.upper() for k in
+          ('05a5', '001b', '001c', '0174', '001a', '002c', '002d', '002f', '002e')}
 
 
 class Bench:
@@ -68,6 +69,7 @@ class Bench:
         ref.w('A7', sp)
         self.pc = ref.S[label]
         self.active = True
+        self.events = []
 
     def step(self):
         """Jusqu'à la fin de la VBL suivante ; False : scène finie."""
@@ -118,7 +120,7 @@ def main():
     d = tempfile.mkdtemp()
     snap, cdump = os.path.join(d, 'm.bin'), os.path.join(d, 'c.bin')
     open(snap, 'wb').write(b.memory())
-    p = subprocess.Popen([RUN, snap, a.scene, cdump], stdin=subprocess.PIPE,
+    p = subprocess.Popen([RUN, snap, a.scene, cdump, '%x' % ref.r('A1')], stdin=subprocess.PIPE,
                          stdout=subprocess.PIPE, text=True)
     vbl = 0
     cev = []

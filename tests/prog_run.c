@@ -2,9 +2,10 @@
  * prog_run.c — une scène de l'intro de program en C (prog_intro.c) menée
  * VBL par VBL depuis une image mémoire, pour tools/prog_lockstep.py.
  *
- *   prog_run <mémoire> <scène> <fichier_image>
+ *   prog_run <mémoire> <scène> <fichier_image> [A1]
  *
- * <scène> : « 05a5 ». À la fin de chaque VBL, la mémoire est écrite dans
+ * <scène> : « 05a5 », « 001b », « 001c », « 0174 », « 001a », « 002c »,
+ * « 002d », « 002f », « 002e » ; A1 (hexadécimal) : registre à l'entrée. À la fin de chaque VBL, la mémoire est écrite dans
  * <fichier_image>, puis « V » sur stdout ; une ligne est lue sur stdin
  * (« Q » : arrêt). « M » : départ de la musique (SECSTRT_1) ; « END » : fin
  * de la scène (mémoire écrite).
@@ -64,8 +65,20 @@ int main(int argc, char **argv)
     p.vm = &vm;
     p.vbl = on_vbl;
     p.music_start = on_music;
-    if (!strcmp(argv[2], "05a5"))
-        prog_scene_05a5(&p);
+    if (argc > 4)
+        p.a1 = (uint32_t)strtoul(argv[4], NULL, 16);
+    static const struct { const char *n; void (*f)(ProgIntro *); } sc[] = {
+        { "05a5", prog_scene_05a5 }, { "001b", prog_scene_001b },
+        { "001c", prog_scene_001c }, { "0174", prog_scene_0174 },
+        { "001a", prog_scene_001a }, { "002c", prog_scene_002c },
+        { "002d", prog_scene_002d }, { "002f", prog_scene_002f },
+        { "002e", prog_scene_002e },
+    };
+    size_t i = 0;
+    while (i < sizeof sc / sizeof *sc && strcmp(sc[i].n, argv[2]))
+        i++;
+    if (i < sizeof sc / sizeof *sc)
+        sc[i].f(&p);
     else {
         fprintf(stderr, "scène inconnue : %s\n", argv[2]);
         return 2;

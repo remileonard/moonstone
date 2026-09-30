@@ -16,6 +16,7 @@ struct ProgIntro {
     MogBlitter blt;
     uint16_t colour[32];            /* COLOR00-31 */
     unsigned long vbls;
+    uint32_t a1;                    /* registre A1 (gardé dans les entités) */
     /* Fin de chaque VBL (serveurs passés) : image à montrer, entrées */
     void (*vbl)(ProgIntro *p);
     /* SECSTRT_1 : départ de la musique (NULL : rien) */
@@ -30,5 +31,15 @@ void prog_wait_vbl(ProgIntro *p);
 
 /* LAB_05A5 : défilement vertical des tuiles jusqu'à LAB_05B8 = 1000 */
 void prog_scene_05a5(ProgIntro *p);
+
+/* Scènes suivantes (SECSTRT_0, dans cet ordre ; LAB_0123 = 4 avant) */
+void prog_scene_001b(ProgIntro *p);
+void prog_scene_001c(ProgIntro *p);
+void prog_scene_0174(ProgIntro *p);
+void prog_scene_001a(ProgIntro *p);
+void prog_scene_002c(ProgIntro *p);
+void prog_scene_002d(ProgIntro *p);
+void prog_scene_002f(ProgIntro *p);
+void prog_scene_002e(ProgIntro *p);
 
 #endif /* PROG_INTRO_H */
