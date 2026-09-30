@@ -25,7 +25,7 @@
 #include <string.h>
 
 enum {                                  /* codes SDL_Scancode */
-    SC_A = 4, SC_E = 8, SC_I = 12, SC_Q = 20, SC_Z = 29, SC_1 = 30, SC_9 = 38,
+    SC_A = 4, SC_D = 7, SC_E = 8, SC_F = 9, SC_S = 22, SC_W = 26, SC_I = 12, SC_Q = 20, SC_Z = 29, SC_1 = 30, SC_9 = 38,
     SC_0 = 39, SC_RETURN = 40, SC_BACKSPACE = 42, SC_TAB = 43, SC_MINUS = 45, SC_SPACE = 44, SC_RIGHT = 79, SC_LEFT = 80, SC_DOWN = 81,
     SC_UP = 82, SC_LCTRL = 224, SC_RCTRL = 228
 };
@@ -66,6 +66,16 @@ static void host_vbl(void *user, MogGame *g, MogGameInput *out)
     if (j->fire || down(in, SC_SPACE) || down(in, SC_LCTRL) || down(in, SC_RCTRL))
         v |= MOG_JOY_FIRE;
     out->joy[0] = out->joy[1] = v;      /* chevalier 1 : port 1 (et 0) */
+    if (g->mode == 2) {                 /* entraînement : chevalier 2 au port 0 */
+        const MoonJoy *j2 = &in->joy[1];
+        uint16_t w = 0;
+        if (j2->right || down(in, SC_D)) w |= MOG_JOY_RIGHT;
+        if (j2->left || down(in, SC_A))  w |= MOG_JOY_LEFT;
+        if (j2->down || down(in, SC_S))  w |= MOG_JOY_DOWN;
+        if (j2->up || down(in, SC_W))    w |= MOG_JOY_UP;
+        if (j2->fire || down(in, SC_F))  w |= MOG_JOY_FIRE;
+        out->joy[0] = w;
+    }
 
     /* Clavier de l'Amiga : lettres et chiffres tels quels (noms des
      * chevaliers ; E fin du tour, Q abandon, 1-9 lieux), Tab = barre
