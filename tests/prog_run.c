@@ -13,7 +13,7 @@
  * de la scène (mémoire écrite).
  */
 #include "prog_intro.h"
-#include "ix_program_syms.h"
+#include "ix_program_names.h"
 #include "moon_assets.h"
 
 #include <stdio.h>

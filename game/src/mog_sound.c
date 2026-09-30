@@ -21,7 +21,7 @@
  */
 #include "mog_sound.h"
 #include "mog_private.h"
-#include "ix_mog_syms.h"
+#include "ix_mog_names.h"
 
 #include <string.h>
 
@@ -37,7 +37,7 @@ static void wb(MogCombat *m, uint32_t a, uint8_t v)  { ix_wb(VM, a, v); }
 #define PAULA_CLOCK 3546895.0                           /* PAL */
 
 static const uint32_t voice_of[4] = {                   /* LAB_0F8B */
-    MOG_SECSTRT_44, MOG_LAB_0F66, MOG_LAB_0F67, MOG_LAB_0F68
+    MOG_v_Voice0, MOG_v_Voice1, MOG_v_Voice2, MOG_v_Voice3
 };
 static const uint32_t stack_of[4] = {                   /* LAB_0F8E */
     MOG_L44_00C70, MOG_L44_00CF0, MOG_L44_00D70, MOG_LAB_0FCA
@@ -170,15 +170,15 @@ void mog_snd_relocate(MogCombat *m)
 {
     uint32_t a0 = MOG_LAB_10A3;
     do {                                                /* LAB_0FD5 */
-        wl(m, a0 + 6, rl(m, a0 + 6) + rl(m, MOG_LAB_05C7));
+        wl(m, a0 + 6, rl(m, a0 + 6) + rl(m, MOG_b_SoundsKnight));
         a0 += 14;
     } while (a0 != MOG_LAB_10A4);
     do {                                                /* LAB_0FD6 */
-        wl(m, a0 + 6, rl(m, a0 + 6) + rl(m, MOG_LAB_05C8));
+        wl(m, a0 + 6, rl(m, a0 + 6) + rl(m, MOG_b_SoundsCreature));
         a0 += 14;
     } while (a0 != MOG_LAB_10A7);
     static const struct { uint32_t end, bank; } r1[] = {
-        { MOG_LAB_10A8, MOG_LAB_05CB }, { MOG_LAB_10A9, MOG_LAB_05C8 },
+        { MOG_LAB_10A8, MOG_b_SoundsRatmen }, { MOG_LAB_10A9, MOG_b_SoundsCreature },
     };
     for (int i = 0; i < 2; i++)
         for (; a0 != r1[i].end; a0 += 14)
@@ -189,12 +189,12 @@ void mog_snd_relocate(MogCombat *m)
         { MOG_LAB_10A6 + 28, 0x50BE },
     };
     for (int i = 0; i < 5; i++)
-        wl(m, fix[i].a + 6, rl(m, MOG_LAB_05C7) + fix[i].off);
+        wl(m, fix[i].a + 6, rl(m, MOG_b_SoundsKnight) + fix[i].off);
     a0 = MOG_LAB_10A9;
     static const struct { uint32_t end, bank; } r2[] = {
-        { MOG_LAB_10AA, MOG_LAB_05C9 }, { MOG_LAB_10AB, MOG_LAB_05CA },
-        { MOG_LAB_10AC, MOG_LAB_05C8 }, { MOG_LAB_10AD, MOG_LAB_05C9 },
-        { MOG_LAB_10AE, MOG_LAB_05C8 },
+        { MOG_LAB_10AA, MOG_b_SoundsReplay }, { MOG_LAB_10AB, MOG_b_SoundsWizard },
+        { MOG_LAB_10AC, MOG_b_SoundsCreature }, { MOG_LAB_10AD, MOG_b_SoundsReplay },
+        { MOG_LAB_10AE, MOG_b_SoundsCreature },
     };
     for (int i = 0; i < 5; i++)
         for (; a0 != r2[i].end; a0 += 14)

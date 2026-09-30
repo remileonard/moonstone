@@ -7,7 +7,7 @@
  * compare ce moteur au code d'origine exécuté par un émulateur 68000.
  */
 #include "ix_engine.h"
-#include "ix_mog_syms.h"
+#include "ix_mog_names.h"
 
 #include <string.h>
 
@@ -44,32 +44,32 @@ static void msg(IxEngine *e, const char *t)
 void ix_layout_mog(IxLayout *l)
 {
     l->entities     = MOG_t_Entities;
-    l->temp_entity  = MOG_LAB_064A;
-    l->contexts     = MOG_LAB_064B;
-    l->shadow_ctx   = MOG_LAB_064C;
+    l->temp_entity  = MOG_b_EntitySwap;
+    l->contexts     = MOG_t_Contexts;
+    l->shadow_ctx   = MOG_v_ShadowCtx;
     l->strike_lists = MOG_t_StrikeFrames;
     l->body_lists   = MOG_t_BodyFrames;
-    l->bank_tables  = MOG_LAB_0647;
-    l->debug_flag   = MOG_LAB_06DA;
+    l->bank_tables  = MOG_t_Banks;
+    l->debug_flag   = MOG_v_Gore;
     l->vbl_counter  = MOG_v_VblCounter;
-    l->flag_0d05    = MOG_LAB_0D05;
+    l->flag_0d05    = MOG_v_BlitByCpu;
     l->combatants   = MOG_v_Combatants;
-    l->objects_ptr  = MOG_LAB_05C3;
-    l->scrap_ptr    = MOG_LAB_0641;
-    l->scrap_count  = MOG_LAB_0645;
-    l->list_body    = MOG_LAB_0643;
-    l->list_strike  = MOG_LAB_0644;
-    l->bbox_x0      = MOG_LAB_0639;
-    l->bbox_x1      = MOG_LAB_0638;
-    l->bbox_y0      = MOG_LAB_063A;
-    l->bbox_y1      = MOG_LAB_063B;
-    l->bbox_set     = MOG_LAB_063C;
-    l->loop_index   = MOG_LAB_063D;
-    l->loop_entity  = MOG_LAB_0640;
+    l->objects_ptr  = MOG_v_Objects;
+    l->scrap_ptr    = MOG_v_RestoreNext;
+    l->scrap_count  = MOG_v_RestoreCount;
+    l->list_body    = MOG_v_ListBody;
+    l->list_strike  = MOG_v_ListStrike;
+    l->bbox_x0      = MOG_v_BBoxX0;
+    l->bbox_x1      = MOG_v_BBoxX1;
+    l->bbox_y0      = MOG_v_BBoxY0;
+    l->bbox_y1      = MOG_v_BBoxY1;
+    l->bbox_set     = MOG_v_BBoxSet;
+    l->loop_index   = MOG_v_LoopIndex;
+    l->loop_entity  = MOG_v_LoopEntity;
     l->phys_moved   = MOG_LAB_037F;
-    l->flip_buffer  = MOG_LAB_0D40;
-    l->bitrev       = MOG_LAB_0CD9;
-    l->flip_size    = MOG_LAB_0D29;
+    l->flip_buffer  = MOG_v_CelPlanesBuf;
+    l->bitrev       = MOG_t_BitReverse;
+    l->flip_size    = MOG_v_CelPlaneSize;
 }
 
 void ix_engine_init(IxEngine *e, IxVM *vm, const IxHost *host, const IxLayout *lay)

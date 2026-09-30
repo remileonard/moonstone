@@ -9,7 +9,7 @@
 #include "prog_intro.h"
 #include "prog_blit.h"
 #include "prog_vbl.h"
-#include "ix_program_syms.h"
+#include "ix_program_names.h"
 #include "ix_data.h"
 #include "moon_assets.h"
 

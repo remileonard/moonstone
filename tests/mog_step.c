@@ -19,7 +19,7 @@
 #include "mog_blit.h"
 #include "mog_map.h"
 #include "moon_assets.h"
-#include "ix_mog_syms.h"
+#include "ix_mog_names.h"
 
 #include <stdio.h>
 #include <stdlib.h>

@@ -12,7 +12,7 @@
 #include "mog_boot.h"
 #include "mog_screens.h"
 #include "mog_encounter.h"
-#include "ix_mog_syms.h"
+#include "ix_mog_names.h"
 
 #include <string.h>
 
@@ -133,12 +133,12 @@ int mog_fight_boot(MogFight *f)
     if (mog_boot_memory(VM) < 0)
         return -1;
     mog_boot_graphics(VM);                              /* SECSTRT_30, SECSTRT_28 */
-    ix_wl(VM, MOG_LAB_0E93, MOG_LAB_08D6);              /* LAB_0E53 : palette courante */
+    ix_wl(VM, MOG_v_PalCurrent, MOG_t_FightPalette);              /* LAB_0E53 : palette courante */
     mog_boot_engine(VM);                                /* LAB_0303 */
     mog_hit_init(VM);
     mog_boot_knight_cels(VM);                           /* LAB_0115 */
     mog_boot_backgrounds(VM);                           /* LAB_013A */
-    ix_ww(VM, MOG_LAB_05C5, 1);
+    ix_ww(VM, MOG_v_Players, 1);
     mog_boot_tables(VM);                                /* LAB_0152 / LAB_0156 */
 
     static const IxHost host = { NULL, NULL, h_draw, h_sound, NULL, NULL };
@@ -156,7 +156,7 @@ int mog_fight_boot(MogFight *f)
 
 static uint32_t knight_obj(int i)
 {
-    return MOG_LAB_0613 + (uint32_t)(i & 3) * IX_OBJECT_SIZE;
+    return MOG_t_KnightObjects + (uint32_t)(i & 3) * IX_OBJECT_SIZE;
 }
 
 int mog_fight_start(MogFight *f, const MogFightSetup *s)
@@ -180,7 +180,7 @@ int mog_fight_start(MogFight *f, const MogFightSetup *s)
     if (s->hp > 0 && s->hp < sw(ix_rw(VM, k + 84)))
         ix_ww(VM, k + 80, (uint16_t)s->hp);
     ix_wl(VM, MOG_v_Combatants, k);
-    ix_wl(VM, MOG_LAB_0633, k);
+    ix_wl(VM, MOG_v_CurObj, k);
 
     f->foe = 0;
     if (s->opponent >= 0 && s->opponent != s->knight) {
@@ -211,7 +211,7 @@ int mog_fight_start(MogFight *f, const MogFightSetup *s)
     if (!mog_encounter_init(m, init))
         return -1;
     mog_combat_begin(m);
-    planes_to_index(VM, ix_rl(VM, MOG_LAB_05C0), f->bg);
+    planes_to_index(VM, ix_rl(VM, MOG_v_BgPlanes), f->bg);
     memcpy(f->pix, f->bg, sizeof f->pix);
     f->running = 1;
     f->frame = 0;

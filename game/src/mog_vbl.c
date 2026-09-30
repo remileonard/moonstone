@@ -9,7 +9,7 @@
  * (LAB_0E5A) ; les registres de couleur sont recopiés si l'une a changé.
  */
 #include "mog_vbl.h"
-#include "ix_mog_syms.h"
+#include "ix_mog_names.h"
 
 #define VM vm
 
@@ -30,25 +30,25 @@ static uint16_t step_colour(uint16_t d1, uint16_t d2)
 #define VBL_FADE_STEP(vm) sound_fade(vm)
 static void sound_fade(IxVM *vm)
 {
-    uint16_t v = ix_rw(VM, MOG_LAB_0FC4) ? 0x10 : 0;    /* LAB_0FC3 : 0 */
-    ix_ww(VM, MOG_SECSTRT_44 + 142, v);
-    ix_ww(VM, MOG_LAB_0F66 + 142, v);
-    ix_ww(VM, MOG_LAB_0F67 + 142, v);
-    ix_ww(VM, MOG_LAB_0F68 + 142, v);
+    uint16_t v = ix_rw(VM, MOG_v_SoundFading) ? 0x10 : 0;    /* LAB_0FC3 : 0 */
+    ix_ww(VM, MOG_v_Voice0 + 142, v);
+    ix_ww(VM, MOG_v_Voice1 + 142, v);
+    ix_ww(VM, MOG_v_Voice2 + 142, v);
+    ix_ww(VM, MOG_v_Voice3 + 142, v);
 }
 #endif
 
 void mog_vbl_colours(IxVM *vm, uint16_t colour[32])
 {
     int changed = 0;
-    uint32_t cur = ix_rl(VM, MOG_LAB_0E93);
-    uint32_t a0 = ix_rl(VM, MOG_SECSTRT_39);
+    uint32_t cur = ix_rl(VM, MOG_v_PalCurrent);
+    uint32_t a0 = ix_rl(VM, MOG_v_PalFadeTarget);
     if (a0) {
-        uint16_t n = (uint16_t)(ix_rw(VM, MOG_LAB_0E92) - 1);
-        ix_ww(VM, MOG_LAB_0E92, n);
+        uint16_t n = (uint16_t)(ix_rw(VM, MOG_v_PalFadeCount) - 1);
+        ix_ww(VM, MOG_v_PalFadeCount, n);
         if (!n) {
             VBL_FADE_STEP(vm);          /* program : LAB_0598 (musique) */
-            ix_ww(VM, MOG_LAB_0E92, ix_rw(VM, MOG_LAB_0E91));
+            ix_ww(VM, MOG_v_PalFadeCount, ix_rw(VM, MOG_v_PalFadeDelay));
             for (uint32_t i = 0; i < 32; i++) {
                 uint16_t c = ix_rw(VM, cur + 2 * i);
                 uint16_t d = step_colour(c, ix_rw(VM, a0 + 2 * i));
@@ -58,11 +58,11 @@ void mog_vbl_colours(IxVM *vm, uint16_t colour[32])
                 }
             }
             if (!changed)
-                ix_wl(VM, MOG_SECSTRT_39, 0);
+                ix_wl(VM, MOG_v_PalFadeTarget, 0);
         }
     }
     /* LAB_0E60 : rotations (6 × 6 octets : début, fin, sens, vitesse, compte) */
-    uint32_t s = MOG_LAB_0E94;
+    uint32_t s = MOG_t_ColourCycles;
     for (int i = 0; i < 6; i++, s += 6) {
         if (!ix_rl(VM, s))
             continue;
@@ -92,7 +92,7 @@ void mog_vbl_colours(IxVM *vm, uint16_t colour[32])
         }
     }
     /* LAB_0E66 : pulsations (6 × 12 octets) */
-    s = MOG_LAB_0E95;
+    s = MOG_t_ColourGlows;
     for (int i = 0; i < 6; i++, s += 12) {
         if (!ix_rl(VM, s))
             continue;
@@ -155,7 +155,7 @@ void mog_screen(const IxVM *vm, const uint16_t colour[32], uint32_t *argb)
  * 0 : sans fin) ; renvoie l'emplacement (D0 inchangé si tout est pris). */
 uint32_t mog_glow(IxVM *vm, uint16_t d0, uint16_t d1, uint16_t d2, uint16_t d3)
 {
-    uint32_t a0 = MOG_LAB_0E95;
+    uint32_t a0 = MOG_t_ColourGlows;
     for (int i = 0; i < 6; i++, a0 += 12) {
         if (ix_rl(VM, a0))
             continue;
@@ -163,7 +163,7 @@ uint32_t mog_glow(IxVM *vm, uint16_t d0, uint16_t d1, uint16_t d2, uint16_t d3)
         ix_ww(VM, a0 + 2, d1);
         ix_ww(VM, a0 + 4, d2);
         ix_ww(VM, a0 + 6, d2);
-        ix_ww(VM, a0 + 8, ix_rw(VM, ix_rl(VM, MOG_LAB_0E93) + (uint32_t)(uint16_t)(d0 * 2)));
+        ix_ww(VM, a0 + 8, ix_rw(VM, ix_rl(VM, MOG_v_PalCurrent) + (uint32_t)(uint16_t)(d0 * 2)));
         ix_ww(VM, a0 + 10, d3);
         return a0;
     }
@@ -173,7 +173,7 @@ uint32_t mog_glow(IxVM *vm, uint16_t d0, uint16_t d1, uint16_t d2, uint16_t d3)
 /* LAB_0E56 : rotation des couleurs d0..d1 (sens d2, vitesse d3) */
 uint32_t mog_cycle(IxVM *vm, uint8_t d0, uint8_t d1, uint8_t d2, uint8_t d3)
 {
-    uint32_t a0 = MOG_LAB_0E94;
+    uint32_t a0 = MOG_t_ColourCycles;
     for (int i = 0; i < 6; i++, a0 += 6) {
         if (ix_rl(VM, a0))
             continue;

@@ -6,7 +6,7 @@
  */
 #include "mog_blit.h"
 #include "mog_boot.h"
-#include "ix_mog_syms.h"
+#include "ix_mog_names.h"
 
 #define BUF 0x12C0u             /* tampon d'un plan dans LAB_0D40 */
 
@@ -71,8 +71,8 @@ void mog_blitter_run(IxVM *vm, MogBlitter *b, uint16_t size)
 static void copy_plane(IxVM *vm, MogBlitter *b, uint32_t a1, uint32_t a2, uint16_t d0,
                        uint16_t h, uint16_t w)
 {
-    uint32_t d1 = 0xFFFFu << (ix_rw(vm, MOG_LAB_0D2A) & 63);
-    if (ix_rw(vm, MOG_LAB_0D05)) {                      /* LAB_0CF5 : copie processeur */
+    uint32_t d1 = 0xFFFFu << (ix_rw(vm, MOG_v_CelShift) & 63);
+    if (ix_rw(vm, MOG_v_BlitByCpu)) {                      /* LAB_0CF5 : copie processeur */
         uint32_t src = a2, dst = a1;
         for (unsigned r = 0; r < h; r++) {
             for (unsigned i = 0; i < w; i++, src += 2, dst += 2)
@@ -80,7 +80,7 @@ static void copy_plane(IxVM *vm, MogBlitter *b, uint32_t a1, uint32_t a2, uint16
             src += (uint32_t)(int32_t)sw(d0);
             dst += 2;
         }
-        int r25 = ix_rw(vm, MOG_LAB_0D25) != 0, r24 = ix_rw(vm, MOG_LAB_0D24) != 0;
+        int r25 = ix_rw(vm, MOG_v_CelClipRight) != 0, r24 = ix_rw(vm, MOG_v_CelClipLeft) != 0;
         if (!(r25 || r24))
             return;
         uint32_t d2 = 0xFFFFFFFFu;
@@ -108,16 +108,16 @@ static void copy_plane(IxVM *vm, MogBlitter *b, uint32_t a1, uint32_t a2, uint16
     b->con1 = 0;
     b->afwm = 0xFFFF;
     b->alwm = 0xFFFF;
-    if (ix_rw(vm, MOG_LAB_0D25))
+    if (ix_rw(vm, MOG_v_CelClipRight))
         b->alwm = (uint16_t)d1;
-    if (ix_rw(vm, MOG_LAB_0D24))
+    if (ix_rw(vm, MOG_v_CelClipLeft))
         b->afwm = (uint16_t)(d1 >> 16);
     mog_blitter_run(vm, b, (uint16_t)(h << 6 | w));
 }
 
 void mog_draw_cel(IxVM *vm, MogBlitter *b, uint32_t cel, uint16_t d0, uint16_t d1, uint16_t d2)
 {
-    if (!ix_rw(vm, MOG_LAB_0D4D))
+    if (!ix_rw(vm, MOG_v_GfxReady))
         mog_boot_graphics(vm);                          /* SECSTRT_30 */
     if (sw(d0) < 0 || sw(d0) >= sw(ix_rw(vm, cel)))
         return;
@@ -127,10 +127,10 @@ void mog_draw_cel(IxVM *vm, MogBlitter *b, uint32_t cel, uint16_t d0, uint16_t d
     uint16_t d4 = ix_rw(vm, a0 + 6);
     d1 = (uint16_t)(d1 - (ix_rb(vm, a0 + 8) >> 4));
     uint8_t planes = ix_rb(vm, a0 + 9);
-    ix_wb(vm, MOG_LAB_0D21, planes);
-    ix_wl(vm, MOG_LAB_0D22, 0);
-    ix_wl(vm, MOG_LAB_0D23, 0);
-    ix_wl(vm, MOG_LAB_0D29, (uint32_t)(uint16_t)(d5 << 1) * d4);
+    ix_wb(vm, MOG_v_CelPlaneMask, planes);
+    ix_wl(vm, MOG_v_CelSkipLeft, 0);
+    ix_wl(vm, MOG_v_CelSkipRight, 0);
+    ix_wl(vm, MOG_v_CelPlaneSize, (uint32_t)(uint16_t)(d5 << 1) * d4);
     if (sw(d2) < 0) {
         d4 = (uint16_t)(d4 + d2);
         if (sw(d4) <= 0)
@@ -141,49 +141,49 @@ void mog_draw_cel(IxVM *vm, MogBlitter *b, uint32_t cel, uint16_t d0, uint16_t d
         d2 = 0;
     }
     /* LAB_0CDC */
-    if (sw(d2) >= sw(ix_rw(vm, MOG_LAB_0D26)))
+    if (sw(d2) >= sw(ix_rw(vm, MOG_v_ClipHeight)))
         return;
-    int16_t over = (int16_t)(d2 + d4 - ix_rw(vm, MOG_LAB_0D26));
+    int16_t over = (int16_t)(d2 + d4 - ix_rw(vm, MOG_v_ClipHeight));
     if (over > 0)
         d4 = (uint16_t)(d4 - over);
     /* LAB_0CDD */
     uint16_t shift = d1 & 15;
-    ix_ww(vm, MOG_LAB_0D2A, shift);
+    ix_ww(vm, MOG_v_CelShift, shift);
     d1 = (uint16_t)(sw((uint16_t)(d1 & 0xFFF0)) >> 3);
     if ((int16_t)(d5 * 2 + d1) < 0)
         return;
-    if (sw(d1) >= sw(ix_rw(vm, MOG_LAB_0D27)))
+    if (sw(d1) >= sw(ix_rw(vm, MOG_v_ClipWidth)))
         return;
-    ix_ww(vm, MOG_LAB_0D24, 0);
-    ix_ww(vm, MOG_LAB_0D25, 0);
+    ix_ww(vm, MOG_v_CelClipLeft, 0);
+    ix_ww(vm, MOG_v_CelClipRight, 0);
     if (sw(d1) < 0) {
-        ix_ww(vm, MOG_LAB_0D24, 1);
+        ix_ww(vm, MOG_v_CelClipLeft, 1);
         d1 = (uint16_t)(d1 + 2);
-        ix_ww(vm, MOG_LAB_0D22, d1);
+        ix_ww(vm, MOG_v_CelSkipLeft, d1);
         d5 = (uint16_t)(d5 + (sw(d1) >> 1));
         d1 = 0xFFFE;
     } else {
-        int16_t d7 = (int16_t)(d5 * 2 + d1 - ix_rw(vm, MOG_LAB_0D27));
+        int16_t d7 = (int16_t)(d5 * 2 + d1 - ix_rw(vm, MOG_v_ClipWidth));
         if (d7 >= 0) {
-            ix_ww(vm, MOG_LAB_0D25, 1);
-            ix_ww(vm, MOG_LAB_0D23, (uint16_t)d7);
+            ix_ww(vm, MOG_v_CelClipRight, 1);
+            ix_ww(vm, MOG_v_CelSkipRight, (uint16_t)d7);
             d5 = (uint16_t)(d5 - (d7 >> 1));
         }
     }
     /* LAB_0CDF */
-    uint32_t row = ix_rl(vm, MOG_LAB_0D4C) ? (uint32_t)d2 * ix_rw(vm, MOG_SECSTRT_29) : (uint32_t)d2 * 40u;
+    uint32_t row = ix_rl(vm, MOG_v_ScreenStrideSet) ? (uint32_t)d2 * ix_rw(vm, MOG_v_ScreenStride) : (uint32_t)d2 * 40u;
     d1 = (uint16_t)(d1 + (uint16_t)row);
     if (!d4 || !d5)
         return;
     uint16_t dest = d1, h = d4, w = d5;
 
-    uint32_t a1 = ix_rl(vm, MOG_LAB_0D40);
-    uint32_t psize = ix_rl(vm, MOG_LAB_0D29);
+    uint32_t a1 = ix_rl(vm, MOG_v_CelPlanesBuf);
+    uint32_t psize = ix_rl(vm, MOG_v_CelPlaneSize);
     uint8_t d6 = planes;
-    uint16_t np = ix_rw(vm, MOG_LAB_0D04);
-    uint16_t c22 = ix_rw(vm, MOG_LAB_0D22);
+    uint16_t np = ix_rw(vm, MOG_v_CelPlanesMax);
+    uint16_t c22 = ix_rw(vm, MOG_v_CelSkipLeft);
     a2 += (uint32_t)(int32_t)sw((uint16_t)-c22);
-    uint16_t amod = (uint16_t)(-c22 + ix_rw(vm, MOG_LAB_0D23));
+    uint16_t amod = (uint16_t)(-c22 + ix_rw(vm, MOG_v_CelSkipRight));
     for (uint32_t p = 0; p <= np; p++, a1 += BUF) {     /* LAB_0CE2 */
         int present = d6 & 1;
         d6 >>= 1;
@@ -193,7 +193,7 @@ void mog_draw_cel(IxVM *vm, MogBlitter *b, uint32_t cel, uint16_t d0, uint16_t d
         }
     }
     /* masque : OU des plans présents (deux blits) */
-    uint32_t t0 = ix_rl(vm, MOG_LAB_0D40);
+    uint32_t t0 = ix_rl(vm, MOG_v_CelPlanesBuf);
     uint32_t t[6];
     for (int i = 0; i < 6; i++)
         t[i] = t0 + (uint32_t)i * BUF;
@@ -223,23 +223,23 @@ void mog_draw_cel(IxVM *vm, MogBlitter *b, uint32_t cel, uint16_t d0, uint16_t d
     }
     /* collage dans les plans de l'écran */
     uint16_t bw = w;
-    if (!ix_rw(vm, MOG_LAB_0D25))
+    if (!ix_rw(vm, MOG_v_CelClipRight))
         bw++;
     uint16_t size = (uint16_t)(h << 6 | bw);
-    uint16_t stride = ix_rl(vm, MOG_LAB_0D4C) ? ix_rw(vm, MOG_SECSTRT_29) : 40;
-    uint16_t d5b = (uint16_t)(dest + ix_rw(vm, MOG_LAB_0D28));
+    uint16_t stride = ix_rl(vm, MOG_v_ScreenStrideSet) ? ix_rw(vm, MOG_v_ScreenStride) : 40;
+    uint16_t d5b = (uint16_t)(dest + ix_rw(vm, MOG_v_CelDestOffset));
     uint16_t dmod = (uint16_t)(stride - bw * 2);
-    uint16_t abmod = ix_rw(vm, MOG_LAB_0D25) ? 2 : 0;
+    uint16_t abmod = ix_rw(vm, MOG_v_CelClipRight) ? 2 : 0;
     b->amod = b->bmod = sw(abmod);
     b->cmod = b->dmod = sw(dmod);
     uint16_t s12 = (uint16_t)(shift << 12);
     uint16_t con_on = (uint16_t)(s12 | 0x0FF2), con_off = (uint16_t)(s12 | 0x0722);
     b->con1 = s12;
     b->afwm = b->alwm = 0xFFFF;
-    uint32_t src = ix_rl(vm, MOG_LAB_0D40), mask = src + 0x5DC0;
+    uint32_t src = ix_rl(vm, MOG_v_CelPlanesBuf), mask = src + 0x5DC0;
     uint8_t d7 = planes;
     for (uint32_t p = 0; p <= np; p++, src += BUF) {    /* LAB_0CEF */
-        uint32_t a5 = ix_rl(vm, MOG_LAB_0CFF + 4 * p) + (uint32_t)(int32_t)sw(d5b);
+        uint32_t a5 = ix_rl(vm, MOG_t_DestPlanes + 4 * p) + (uint32_t)(int32_t)sw(d5b);
         b->con0 = (d7 & 1) ? con_on : con_off;
         d7 >>= 1;
         b->apt = src; b->bpt = mask; b->cpt = a5; b->dpt = a5;

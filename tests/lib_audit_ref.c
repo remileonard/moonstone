@@ -5,8 +5,8 @@
  * libmoon_assets.
  */
 #include "lib_audit_ref.h"
-#include "ix_mog_syms.h"
-#include "ix_program_syms.h"
+#include "ix_mog_names.h"
+#include "ix_program_names.h"
 
 uint32_t ref_unpack(IxVM *vm, uint32_t src, uint32_t n, uint32_t dst)
 {

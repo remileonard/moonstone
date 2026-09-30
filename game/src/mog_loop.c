@@ -9,7 +9,7 @@
  * (mog_fight.c).
  */
 #include "mog_private.h"
-#include "ix_mog_syms.h"
+#include "ix_mog_names.h"
 #include "mog_vbl.h"
 #include "mog_screens.h"
 
@@ -23,7 +23,7 @@
 static void set_planes(MogCombat *m, uint32_t d0)       /* L00_0908E */
 {
     for (uint32_t i = 0; i < 5; i++, d0 += 0x1F40)
-        ix_wl(VM, MOG_LAB_0CFF + 4 * i, d0);
+        ix_wl(VM, MOG_t_DestPlanes + 4 * i, d0);
 }
 
 /* LAB_0D71 + LAB_0416 : attente de la VBL, écran dessiné montré (copper),
@@ -39,12 +39,12 @@ void mog_swap_screens(MogCombat *m)
     }
     ix_wl(VM, MOG_LAB_0D92, ix_rl(VM, MOG_SECSTRT_35));
     ix_wl(VM, MOG_SECSTRT_35, s);
-    uint32_t a = ix_rl(VM, MOG_LAB_063E);
-    ix_wl(VM, MOG_LAB_063E, ix_rl(VM, MOG_LAB_063F));
-    ix_wl(VM, MOG_LAB_063F, a);
-    ix_wl(VM, MOG_LAB_0641, ix_rl(VM, MOG_LAB_063E));
+    uint32_t a = ix_rl(VM, MOG_v_RestoreFront);
+    ix_wl(VM, MOG_v_RestoreFront, ix_rl(VM, MOG_v_RestoreBack));
+    ix_wl(VM, MOG_v_RestoreBack, a);
+    ix_wl(VM, MOG_v_RestoreNext, ix_rl(VM, MOG_v_RestoreFront));
     set_planes(m, ix_rl(VM, MOG_LAB_0D92));
-    ix_ww(VM, MOG_LAB_0645, 0);
+    ix_ww(VM, MOG_v_RestoreCount, 0);
 }
 
 /* LAB_0D07 : copie d'un rectangle (blitter) */
@@ -104,7 +104,7 @@ static void restore_area(MogCombat *m, uint32_t a6)
             return;
     }
     uint16_t off = (uint16_t)((uint16_t)d1 * 40u + (uint16_t)d0);   /* LAB_03A6 */
-    uint32_t a0 = ix_rl(VM, MOG_LAB_05C0) + (uint32_t)(int32_t)(int16_t)off;
+    uint32_t a0 = ix_rl(VM, MOG_v_BgPlanes) + (uint32_t)(int32_t)(int16_t)off;
     uint32_t a1 = ix_rl(VM, MOG_LAB_0D92) + (uint32_t)(int32_t)(int16_t)off;
     uint16_t mod = (uint16_t)(40 - d2 - d2);
     for (int p = 0; p < 5; p++, a0 += 8000, a1 += 8000)
@@ -114,15 +114,15 @@ static void restore_area(MogCombat *m, uint32_t a6)
 /* LAB_039E : zones notées à l'image d'avant restaurées (au plus 45) */
 void mog_restore_areas(MogCombat *m)
 {
-    ix_wl(VM, MOG_LAB_0631, 0);
-    ix_wl(VM, MOG_LAB_0642, ix_rl(VM, MOG_LAB_0D92));
-    uint32_t a6 = ix_rl(VM, MOG_LAB_063E);
-    while (ix_rw(VM, a6 + 4) != 0xFFFF && ix_rl(VM, MOG_LAB_0631) != 0x2D
+    ix_wl(VM, MOG_v_SpawnCount, 0);
+    ix_wl(VM, MOG_v_DrawScreen, ix_rl(VM, MOG_LAB_0D92));
+    uint32_t a6 = ix_rl(VM, MOG_v_RestoreFront);
+    while (ix_rw(VM, a6 + 4) != 0xFFFF && ix_rl(VM, MOG_v_SpawnCount) != 0x2D
            && ix_rw(VM, a6 + 6) && ix_rw(VM, a6 + 4)) {
         if (m->planes)
             restore_area(m, a6);
         a6 += 8;
-        ix_wl(VM, MOG_LAB_0631, ix_rl(VM, MOG_LAB_0631) + 1);
+        ix_wl(VM, MOG_v_SpawnCount, ix_rl(VM, MOG_v_SpawnCount) + 1);
     }
 }
 
@@ -206,24 +206,24 @@ static void check_end(MogCombat *m)
 /* Combat_Run [LAB_0036] : mise en route. */
 void mog_combat_begin(MogCombat *m)
 {
-    ix_ww(VM, MOG_LAB_0620, 0);
+    ix_ww(VM, MOG_v_EnemyActed, 0);
     ix_ww(VM, MOG_L00_072FA, 0);
     ix_wl(VM, MOG_LAB_05A5, 0);
     ix_wl(VM, MOG_LAB_05A8, 0);
     clear_keys(m);                                      /* LAB_0B82 */
     ix_wb(VM, MOG_v_Combatants + 8, 1);
-    ix_wl(VM, MOG_LAB_05F2, ix_rl(VM, MOG_v_Combatants));
+    ix_wl(VM, MOG_v_PlayerObj, ix_rl(VM, MOG_v_Combatants));
     for (uint32_t i = 0; i < 0x78; i++)                 /* LAB_02F2 : trajectoires */
         ix_wb(VM, MOG_LAB_0301 + i, 0);
     ix_ww(VM, MOG_LAB_05AB, 1);
     ix_wl(VM, MOG_LAB_05AC, ix_rl(VM, MOG_v_VblCounter));
     mog_swap_screens(m);                                /* LAB_0416 */
-    uint32_t obj = ix_rl(VM, MOG_LAB_05C3);             /* LAB_000A : tout gelé */
+    uint32_t obj = ix_rl(VM, MOG_v_Objects);             /* LAB_000A : tout gelé */
     for (int i = 0; i < 20; i++, obj += IX_OBJECT_SIZE)
-        if (obj != ix_rl(VM, MOG_LAB_05F4))
+        if (obj != ix_rl(VM, MOG_v_DemonCompanion))
             mog_toggle_freeze(m, obj);
-    mog_toggle_freeze(m, MOG_LAB_0617);
-    if (ix_rb(VM, MOG_LAB_05DF) == 4) {                 /* LAB_0412 */
+    mog_toggle_freeze(m, MOG_v_DragonObj);
+    if (ix_rb(VM, MOG_v_CreatureLoaded) == 4) {                 /* LAB_0412 */
         mog_message(m, "Turning on colour glow");
         uint16_t c[32];
         for (int i = 0; i < 32; i++)
@@ -231,7 +231,7 @@ void mog_combat_begin(MogCombat *m)
         mog_wait_vbls(m, 1);                            /* LAB_0D8A */
         if (m->palette)
             m->palette(m->out.user, c);
-        uint32_t cur = ix_rl(VM, MOG_LAB_0E93);         /* LAB_03EE */
+        uint32_t cur = ix_rl(VM, MOG_v_PalCurrent);         /* LAB_03EE */
         for (uint32_t i = 0; i < 64; i++)
             ix_wb(VM, cur + i, ix_rb(VM, MOG_LAB_08D9 + i));
         ix_wl(VM, MOG_LAB_0414, mog_glow(VM, 14, 0x100, 2, 0));
@@ -265,17 +265,17 @@ int mog_combat_frame(MogCombat *m)
  * (LAB_05DC bit 0 : le premier, bit 1 : le second) */
 static void check_ko(MogCombat *m)
 {
-    ix_ww(VM, MOG_LAB_05DC, 0);
+    ix_ww(VM, MOG_v_KnightsDown, 0);
     uint32_t a0 = ix_rl(VM, MOG_v_Combatants), a1 = ix_rl(VM, MOG_v_Combatants + 4);
     if (!((int16_t)ix_rw(VM, a0 + 80) > 0)) {
-        ix_wb(VM, MOG_LAB_05DC, ix_rb(VM, MOG_LAB_05DC) | 1);
+        ix_wb(VM, MOG_v_KnightsDown, ix_rb(VM, MOG_v_KnightsDown) | 1);
         ix_ww(VM, a0 + 80, ix_rw(VM, a0 + 84));
         ix_wb(VM, a0 + 73, (uint8_t)(ix_rb(VM, a0 + 73) - 1));
     }
     if (!((int16_t)ix_rw(VM, a1 + 80) > 0)) {
         ix_ww(VM, a1 + 80, ix_rw(VM, a1 + 84));
         ix_wb(VM, a1 + 73, (uint8_t)(ix_rb(VM, a1 + 73) - 1));
-        ix_wb(VM, MOG_LAB_05DC, ix_rb(VM, MOG_LAB_05DC) | 2);
+        ix_wb(VM, MOG_v_KnightsDown, ix_rb(VM, MOG_v_KnightsDown) | 2);
     }
 }
 
@@ -299,15 +299,15 @@ void mog_combat_run(MogCombat *m)
     for (int i = 0; i < 4; i++)
         mog_sound(m, 0xA7);
     check_ko(m);
-    if (ix_rb(VM, MOG_LAB_05DF) == 4)                   /* LAB_0114 : LAB_0413 */
+    if (ix_rb(VM, MOG_v_CreatureLoaded) == 4)                   /* LAB_0114 : LAB_0413 */
         ix_wl(VM, ix_rl(VM, MOG_LAB_0414), 0);
     low_hp_off(m);                                      /* LAB_0048 */
-    ix_ww(VM, MOG_LAB_0655, ix_rw(VM, MOG_LAB_0665));
-    ix_ww(VM, MOG_LAB_05D3, 0);
+    ix_ww(VM, MOG_v_MovesUsed, ix_rw(VM, MOG_v_MovesMax));
+    ix_ww(VM, MOG_v_ReversedOn, 0);
     mog_fade_out(m);                                    /* LAB_03F1 */
     mog_reset_entities(m);                              /* LAB_0305 */
     if (ix_rl(VM, MOG_LAB_076D) == 2)
-        ix_ww(VM, ix_rl(VM, MOG_LAB_08C6) + 6, ix_rw(VM, MOG_LAB_05EC));
+        ix_ww(VM, ix_rl(VM, MOG_LAB_08C6) + 6, ix_rw(VM, MOG_v_FoesToBeat));
     m->planes = planes;
 }
 

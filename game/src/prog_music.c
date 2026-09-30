@@ -11,7 +11,7 @@
  * +23 vitesse, +24 période visée, +26 vibrato, +27 phase.
  */
 #include "prog_intro.h"
-#include "ix_program_syms.h"
+#include "ix_program_names.h"
 
 #define VM (p->vm)
 #define PAULA_CLOCK 3546895.0                           /* PAL */

@@ -26,7 +26,7 @@
 #include "mog_boot.h"
 #include "prog_intro.h"
 #include "lib_audit_ref.h"
-#include "ix_mog_syms.h"
+#include "ix_mog_names.h"
 
 #include <ctype.h>
 #include <dirent.h>

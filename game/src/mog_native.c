@@ -6,7 +6,7 @@
  * A1 = son objet, A2 = ses banques CEL.
  */
 #include "mog_private.h"
-#include "ix_mog_syms.h"
+#include "ix_mog_names.h"
 #include "mog_sound.h"
 
 #include <stdio.h>
@@ -58,23 +58,23 @@ void mog_end_combat(MogCombat *m)
  * se termine (joueur LAB_05F2 mort, ou plus personne). */
 static void opponent_down(MogCombat *m)
 {
-    uint32_t a0 = ix_rl(VM, MOG_LAB_05F2);
+    uint32_t a0 = ix_rl(VM, MOG_v_PlayerObj);
     if (sw(ix_rw(VM, a0 + 80)) <= 0) {
         mog_end_combat(m);
         return;
     }
-    ix_ww(VM, MOG_LAB_05EE, (uint16_t)(ix_rw(VM, MOG_LAB_05EE) - 1));
-    int16_t left = sw(ix_rw(VM, MOG_LAB_05EC));
-    ix_ww(VM, MOG_LAB_05EC, (uint16_t)(left - 1));
-    if (!(left > 1) && ix_rw(VM, MOG_LAB_05EE) == 0) {   /* BGT sur SUBI */
+    ix_ww(VM, MOG_v_FoesEntered, (uint16_t)(ix_rw(VM, MOG_v_FoesEntered) - 1));
+    int16_t left = sw(ix_rw(VM, MOG_v_FoesToBeat));
+    ix_ww(VM, MOG_v_FoesToBeat, (uint16_t)(left - 1));
+    if (!(left > 1) && ix_rw(VM, MOG_v_FoesEntered) == 0) {   /* BGT sur SUBI */
         mog_end_combat(m);
         return;
     }
     for (;;) {                                          /* LAB_0008 */
-        if (ix_rw(VM, MOG_LAB_05ED) == ix_rw(VM, MOG_LAB_05EE))
+        if (ix_rw(VM, MOG_v_FoesAtOnce) == ix_rw(VM, MOG_v_FoesEntered))
             return;
-        uint32_t fn = ix_rl(VM, MOG_LAB_05F0);
-        if (sw(ix_rw(VM, MOG_LAB_05EC)) <= 0)
+        uint32_t fn = ix_rl(VM, MOG_v_NextFoeFn);
+        if (sw(ix_rw(VM, MOG_v_FoesToBeat)) <= 0)
             return;
         if (!mog_next_opponent(m, fn))
             return;
@@ -84,18 +84,18 @@ static void opponent_down(MogCombat *m)
 /* LAB_000A : gèle (ou dégèle) tout le monde sauf LAB_05F4 ; et LAB_0617. */
 static void freeze_others(MogCombat *m)
 {
-    uint32_t obj = ix_rl(VM, MOG_LAB_05C3);
+    uint32_t obj = ix_rl(VM, MOG_v_Objects);
     for (int i = 0; i < 20; i++, obj += IX_OBJECT_SIZE)
-        if (obj != ix_rl(VM, MOG_LAB_05F4))
+        if (obj != ix_rl(VM, MOG_v_DemonCompanion))
             mog_toggle_freeze(m, obj);
-    mog_toggle_freeze(m, MOG_LAB_0617);
+    mog_toggle_freeze(m, MOG_v_DragonObj);
 }
 
 /* LAB_0211 : recul (table de pas LAB_08CE, sens LAB_08D0) */
 static void knockback(MogCombat *m, uint32_t a1)
 {
     ix_ww(VM, MOG_LAB_08CF, (uint16_t)(ix_rw(VM, MOG_LAB_08CF) + 1));
-    ix_wl(VM, MOG_LAB_0633, a1);
+    ix_wl(VM, MOG_v_CurObj, a1);
     uint32_t a0 = a1;
     ix_ww(VM, a0 + 62, 0);
     uint8_t dir = ix_rb(VM, MOG_LAB_08D0);
@@ -105,7 +105,7 @@ static void knockback(MogCombat *m, uint32_t a1)
     mog_arena_bounds(m, a0);
     if (!(ix_rb(VM, a0 + 63) & (1u << bit)))
         return;
-    uint32_t en = ix_find_entity(&m->eng, ix_rl(VM, MOG_LAB_0633));
+    uint32_t en = ix_find_entity(&m->eng, ix_rl(VM, MOG_v_CurObj));
     uint32_t tab = ix_rl(VM, MOG_LAB_08CE);
     uint16_t k = (uint16_t)(ix_rw(VM, MOG_LAB_08CF) << 1);
     uint16_t step = ix_rw(VM, tab + (uint32_t)(int32_t)sw(k));
@@ -180,7 +180,7 @@ static void set_palette(MogCombat *m, uint32_t a0)
     mog_wait_vbls(m, 1);                                /* LAB_0D8A : LAB_0D77 */
     if (m->palette)
         m->palette(m->out.user, c);
-    uint32_t a1 = ix_rl(VM, MOG_LAB_0E93);
+    uint32_t a1 = ix_rl(VM, MOG_v_PalCurrent);
     for (int i = 0; i < 32; i++)
         ix_ww(VM, a1 + 2u * (unsigned)i, c[i]);
 }
@@ -188,9 +188,9 @@ static void set_palette(MogCombat *m, uint32_t a0)
 /* LAB_0EF7 : le Démon projette le chevalier (LAB_05F2) derrière lui */
 static void demon_throw(MogCombat *m)
 {
-    uint32_t k = ix_rl(VM, MOG_LAB_05F2);
+    uint32_t k = ix_rl(VM, MOG_v_PlayerObj);
     mog_toggle_freeze(m, k);
-    uint32_t en = ix_find_entity(&m->eng, ix_rl(VM, MOG_LAB_05F2));
+    uint32_t en = ix_find_entity(&m->eng, ix_rl(VM, MOG_v_PlayerObj));
     uint32_t a1 = ix_rl(VM, MOG_LAB_01A1);
     uint8_t dir = (uint8_t)(ix_rb(VM, a1 + 10) ^ 2);
     ix_wb(VM, en + 22, dir);
@@ -202,7 +202,7 @@ static void demon_throw(MogCombat *m)
     if ((int16_t)x < 0)
         x = 1;
     ix_ww(VM, en + 6, x);
-    a1 = ix_rl(VM, MOG_LAB_05F2);
+    a1 = ix_rl(VM, MOG_v_PlayerObj);
     uint32_t script = ix_rl(VM, a1 + 22);
     if (!((int16_t)ix_rw(VM, a1 + 80) > 0)) {           /* mort : fondu au noir */
         for (int i = 0; i < 6; i++)
@@ -210,7 +210,7 @@ static void demon_throw(MogCombat *m)
         set_palette(m, MOG_LAB_08D9);
         script = MOG_LAB_07F7;
     }
-    mog_restart_entity(m, ix_rl(VM, MOG_LAB_05F2), script);
+    mog_restart_entity(m, ix_rl(VM, MOG_v_PlayerObj), script);
 }
 
 /* LAB_0EEB : compagnon du Démon (objet LAB_01A2, script LAB_08AF) */
@@ -241,7 +241,7 @@ int mog_native(MogCombat *m, uint32_t routine, uint32_t en)
     case MOG_LAB_0210: ix_ww(VM, MOG_LAB_08CF, 0xFFFF); return 1;
     case MOG_LAB_0211: knockback(m, obj); return 1;
     case MOG_LAB_02CA: throw_object(m, en, obj); return 1;
-    case MOG_LAB_02DB: ix_ww(VM, MOG_LAB_0620, 1); return 1;
+    case MOG_LAB_02DB: ix_ww(VM, MOG_v_EnemyActed, 1); return 1;
     case MOG_LAB_02DC: mog_sound(m, rnd_dec(m, 3) + 0x1E); return 1;
     case MOG_LAB_02DE:
         mog_sound(m, rnd_dec(m, 3) + 0x18);
@@ -324,7 +324,7 @@ int mog_native(MogCombat *m, uint32_t routine, uint32_t en)
     }
     case MOG_LAB_0EF6: {
         mog_message(m, "DEMON HIT");
-        uint32_t k = ix_rl(VM, MOG_LAB_05F2);
+        uint32_t k = ix_rl(VM, MOG_v_PlayerObj);
         ix_ww(VM, k + 80, (uint16_t)(ix_rw(VM, k + 80) - 10));
         mog_toggle_freeze(m, k);
         return 1;

@@ -19,7 +19,7 @@
 #include "mog_map.h"
 #include "prog_intro.h"
 #include "prog_vbl.h"
-#include "ix_program_syms.h"
+#include "ix_program_names.h"
 
 #include <stdio.h>
 #include <stdlib.h>

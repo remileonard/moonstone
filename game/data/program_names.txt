@@ -1,0 +1,2 @@
+# Noms des labels de amiga_asm/program.asm utilisés par le C (tools/ix_names.py).
+# label     nom     description

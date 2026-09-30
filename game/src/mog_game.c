@@ -17,7 +17,7 @@
 #include "mog_vbl.h"
 #include "mog_sound.h"
 #include "mog_private.h"
-#include "ix_mog_syms.h"
+#include "ix_mog_names.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -100,7 +100,7 @@ static void vbl(void *u)
     MogGame *g = u;
     ix_wl(VM, MOG_v_VblCounter, ix_rl(VM, MOG_v_VblCounter) + 1);
     mog_vbl_colours(VM, NULL);                          /* LAB_0E5D */
-    uint32_t pal = ix_rl(VM, MOG_LAB_0E93);             /* registres couleur */
+    uint32_t pal = ix_rl(VM, MOG_v_PalCurrent);             /* registres couleur */
     for (int i = 0; i < 32; i++)
         g->colour[i] = ix_rw(VM, pal + 2u * (unsigned)i);
     if (g->m.color00)                                   /* COLOR00 écrit à part */
@@ -147,14 +147,14 @@ int mog_game_boot(MogGame *g)
     /* LAB_04A5 : graine du hasard selon le faisceau (VHPOSR & 3) */
     ix_wl(VM, MOG_LAB_0973, ix_rl(VM, MOG_LAB_0974 + 4u * (unsigned)(g->seed & 3)));
     mog_boot_graphics(VM);                              /* SECSTRT_30, SECSTRT_28 */
-    ix_wl(VM, MOG_LAB_0E93, MOG_LAB_08D6);              /* LAB_0E53 : palette courante */
+    ix_wl(VM, MOG_v_PalCurrent, MOG_t_FightPalette);              /* LAB_0E53 : palette courante */
     mog_boot_ui(VM);                                    /* LAB_012C */
     mog_boot_engine(VM);                                /* LAB_0303 */
     mog_boot_map(VM);                                   /* LAB_0128 */
     mog_hit_init(VM);
     mog_boot_knight_cels(VM);                           /* LAB_0115 */
     mog_boot_backgrounds(VM);                           /* LAB_013A */
-    ix_ww(VM, MOG_LAB_05C5, 1);                         /* un joueur */
+    ix_ww(VM, MOG_v_Players, 1);                         /* un joueur */
     mog_boot_tables(VM);                                /* LAB_0152 / LAB_0156 */
 
     static const IxHost host = { NULL, NULL, NULL, NULL, NULL, message };
@@ -179,18 +179,18 @@ int mog_game_boot(MogGame *g)
             break;
         mog_practice(m);                                /* LAB_0002 : entraînement */
         mog_combat_run(m);                              /* Combat_Run */
-        ix_ww(VM, MOG_LAB_05C5, ix_rw(VM, MOG_LAB_05DB));
+        ix_ww(VM, MOG_v_Players, ix_rw(VM, MOG_v_PlayersSaved));
         mog_boot_tables(VM);                            /* LAB_0152 / LAB_0156 */
     }
     mog_new_game_full(m);                               /* LAB_01AE */
     for (uint32_t i = 0; i < 4; i++)                    /* LAB_0011 */
-        mog_update_knight(m, MOG_LAB_0613 + i * IX_OBJECT_SIZE);
+        mog_update_knight(m, MOG_t_KnightObjects + i * IX_OBJECT_SIZE);
     if (g->vbl)
         mog_choose_knights(m);                          /* LAB_00D3 */
     else {                                              /* outils : un joueur */
-        ix_wl(VM, MOG_LAB_06B4, MOG_LAB_06B6);          /* nom du chevalier 1 */
-        ix_wl(VM, MOG_LAB_0613 + 54, 0);                /* chevalier 1 : joueur */
-        ix_wb(VM, MOG_LAB_0613 + 11, 2);                /* joystick (port 1) */
+        ix_wl(VM, MOG_v_NameEdited, MOG_s_SirGodber);          /* nom du chevalier 1 */
+        ix_wl(VM, MOG_t_KnightObjects + 54, 0);                /* chevalier 1 : joueur */
+        ix_wb(VM, MOG_t_KnightObjects + 11, 2);                /* joystick (port 1) */
     }
     mog_new_game_players(m);                            /* LAB_01BE */
     mog_boot_reactions(VM);                             /* LAB_020F */

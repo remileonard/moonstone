@@ -1,0 +1,330 @@
+# Noms des labels de amiga_asm/mog.asm utilisés par le C (tools/ix_names.py).
+# label     nom     description
+
+# --- Fichiers et CEL (LAB_0BB5 / LAB_0CBB / LAB_0CB6) ---
+L23_0001A   v_FileError         0 ou -1 : fichier introuvable (LAB_0BB5)
+L23_0000E   v_FileSize          taille du fichier ouvert (répertoire)
+LAB_0CC9    v_CelLastName       nom de la dernière CEL chargée (LAB_0CBB)
+LAB_0CCA    v_CelLastSize       place occupée par cette CEL (LAB_0CB6 la relit)
+LAB_0D1C    v_CelHeader         copie de l'en-tête CEL (10 octets) : mot nombre de frames
+LAB_0D1D    v_CelHeaderPacked   en-tête CEL +2 : taille compressée
+LAB_0D1F    v_CelHeaderBits     en-tête CEL +6 : taille décompressée en bits
+LAB_0D4F    b_Unpack            tampon des données compressées (41 244 octets)
+
+# --- Dessin des CEL (LAB_0CDA) et tables graphiques (SECSTRT_30) ---
+LAB_0D4D    v_GfxReady          tables graphiques prêtes (sinon SECSTRT_30 au premier dessin)
+LAB_0D05    v_BlitByCpu         copie des plans par le processeur (textes, écrans) plutôt que le blitter
+SECSTRT_32  b_Gfx               bloc des tables graphiques et du tampon de frame
+LAB_0D3E    v_GfxTableA         table de conversion de pixels ($1000 octets, dans b_Gfx)
+LAB_0D3D    v_GfxTableB         table de conversion de pixels ($222E octets)
+LAB_0D3F    v_GfxTableC         table de conversion de pixels ($1000 octets)
+LAB_0D40    v_CelPlanesBuf      tampon de la frame : 5 plans + masque de $12C0 octets
+LAB_0D41    v_GfxTableD         table de conversion de pixels
+LAB_0D04    v_CelPlanesMax      dernier plan dessiné (4 : 5 plans)
+LAB_0CD9    t_BitReverse        octet aux bits inversés (256 octets, frames retournées)
+LAB_0D2A    v_CelShift          décalage en pixels (0-15) ; premier mot d'une liste copper
+LAB_0D25    v_CelClipRight      frame coupée au bord droit
+LAB_0D24    v_CelClipLeft       frame coupée au bord gauche
+LAB_0D21    v_CelPlaneMask      masque des plans de la frame (table des frames +9)
+LAB_0D22    v_CelSkipLeft       octets sautés à gauche (coupe)
+LAB_0D23    v_CelSkipRight      octets sautés à droite (coupe)
+LAB_0D29    v_CelPlaneSize      taille d'un plan de la frame
+LAB_0D26    v_ClipHeight        hauteur de la zone de dessin (200)
+LAB_0D27    v_ClipWidth         largeur de la zone de dessin en octets (40)
+LAB_0D4C    v_ScreenStrideSet   non nul : largeur de ligne v_ScreenStride au lieu de 40
+SECSTRT_29  v_ScreenStride      largeur d'une ligne d'écran en octets
+LAB_0D28    v_CelDestOffset     décalage ajouté à l'adresse de destination
+LAB_0CFF    t_DestPlanes        5 pointeurs de plans de destination (dessin, décodage des PIV)
+
+# --- Palettes (LAB_0E5D) ---
+LAB_0E93    v_PalCurrent        palette courante (pointeur)
+SECSTRT_39  v_PalFadeTarget     palette visée par le fondu (0 : aucun)
+LAB_0E92    v_PalFadeCount      VBL avant le pas suivant du fondu
+LAB_0E91    v_PalFadeDelay      VBL entre deux pas du fondu
+LAB_0E94    t_ColourCycles      rotations de couleurs (LAB_0E56)
+LAB_0E95    t_ColourGlows       pulsations de couleurs
+LAB_08D6    t_FightPalette      palette du combat seul (mog_fight)
+
+# --- Son : voies du pilote (LAB_0F8C) ---
+SECSTRT_44  v_Voice0            voie 0 du pilote (148 octets)
+LAB_0F66    v_Voice1            voie 1
+LAB_0F67    v_Voice2            voie 2
+LAB_0F68    v_Voice3            voie 3
+LAB_0FC4    v_SoundFading       fondu en cours : volume des voies baissé (LAB_0FC2)
+
+# --- Textes (LAB_0431 / LAB_0432) ---
+LAB_08E7    t_FontGlyphFrame    frame de la police pour chaque caractère (depuis ' ')
+LAB_08DC    v_GlyphWidth        largeur de la lettre courante
+LAB_08DD    v_GlyphHeight       hauteur de la lettre courante
+LAB_0441    v_TextWidth         largeur de la chaîne (LAB_043D)
+LAB_08E2    v_TextChar          caractère courant (pointeur dans la chaîne)
+LAB_0641    v_RestoreNext       pile des zones d'écran à restaurer : prochaine entrée
+LAB_08E3    v_TextRecord        enregistrement de texte courant
+LAB_08DE    v_TextX             X de la lettre suivante
+LAB_08E0    v_TextLineX         X de début de ligne
+LAB_08DF    v_TextY             Y de la ligne
+LAB_08E1    v_TextTopY          Y de la première ligne
+LAB_08E5    v_TextRight         bord droit pour centrer / aligner (320)
+LAB_08E6    v_TextRightMargin   marge retirée du bord droit
+LAB_08E4    t_TextRecord        enregistrement de texte temporaire (LAB_0431)
+LAB_05E3    t_FontBank          CEL des polices : +0 petite (LAB_078C), +16 grande (LAB_078B)
+LAB_0A56    v_HitRowBytes       octets d'une ligne de la frame testée (Col_PixelHit)
+
+# --- Mémoire du lanceur (LAB_0004) et tampons ---
+LAB_05BC    v_ChipFree          bloc chip du lanceur, puis début de sa partie libre
+LAB_05BD    v_ChipSize          taille du bloc chip
+LAB_05BE    v_FastFree          bloc fast du lanceur, puis début de sa partie libre
+LAB_05BF    v_FastSize          taille du bloc fast
+LAB_05B8    t_ChipBuffers       tampons en mémoire chip (+0 décor, +4 CEL du chevalier, +8 CEL des créatures...)
+LAB_05B9    t_FastBuffers       tampons en mémoire fast (+8 décors « Test », +84 texte de collide.hit, +88 points d'impact...)
+LAB_05BB    b_BloCel            CEL blo.cel (banque d'effets LAB_0648)
+LAB_05C0    v_BgPlanes          plans du décor (5 × 8000 octets)
+LAB_05C1    v_SheetPlanes       planche d'images décodée (blocs $03xx du terrain, icônes du menu)
+LAB_05C2    b_Piv               tampon d'un PIV compressé avant décodage
+LAB_05C3    v_Objects           les 20 objets du combat (IX_OBJECT_SIZE octets chacun)
+LAB_05C4    v_CursorCel         CEL du curseur (menu) ou de la carte (LAB_05E2+4)
+LAB_05C5    v_Players           nombre de joueurs humains (1 à 4)
+LAB_05C6    b_MapCreatures      24 créatures de la carte (20 octets chacune)
+LAB_05C7    b_SoundsKnight      banque de sons du chevalier (kn.a)
+LAB_05C8    b_SoundsCreature    banque de sons de la créature (une à la fois)
+LAB_05C9    b_SoundsReplay      banque Re.a
+LAB_05CA    b_SoundsWizard      banque Wz.a
+LAB_05CB    b_SoundsRatmen      banque Ra.a
+
+# --- Menu du début (LAB_00B5) ---
+LAB_05D4    v_NameCursorChar    caractère du curseur de saisie du nom
+LAB_05D5    v_NameCursorAnim    animation du curseur (LAB_00E0)
+LAB_05D6    v_NameLength        position dans le nom saisi
+LAB_05D7    v_NameEditing       saisie du nom en cours
+LAB_05D8    v_MenuCursorX       X du curseur du menu
+LAB_05D9    v_MenuCursorY       Y du curseur du menu
+LAB_05DA    v_MenuCursorY0      Y de la première ligne du menu
+LAB_05DB    v_PlayersSaved      nombre de joueurs gardé pendant un entraînement
+
+# --- Combat et rencontres ---
+LAB_05D1    v_ReversedKnight    chevalier aux commandes inversées (LAB_05D3)
+LAB_05D2    v_Defender          chevalier attaqué (peut fuir, LAB_0058)
+LAB_05D3    v_ReversedOn        commandes inversées actives
+LAB_05DC    v_KnightsDown       chevaliers à terre : bit 0 le premier, bit 1 le second
+LAB_05DD    v_Unused05DD        mis à $FF au démarrage
+LAB_05DE    v_Unused05DE        mis à $FF au démarrage
+LAB_05DF    v_CreatureLoaded    créature dont les CEL sont chargées (n° de contrôleur, $FF aucune)
+LAB_05E0    t_BankEnemy         banque CEL de l'adversaire (5 CEL)
+LAB_05E1    t_BankKnight        banque CEL du chevalier (kn1..kn5)
+LAB_05E2    t_BankMap           banque CEL de la carte
+LAB_05E5    t_PalTownA          palette d'une ville (LAB_04C5)
+LAB_05E6    t_PalTownB          palette d'une ville (écran suivant)
+LAB_05E7    v_MessageText       enregistrements de texte de l'écran de message
+LAB_05E8    v_TerrainNextGlade  terrain suivant (clairière, LAB_07B8)
+LAB_05E9    v_TerrainNextWater  terrain suivant (eau, LAB_07B6)
+LAB_05EA    v_TerrainNextForest terrain suivant (forêt, LAB_07B7)
+LAB_05EB    v_TerrainNextSwamp  terrain suivant (marais, LAB_07B9 ; octet)
+LAB_05EC    v_FoesToBeat        adversaires à vaincre
+LAB_05ED    v_FoesAtOnce        adversaires présents à la fois
+LAB_05EE    v_FoesEntered       adversaires entrés
+LAB_05EF    v_EntrySide         côté d'entrée alterné (0 / 1)
+LAB_05F0    v_NextFoeFn         routine « adversaire suivant »
+LAB_05F1    v_FoeKitFn          routine d'équipement de l'adversaire
+LAB_05F2    v_PlayerObj         objet du chevalier du joueur
+LAB_05F3    v_Unused05F3        mis à 1 par la nouvelle partie
+LAB_05F4    v_DemonCompanion    entité du compagnon du Démon (hors gel)
+
+# --- Tables des combattants (champs objet +34 attaques, +30 scripts, +42 dégâts, +46 marche) ---
+LAB_05F5    t_KnightAttacks     attaques du chevalier (9 directions)
+LAB_05F6    t_KnightScripts     scripts du chevalier
+LAB_05F7    t_KnightDamage      dégâts du chevalier
+LAB_05F8    t_KnightField50     table +50 de l'objet du chevalier
+LAB_05F9    t_TroggSpearScripts scripts du Trogg à lance (LAB_0176)
+LAB_05FA    t_TroggADamage      dégâts du Trogg (LAB_0169)
+LAB_05FB    t_TroggAAttacks     attaques du Trogg (LAB_0169)
+LAB_05FC    t_TroggAScripts     scripts du Trogg (LAB_0169)
+LAB_05FD    t_TroggBDamage      dégâts du Trogg à hache (LAB_0170)
+LAB_05FE    t_TroggBAttacks     attaques du Trogg à hache (LAB_0170)
+LAB_05FF    t_TroggBScripts     scripts du Trogg à hache (LAB_0170)
+LAB_0600    t_PassingKnightScripts scripts du chevalier de passage (LAB_018B)
+LAB_0601    t_RatmenDamage      dégâts des hommes-rats
+LAB_0602    t_RatmenScripts     scripts des hommes-rats
+LAB_0603    t_DragonDamage      dégâts du Dragon (LAB_0195)
+LAB_0604    t_DragonScripts     scripts du Dragon (LAB_0195)
+LAB_0605    t_BalokDamage       dégâts de Balok (LAB_0198)
+LAB_0606    t_MudmenDamage      dégâts des Mudmen (LAB_019D)
+LAB_0607    t_MudmenScripts     scripts des Mudmen
+LAB_0608    t_MudmenWalk        marche des Mudmen
+LAB_0609    t_TrollDamage       dégâts du Troll (LAB_019F)
+LAB_060A    t_TrollScripts      scripts du Troll
+LAB_060B    t_TrollWalk         marche du Troll
+LAB_060C    t_TroggAWalk        marche du Trogg (LAB_0169)
+LAB_060D    t_TroggSpearWalk    marche du Trogg à lance
+LAB_060E    t_TroggBWalk        marche du Trogg à hache
+LAB_060F    t_DragonWalk        marche du Dragon
+LAB_0610    t_KnightWalk        marche du chevalier
+LAB_0611    t_PassingKnightWalk marche du chevalier de passage
+LAB_0612    t_RatmenWalk        marche des hommes-rats
+LAB_0613    t_KnightObjects     objets des 4 chevaliers (IX_OBJECT_SIZE chacun)
+LAB_0614    v_Knight2Obj        objet du deuxième chevalier
+LAB_0617    v_DragonObj         objet du Dragon
+LAB_0618    t_KnightInventories inventaires des 4 chevaliers (24 octets chacun)
+LAB_0619    t_DragonInventory   inventaire du Dragon
+LAB_061A    v_EntryDepth3       profondeur d'entrée du rang 3 (et du Démon)
+LAB_061B    v_EntryDepth2       profondeur d'entrée du rang 2
+LAB_061C    v_EntryDepth1       profondeur d'entrée du rang 1
+LAB_061E    v_StepX             pas de marche en X du contrôleur
+LAB_061F    v_StepY             pas de marche en Y
+LAB_0620    v_EnemyActed        un adversaire a agi cette image (LAB_0240)
+LAB_0621    t_HitByFn           réaction au coup reçu, par contrôleur de l'attaquant
+LAB_0622    t_HitFn             réaction après avoir touché, par contrôleur de la cible
+LAB_0623    v_DragonState       état du Dragon (bits)
+LAB_0624    v_DragonDist        distance du Dragon au chevalier
+LAB_0625    v_FaceX             X de la cible (tourner vers elle)
+LAB_0626    v_FaceY             Y de la cible
+LAB_0627    v_LeapState         état de la créature qui bondit (LAB_029F)
+LAB_0628    v_ChaseStepY        pas de poursuite en Y
+LAB_0629    v_ChaseStepX        pas de poursuite en X
+LAB_062A    v_LeapSteps         pas restants du bond
+LAB_062B    v_KnightAiFlags     drapeaux du chevalier géré par l'ordinateur
+LAB_062C    v_KnightAiDelay     délai du chevalier géré par l'ordinateur
+LAB_062D    v_LeapToggle        bascule 0 / 1 de la créature qui bondit
+LAB_062E    t_Trajectory        trajectoire de l'objet vers la cible (LAB_02D3)
+LAB_062F    v_Joy0              manette du port 0 (LAB_00EE)
+LAB_0630    v_Joy1              manette du port 1
+LAB_0631    v_SpawnCount        entités parcourues (LAB_0009)
+LAB_0632    v_LoadPtr           adresse de chargement suivante (CEL, inventaire affiché)
+LAB_0633    v_CurObj            objet courant du contrôleur
+LAB_0634    v_TargetObj         cible de l'objet courant
+LAB_0635    v_WalkDx            déplacement X de la marche
+LAB_0636    v_WalkDir           direction de la marche (0-3)
+LAB_0637    v_WalkObj           objet qui marche
+LAB_0638    v_BBoxX1            boîte englobante : X droit (moteur)
+LAB_0639    v_BBoxX0            boîte englobante : X gauche
+LAB_063A    v_BBoxY0            boîte englobante : Y haut
+LAB_063B    v_BBoxY1            boîte englobante : Y bas
+LAB_063C    v_BBoxSet           boîte englobante commencée
+LAB_063D    v_LoopIndex         index de l'entité dans la boucle du moteur
+LAB_063E    v_RestoreFront      pile des zones à restaurer de cette image
+LAB_063F    v_RestoreBack       pile de l'image précédente (échangées)
+LAB_0640    v_LoopEntity        entité courante de la boucle
+LAB_0642    v_DrawScreen        écran de dessin (copie de LAB_0D92)
+LAB_0643    v_ListBody          liste des frames de corps (collisions)
+LAB_0644    v_ListStrike        liste des frames de frappe
+LAB_0645    v_RestoreCount      nombre de zones à restaurer
+LAB_0647    t_Banks             banques CEL du moteur : LAB_05E1, LAB_05E0, LAB_05E2, LAB_0648
+LAB_0648    t_BankBlo           banque CEL des effets (blo.cel)
+LAB_064A    b_EntitySwap        entité temporaire (tri par profondeur)
+LAB_064B    t_Contexts          contextes des scripts (IX_CTX_SIZE chacun)
+LAB_064C    v_ShadowCtx         contexte des ombres
+LAB_064D    b_RestoreA          pile de zones à restaurer A
+LAB_064E    b_RestoreB          pile de zones à restaurer B
+
+# --- Carte (LAB_0DAB) : tour d'un chevalier ---
+LAB_0651    t_KnightDist        distances aux autres chevaliers (triées, LAB_0DED)
+LAB_0652    t_KnightByDist      les autres chevaliers dans l'ordre des distances
+LAB_0653    v_PlaceDigit        chiffre de la ligne du menu des lieux
+LAB_0654    v_TurnKnight        chevalier dont c'est le tour (0-3)
+LAB_0655    v_MovesUsed         déplacements faits ce tour
+LAB_0656    v_MoveDirs          directions du pas (bits 0 droite, 1 gauche, 2 bas, 3 haut, 4 feu)
+LAB_0657    v_MapEdgeBits       directions encore possibles au bord de la carte (LAB_0E07)
+LAB_0658    v_MapColoursOn      effets de couleur de la carte actifs
+LAB_0659    v_MovesQuarter      quart des déplacements du tour
+LAB_065A    v_MovesThreeQuarters trois quarts des déplacements
+LAB_065C    v_Boots2On          bottes : chevalier replacé (LAB_0E05)
+LAB_065E    v_BootsOn           bottes actives (pas de combat au repaire)
+LAB_065F    v_BootsPos          position mémorisée (X, Y) pour les bottes
+LAB_0660    v_Boots2Flag        position mémorisée par LAB_0E05
+LAB_0661    v_WaterGlow         pulsation de l'eau de la carte
+LAB_0662    v_MapKeysOff        touches de la carte ignorées
+LAB_0663    v_DeadPlayers       chevaliers des joueurs morts (fin de partie)
+LAB_0664    b_MapIcons          CEL des icônes de la carte
+LAB_0665    v_MovesMax          déplacements du tour (16 × mouvement)
+LAB_0666    v_DragonDiveTimer   compteur du vol du dragon (100 images)
+LAB_0667    v_DragonFlying      le dragon survole la carte
+LAB_0668    v_MovesMark1        repère de déplacements franchi (1)
+LAB_0669    v_MovesMark2        repère franchi (2)
+LAB_066A    v_MovesMark3        repère franchi (3)
+LAB_066B    v_AiPotionUsed      le chevalier noir a bu une potion ce tour
+LAB_066C    v_AiTownX           ville visée par le chevalier noir : X (mot), 0 aucune
+LAB_066D    v_AiTownY           ville visée : Y
+LAB_066E    v_SavedCurObj       objet courant gardé pendant les entités
+LAB_066F    v_DistTownA         distance à la ville (12, 7)
+LAB_0670    v_DistTownB         distance à la ville (37, 20)
+LAB_0671    t_BankMapDragon     banque CEL du dragon sur la carte
+LAB_0672    t_CreaturesByDist   créatures errantes triées par distance (6 octets)
+LAB_0673    v_AiCreature        créature visée par le chevalier noir
+LAB_0674    v_SteerReady        ligne vers la cible calculée
+LAB_0675    v_SteerDirX         bit de direction en X
+LAB_0676    v_SteerDirY         bit de direction en Y
+LAB_0677    v_SteerError        erreur de la ligne de Bresenham
+LAB_0678    v_SteerDx           |dx|
+LAB_0679    v_SteerDy           |dy|
+LAB_067A    v_SteerMajorY       Y est l'axe principal (-1)
+LAB_067B    v_CreaturesSorted   créatures triées ce tour
+LAB_067C    v_AiCreatureGone    la créature visée a disparu
+LAB_067D    v_TownTextX         X du texte suivant (villes)
+LAB_067E    v_TownTextY         Y du texte suivant
+LAB_067F    v_TownTextFlags     drapeaux du texte suivant
+LAB_06C0    v_Round             manche (jours)
+LAB_06C1    v_LevelCycle        cycle de niveau des créatures (0-7)
+LAB_06C2    t_LevelCycle        niveaux du cycle ("-/.010./")
+LAB_06DE    v_TrainCost         expérience pour une caractéristique
+SECSTRT_4   t_TrainCostByPlayers expérience requise selon le nombre de joueurs
+SECSTRT_2   t_PlacesReached     lieux atteints (8 octets : objet ou position, genre)
+LAB_069C    v_PlaceFound        dernier lieu atteint (genre, -1 aucun)
+LAB_069D    v_PlaceFoundX       X du dernier lieu atteint
+LAB_069E    t_UnderDragon       chevaliers sous le dragon
+LAB_069F    t_Places            lieux de la carte (icône, X, Y ; -1 fin)
+
+# --- Écrans à pointeur (LAB_04CF) ---
+LAB_0680    v_LivesIconAlt      variante de l'icône des vies
+LAB_0681    v_IconFrame         icône dessinée : frame
+LAB_0682    v_IconX             X
+LAB_0683    v_IconY             Y
+LAB_0684    v_IconStep          pas entre deux icônes
+LAB_0685    v_IconKind          genre de la zone
+LAB_0686    v_IconId            identifiant de la zone
+LAB_0687    v_IconSlot          case de l'inventaire
+LAB_0688    v_IconTexts         textes des zones (LAB_0699 ou LAB_069A)
+LAB_0689    v_LootTaken         butin pris
+LAB_068A    v_ScreenKindSaved   genre d'écran gardé
+LAB_068B    v_ScreenKnight      chevalier du panneau de gauche
+LAB_068C    v_ScreenInventory   son inventaire
+LAB_068D    v_ScreenOther       objet du panneau de droite
+LAB_068E    v_ScreenOtherInv    son inventaire
+LAB_068F    v_ScreenKind        genre d'écran (1 duel, 2 repaire, 9 inventaire, 10 dragon...)
+LAB_0690    t_ShopInventory     inventaire du marchand
+LAB_0691    t_ShopPrices        prix des objets de la boutique
+LAB_0692    t_TextsTrain        textes « améliorer » des caractéristiques
+LAB_0693    t_TextsInventory    textes de l'inventaire (écran 9)
+LAB_0694    t_TextsLoot         textes du butin (écrans 1, 2, 8, 10)
+LAB_0695    t_TextsShop         textes de la boutique (écrans 5, 6)
+LAB_0696    t_TextsScreen3      textes de l'écran 3
+LAB_0697    t_TextsScreen6      textes du panneau de gauche de l'écran 6
+LAB_0698    t_TextsDefault      textes par défaut
+LAB_0699    b_ZoneTextsLeft     textes des zones du panneau de gauche (27 × 14 octets)
+LAB_069A    b_ZoneTextsRight    textes des zones du panneau de droite
+
+# --- Menu du début, messages ---
+LAB_06AE    t_MenuTexts         textes du menu
+LAB_06B3    t_MenuGoreText      texte de la ligne « Gore » (On / Off)
+LAB_06B4    v_NameEdited        nom en cours de saisie
+LAB_06B5    s_SirRichard        nom du chevalier 2
+LAB_06B6    s_SirGodber         nom du chevalier 1
+LAB_06B7    s_SirJeffrey        nom du chevalier 3
+LAB_06B8    s_SirEdward         nom du chevalier 4
+LAB_06B9    s_PlayersCount      nombre de joueurs écrit
+LAB_06BA    s_On                "On"
+LAB_06BB    s_Off               "Off"
+LAB_06C3    t_FleeMessage       message de fuite
+LAB_06C8    s_FleeName          nom du chevalier qui fuit
+LAB_06CD    t_EndLostMessage    message de fin (Démon non vaincu)
+LAB_06D1    t_EndWonMessage     message de fin (partie gagnée)
+LAB_06DA    v_Gore              Gore (sang) activé
+LAB_06DB    v_MenuRedraw        menu à redessiner
+LAB_06DC    v_MenuLine          ligne du menu
+LAB_06DD    t_MenuLineY         Y des lignes du menu
+LAB_06E1    t_DemonLairMessage  message du repaire du Démon
+LAB_06E6    t_GameOverMessage   message de fin de partie
+LAB_06E7    t_SelectKnightText  titre du choix des chevaliers
+LAB_06E8    t_DemonKeyMessage   message : clé du repaire manquante
+LAB_06F7    v_ChooseKnightObj   objet du chevalier à choisir
+LAB_06F8    v_ChooseLeft        joueurs restant à choisir
+LAB_06F9    v_KnightsFree       chevaliers libres (bits)
+LAB_06FD    t_MenuPalette       palette du menu

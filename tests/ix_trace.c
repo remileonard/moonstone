@@ -13,7 +13,7 @@
  *   M texte             message      H crc32          empreinte mémoire
  */
 #include "ix_engine.h"
-#include "ix_mog_syms.h"
+#include "ix_mog_names.h"
 
 #include <stdio.h>
 #include <stdlib.h>
