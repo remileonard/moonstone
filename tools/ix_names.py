@@ -14,11 +14,15 @@ labels déjà nommés dans amiga_asm/*.asm :
     t_Nom          table              (t_HitDataByCel)
     s_Nom          chaîne             (s_CollideHit)
     b_Nom          tampon
+    x_Nom          script d'animation IMAGEXCEL
 
   python3 tools/ix_names.py gen          en-têtes game/data/ix_<prog>_names.h
   python3 tools/ix_names.py apply [f.c]  remplace MOG_LAB_xxxx par MOG_<nom>
                                          dans les sources (toutes par défaut)
   python3 tools/ix_names.py check        labels bruts restant dans le C
+  python3 tools/ix_names.py rename ancien nouveau [ancien nouveau...]
+                                         renomme dans la table et les
+                                         sources à la fois (échanges permis)
 
 L'assembleur n'est pas modifié : les commentaires du C (« LAB_0CBB : ... »)
 et les bancs de comparaison continuent de s'y référer par ses labels.
@@ -32,7 +36,7 @@ ROOT = os.path.dirname(HERE)
 DATA = os.path.join(ROOT, 'game', 'data')
 PROGS = {'mog': 'MOG', 'program': 'PROGRAM'}
 RAW = r'(?:LAB|L[0-9]+|SECSTRT|EXT)_[0-9A-Fa-f_]+'
-NAME = re.compile(r'^(?:[A-Z][A-Za-z0-9]*_[A-Za-z0-9_]+|[vtsb]_[A-Za-z0-9_]+)$')
+NAME = re.compile(r'^(?:[A-Z][A-Za-z0-9]*_[A-Za-z0-9_]+|[vtsbx]_[A-Za-z0-9_]+)$')
 
 
 def syms(prog):
@@ -146,6 +150,29 @@ def check():
     print('labels bruts distincts par fichier : %d' % total)
 
 
+def rename(args):
+    if len(args) % 2:
+        sys.exit('rename : paires ancien nouveau')
+    pairs = dict(zip(args[0::2], args[1::2]))
+    for prog, pre in PROGS.items():
+        path = os.path.join(DATA, '%s_names.txt' % prog)
+        if not os.path.exists(path):
+            continue
+        lines = open(path).read().split('\n')
+        for i, line in enumerate(lines):
+            parts = line.split(None, 2)
+            if len(parts) >= 2 and not line.lstrip().startswith('#') and parts[1] in pairs:
+                lines[i] = line.replace(parts[1], pairs[parts[1]], 1)
+        open(path, 'w').write('\n'.join(lines))
+        pat = re.compile(r'\b%s_(%s)\b' % (pre, '|'.join(map(re.escape, pairs))))
+        for src in sources([]):
+            code = open(src).read()
+            new = pat.sub(lambda m: '%s_%s' % (pre, pairs[m.group(1)]), code)
+            if new != code:
+                open(src, 'w').write(new)
+    checked('mog'), checked('program')
+
+
 def main():
     cmd = sys.argv[1] if len(sys.argv) > 1 else ''
     if cmd == 'gen':
@@ -154,6 +181,8 @@ def main():
         apply(sys.argv[2:])
     elif cmd == 'check':
         check()
+    elif cmd == 'rename':
+        rename(sys.argv[2:])
     else:
         sys.exit(__doc__)
 

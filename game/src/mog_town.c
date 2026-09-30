@@ -82,19 +82,19 @@ static void offer_draw(MogCombat *m)
     ww(m, MOG_v_BlitByCpu, 1);
     mog_set_planes(m, rl(m, MOG_LAB_0D92));
     uint32_t cel = rl(m, MOG_b_Piv);
-    uint16_t f = rw(m, MOG_LAB_091A);
+    uint16_t f = rw(m, MOG_v_PurseFrame);
     mog_draw_cel(VM, &m->blt, cel, f, 2, 0xA2);
     mog_draw_cel(VM, &m->blt, cel, f, 0x10E, 0xA2);
     mog_draw_cel(VM, &m->blt, cel, 2, 0xAD, 0xB9);
     mog_draw_cel(VM, &m->blt, cel, 3, 0x83, 0xB9);
     mog_draw_cel(VM, &m->blt, cel, 4, 0x90, 0xA9);
     mog_draw_cel(VM, &m->blt, cel, 5, 0xA2, 0xA9);
-    mog_text(m, MOG_LAB_0972, 0x106, 0xBE, 4);
-    mog_text(m, MOG_LAB_0971, 2, 0xBE, 0);
-    mog_number(m, rw(m, MOG_LAB_0977), MOG_LAB_0975);  /* D0.h = 0 (LAB_0431) */
-    mog_text(m, MOG_LAB_0975, 0x14, 0xAF, 0);
-    mog_number(m, rw(m, MOG_LAB_0976), MOG_LAB_0975);
-    mog_text(m, MOG_LAB_0975, 0x120, 0xAF, 0);
+    mog_text(m, MOG_s_Donation, 0x106, 0xBE, 4);
+    mog_text(m, MOG_s_YourGold, 2, 0xBE, 0);
+    mog_number(m, rw(m, MOG_v_GoldLeft), MOG_b_NumberText);  /* D0.h = 0 (LAB_0431) */
+    mog_text(m, MOG_b_NumberText, 0x14, 0xAF, 0);
+    mog_number(m, rw(m, MOG_v_GoldOffered), MOG_b_NumberText);
+    mog_text(m, MOG_b_NumberText, 0x120, 0xAF, 0);
     mog_swap_screens(m);                                /* LAB_0416 */
     ww(m, MOG_v_BlitByCpu, 0);
 }
@@ -103,9 +103,9 @@ static void offer_draw(MogCombat *m)
  * renvoie le bouton (2 : annuler, 3 : accepter) */
 static uint16_t offer(MogCombat *m, uint16_t d0)
 {
-    ww(m, MOG_LAB_0977, rw(m, CUR + 74));
-    ww(m, MOG_LAB_0976, 0);
-    ww(m, MOG_LAB_091A, d0);
+    ww(m, MOG_v_GoldLeft, rw(m, CUR + 74));
+    ww(m, MOG_v_GoldOffered, 0);
+    ww(m, MOG_v_PurseFrame, d0);
     mog_clear_zones(m);                                 /* LAB_044E */
     zone_xy(m, 0x90, 0xA9);
     zone_wh(m, 0x0E, 8);
@@ -132,29 +132,29 @@ static uint16_t offer(MogCombat *m, uint16_t d0)
     offer_draw(m);
     for (;;) {                                          /* LAB_0496 */
         busy_tick(m);
-        uint32_t z = mog_zone_at(m, rw(m, MOG_LAB_097F), rw(m, MOG_LAB_0980));
-        if (!(uint16_t)z || rw(m, MOG_LAB_0981))
+        uint32_t z = mog_zone_at(m, rw(m, MOG_v_PointerX), rw(m, MOG_v_PointerY));
+        if (!(uint16_t)z || rw(m, MOG_v_PointerOn))
             continue;
         uint16_t k = rw(m, z + 20);
         switch (k) {
         case 2:                                         /* LAB_0497 */
-            ww(m, MOG_LAB_0976, 0);
-            ww(m, MOG_LAB_0977, 0);
+            ww(m, MOG_v_GoldOffered, 0);
+            ww(m, MOG_v_GoldLeft, 0);
             return k;
         case 3:                                         /* LAB_0498 */
-            ww(m, CUR + 74, rw(m, MOG_LAB_0977));
+            ww(m, CUR + 74, rw(m, MOG_v_GoldLeft));
             return k;
         case 4:                                         /* LAB_0499 : reprendre */
-            if (!rw(m, MOG_LAB_0976))
+            if (!rw(m, MOG_v_GoldOffered))
                 continue;
-            ww(m, MOG_LAB_0976, (uint16_t)(rw(m, MOG_LAB_0976) - 1));
-            ww(m, MOG_LAB_0977, (uint16_t)(rw(m, MOG_LAB_0977) + 1));
+            ww(m, MOG_v_GoldOffered, (uint16_t)(rw(m, MOG_v_GoldOffered) - 1));
+            ww(m, MOG_v_GoldLeft, (uint16_t)(rw(m, MOG_v_GoldLeft) + 1));
             break;
         case 5:                                         /* LAB_049A : donner */
-            if (!rw(m, MOG_LAB_0977))
+            if (!rw(m, MOG_v_GoldLeft))
                 continue;
-            ww(m, MOG_LAB_0976, (uint16_t)(rw(m, MOG_LAB_0976) + 1));
-            ww(m, MOG_LAB_0977, (uint16_t)(rw(m, MOG_LAB_0977) - 1));
+            ww(m, MOG_v_GoldOffered, (uint16_t)(rw(m, MOG_v_GoldOffered) + 1));
+            ww(m, MOG_v_GoldLeft, (uint16_t)(rw(m, MOG_v_GoldLeft) - 1));
             break;
         default:
             continue;
@@ -171,10 +171,10 @@ static uint16_t shop_enter(MogCombat *m, uint32_t picture, uint32_t text, int sn
     wl(m, MOG_v_Combatants + 10, rl(m, MOG_t_FontBank));
     mog_set_planes(m, rl(m, MOG_v_BgPlanes));
     mog_load_picture(m, picture, rl(m, MOG_b_Piv)); /* LAB_0C27 */
-    mog_load_cel(VM, MOG_LAB_091D, rl(m, MOG_b_Piv));   /* LAB_049C */
+    mog_load_cel(VM, MOG_s_MysCel, rl(m, MOG_b_Piv));   /* LAB_049C */
     mog_fade_black(m);                                  /* LAB_03F0 */
-    ww(m, MOG_LAB_097F, 0xA0);
-    ww(m, MOG_LAB_0980, 0xAA);
+    ww(m, MOG_v_PointerX, 0xA0);
+    ww(m, MOG_v_PointerY, 0xAA);
     mog_pointer_on(m);                                  /* LAB_0575 */
     mog_show_background(m);                             /* LAB_0418 */
     (void)blit_wait;                                    /* LAB_0D1B : blitter libre */
@@ -205,20 +205,20 @@ static void shop_leave(MogCombat *m, uint32_t text)
 /* LAB_048E : guérisseur (10 pièces : PV, 15 : une vie ; poison guéri) */
 static void healer(MogCombat *m)
 {
-    uint16_t k = shop_enter(m, MOG_LAB_091B, MOG_LAB_0935, 0x79, 1, 0);
+    uint16_t k = shop_enter(m, MOG_s_HeaPiv, MOG_t_HealerText, 0x79, 1, 0);
     if (k != 3) {
-        shop_leave(m, MOG_LAB_0938);                    /* LAB_0485 */
+        shop_leave(m, MOG_t_ShopCancelled);                    /* LAB_0485 */
         return;
     }
-    uint16_t d1 = rw(m, MOG_LAB_0976);
+    uint16_t d1 = rw(m, MOG_v_GoldOffered);
     if (!d1) {
-        shop_leave(m, MOG_LAB_0939);                    /* LAB_0484 */
+        shop_leave(m, MOG_t_ShopNoGold);                    /* LAB_0484 */
         return;
     }
     unsigned d2 = 0;
     for (;;) {                                          /* LAB_048F */
         uint32_t a0 = CUR;
-        if ((int16_t)rw(m, MOG_LAB_0976) < 0x0A)
+        if ((int16_t)rw(m, MOG_v_GoldOffered) < 0x0A)
             break;
         if (rb(m, a0 + 130)) {
             wb(m, a0 + 130, 0);
@@ -226,19 +226,19 @@ static void healer(MogCombat *m)
         }
         if (rw(m, a0 + 80) != rw(m, a0 + 84)) {        /* LAB_0490 */
             ww(m, a0 + 80, rw(m, a0 + 84));
-            ww(m, MOG_LAB_0976, (uint16_t)(rw(m, MOG_LAB_0976) - 0x0A));
+            ww(m, MOG_v_GoldOffered, (uint16_t)(rw(m, MOG_v_GoldOffered) - 0x0A));
             d2 |= 2;
             continue;
         }
         if (rb(m, a0 + 73) == 5)                        /* LAB_0491 */
             break;
         wb(m, a0 + 73, (uint8_t)(rb(m, a0 + 73) + 1));
-        ww(m, MOG_LAB_0976, (uint16_t)(rw(m, MOG_LAB_0976) - 0x0F));
+        ww(m, MOG_v_GoldOffered, (uint16_t)(rw(m, MOG_v_GoldOffered) - 0x0F));
         d2 |= 4;
     }
-    uint32_t t = MOG_LAB_093A;                          /* LAB_0492 */
+    uint32_t t = MOG_t_HealerTooLittle;                          /* LAB_0492 */
     if ((int16_t)d1 > 9)
-        t = (d2 & 1) ? MOG_LAB_093D : MOG_LAB_093C;
+        t = (d2 & 1) ? MOG_t_HealerCured : MOG_t_HealerHealed;
     shop_leave(m, t);
 }
 
@@ -246,7 +246,7 @@ static void healer(MogCombat *m)
 static int training_ok(MogCombat *m)
 {
     uint32_t d0 = mog_d100(m);                          /* LAB_04A3 */
-    int16_t d1 = (int16_t)rw(m, MOG_LAB_0976);
+    int16_t d1 = (int16_t)rw(m, MOG_v_GoldOffered);
     uint32_t a0 = MOG_LAB_048D;
     for (int i = 0; i < 6; i++) {
         if (d1 <= (int16_t)rw(m, a0))
@@ -260,13 +260,13 @@ static int training_ok(MogCombat *m)
 /* LAB_047C : maître d'armes (une caractéristique gagnée ou perdue) */
 static void trainer(MogCombat *m)
 {
-    uint16_t k = shop_enter(m, MOG_LAB_091C, MOG_LAB_0947, 0x74, 0, 1);
-    if (!rw(m, MOG_LAB_0976)) {
-        shop_leave(m, MOG_LAB_0939);                    /* LAB_0484 */
+    uint16_t k = shop_enter(m, MOG_s_MysPiv, MOG_t_MasterText, 0x74, 0, 1);
+    if (!rw(m, MOG_v_GoldOffered)) {
+        shop_leave(m, MOG_t_ShopNoGold);                    /* LAB_0484 */
         return;
     }
     if (k != 3) {
-        shop_leave(m, MOG_LAB_0938);                    /* LAB_0485 */
+        shop_leave(m, MOG_t_ShopCancelled);                    /* LAB_0485 */
         return;
     }
     uint32_t d1 = mog_pick_stat(m);                     /* LAB_0469 */
@@ -274,7 +274,7 @@ static void trainer(MogCombat *m)
     uint32_t tbl;
     if (training_ok(m)) {
         if (!d1) {
-            shop_leave(m, MOG_LAB_0956);
+            shop_leave(m, MOG_t_MasterMaxed);
             return;
         }
         wb(m, a1 + d1, (uint8_t)(rb(m, a1 + d1) + 1)); /* LAB_047D */
@@ -282,10 +282,10 @@ static void trainer(MogCombat *m)
             ww(m, a1 + 80, (uint16_t)(rw(m, a1 + 80) + 0x0A));
         mog_knight_hp(m, a1);                           /* LAB_047E : LAB_0013 */
         mog_knight_defence(m, a1);                      /* LAB_0019 */
-        tbl = MOG_LAB_095B;
+        tbl = MOG_t_MasterGainTexts;
     } else {
         if (rb(m, a1 + d1) == 1) {                      /* LAB_047F */
-            shop_leave(m, MOG_LAB_0959);                /* LAB_0486 */
+            shop_leave(m, MOG_t_MasterLost);                /* LAB_0486 */
             return;
         }
         wb(m, a1 + d1, (uint8_t)(rb(m, a1 + d1) - 1));
@@ -298,7 +298,7 @@ static void trainer(MogCombat *m)
         }
         mog_knight_defence(m, a0);                      /* LAB_0480 : LAB_0019 */
         mog_knight_hp(m, a0);                           /* LAB_0013 */
-        tbl = MOG_LAB_095C;
+        tbl = MOG_t_MasterLossTexts;
     }
     wl(m, MOG_LAB_0488, tbl);
     for (uint32_t a0 = tbl, i = 0; i < 3; i++, a0 += 8)    /* LAB_0481 */
@@ -306,7 +306,7 @@ static void trainer(MogCombat *m)
             shop_leave(m, rl(m, a0 + 4));               /* LAB_0483 */
             return;
         }
-    shop_leave(m, MOG_LAB_0959);                        /* LAB_0486 */
+    shop_leave(m, MOG_t_MasterLost);                        /* LAB_0486 */
 }
 
 /* ------------------------------------------------------------------ */
@@ -377,7 +377,7 @@ int mog_gamble_ctl(MogCombat *m, uint32_t a0, CtlResult *out)
         return 1;
     }
     if (mog_read_joy(m) & MOG_JOY_FIRE) {               /* LAB_04AE */
-        uint32_t z = mog_zone_at(m, rw(m, MOG_LAB_097F), rw(m, MOG_LAB_0980));
+        uint32_t z = mog_zone_at(m, rw(m, MOG_v_PointerX), rw(m, MOG_v_PointerY));
         if ((uint16_t)z) {
             if (rl(m, z + 16) == 1) {                   /* LAB_04B0 */
                 ww(m, MOG_LAB_0F62, rw(m, z + 20));
@@ -450,12 +450,12 @@ static void roll(MogCombat *m)
     if (win) {                                          /* LAB_04B8 */
         uint32_t d0 = (uint32_t)rw(m, MOG_LAB_0F62) * rb(m, a1 + 4);
         ww(m, k + 74, (uint16_t)(rw(m, k + 74) + d0));
-        gp(m, mog_number(m, d0, MOG_LAB_0F49));
-        gp(m, mog_number(m, (d0 & 0xFFFF0000u) | rw(m, k + 74), MOG_LAB_0F4B));
+        gp(m, mog_number(m, d0, MOG_s_GoldPieces2));
+        gp(m, mog_number(m, (d0 & 0xFFFF0000u) | rw(m, k + 74), MOG_s_GoldPieces3));
         mog_text_records(m, MOG_LAB_0F43);
     } else {
-        gp(m, mog_number(m, rw(m, MOG_LAB_0F62), MOG_LAB_0F47));
-        gp(m, mog_number(m, rw(m, k + 74), MOG_LAB_0F4B));
+        gp(m, mog_number(m, rw(m, MOG_LAB_0F62), MOG_s_GoldPieces));
+        gp(m, mog_number(m, rw(m, k + 74), MOG_s_GoldPieces3));
         mog_text_records(m, MOG_LAB_0F42);
     }
     mog_show_background(m);                             /* LAB_04B9 : LAB_0418 */
@@ -473,16 +473,16 @@ static void gamble(MogCombat *m)
     ww(m, MOG_v_CreatureLoaded, 0xFFFF);                        /* LAB_04A7 */
     wl(m, MOG_v_Combatants + 10, rl(m, MOG_t_FontBank));
     mog_set_planes(m, rl(m, MOG_b_Piv));
-    mog_load_picture(m, MOG_LAB_0F4D, rl(m, MOG_LAB_0D92));
+    mog_load_picture(m, MOG_s_TavPiv, rl(m, MOG_LAB_0D92));
     for (uint32_t i = 0; i < 32; i++)                   /* LAB_0422 */
         ww(m, MOG_t_PalTownA + 2 * i, rw(m, MOG_LAB_0D2B + 2 * i));
     wl(m, MOG_LAB_0F5C, rl(m, MOG_t_ChipBuffers + 8));
     mog_set_planes(m, rl(m, MOG_LAB_0F5C));
-    mog_load_picture(m, MOG_LAB_0F4E, rl(m, MOG_LAB_0D92));
+    mog_load_picture(m, MOG_s_DicePiv, rl(m, MOG_LAB_0D92));
     for (uint32_t i = 0; i < 32; i++)
         ww(m, MOG_t_PalTownB + 2 * i, rw(m, MOG_LAB_0D2B + 2 * i));
     wl(m, MOG_LAB_0F5A, rl(m, MOG_t_ChipBuffers + 8) + 0x9C40);
-    mog_load_cel(VM, MOG_LAB_0F4F, rl(m, MOG_LAB_0F5A));
+    mog_load_cel(VM, MOG_s_DiceCel, rl(m, MOG_LAB_0F5A));
     wl(m, MOG_v_Combatants + 10, rl(m, MOG_t_FontBank));
     wl(m, MOG_LAB_0F59, CUR);
     mog_clear_zones(m);                                 /* LAB_044E */
@@ -512,7 +512,7 @@ static void gamble(MogCombat *m)
     mog_voice(m, 2, 0x7F);                              /* LAB_0A9C */
     for (;;) {                                          /* LAB_04A8 */
         black_palette(m);                               /* LAB_03EB */
-        ww(m, MOG_LAB_097F, 0x118);
+        ww(m, MOG_v_PointerX, 0x118);
         mog_pointer_on(m);
         if (!((int16_t)rw(m, rl(m, MOG_LAB_0F59) + 74) > 0))
             break;
@@ -569,7 +569,7 @@ static void town_picture(MogCombat *m, uint32_t name)
     for (uint32_t i = 0; i < 32; i++)                   /* LAB_0422 */
         ww(m, MOG_LAB_05B7 + 2 * i, rw(m, MOG_LAB_0D2B + 2 * i));
     mog_fade_black(m);                                  /* LAB_03F0 */
-    mog_copy_screen(m, rl(m, MOG_LAB_0704), rl(m, MOG_v_BgPlanes));  /* LAB_0419 */
+    mog_copy_screen(m, rl(m, MOG_v_TownPlanes), rl(m, MOG_v_BgPlanes));  /* LAB_0419 */
     mog_show_background(m);                             /* LAB_0418 */
 }
 
@@ -577,10 +577,10 @@ static void town_picture(MogCombat *m, uint32_t name)
 static void town_enter(MogCombat *m, uint32_t text, uint32_t name)
 {
     /* LAB_0100 (disquette 3) : sans objet */
-    wl(m, MOG_LAB_0713, text);
-    mog_message_screen(m, MOG_LAB_070F, 0);             /* LAB_0136 */
-    wl(m, MOG_LAB_0704, rl(m, MOG_v_SheetPlanes));
-    mog_set_planes(m, rl(m, MOG_LAB_0704));
+    wl(m, MOG_t_TownWaitText, text);
+    mog_message_screen(m, MOG_t_TownWaitMessage, 0);             /* LAB_0136 */
+    wl(m, MOG_v_TownPlanes, rl(m, MOG_v_SheetPlanes));
+    mog_set_planes(m, rl(m, MOG_v_TownPlanes));
     town_picture(m, name);
 }
 
@@ -628,22 +628,22 @@ static int inventory_leave(MogCombat *m)
 static int town_menu(MogCombat *m, int kind)
 {
     if (kind)
-        town_enter(m, MOG_LAB_071C, MOG_LAB_0716);      /* LAB_012F */
+        town_enter(m, MOG_s_Waterdeep, MOG_s_WaterDeepPiv);      /* LAB_012F */
     else
-        town_enter(m, MOG_LAB_071B, MOG_LAB_0715);      /* LAB_012E */
+        town_enter(m, MOG_s_Highwood, MOG_s_HighWoodPiv);      /* LAB_012E */
     for (;;) {
-        ww(m, MOG_LAB_097F, kind ? 0x1E : 0x122);       /* LAB_008B / LAB_0094 */
-        ww(m, MOG_LAB_0980, 0x64);
+        ww(m, MOG_v_PointerX, kind ? 0x1E : 0x122);       /* LAB_008B / LAB_0094 */
+        ww(m, MOG_v_PointerY, 0x64);
         mog_pointer_on(m);                              /* LAB_0575 */
         town_zones(m, kind);
-        mog_copy_screen(m, rl(m, MOG_LAB_0704), rl(m, MOG_v_BgPlanes));
+        mog_copy_screen(m, rl(m, MOG_v_TownPlanes), rl(m, MOG_v_BgPlanes));
         mog_show_background(m);                         /* LAB_0418 */
         mog_fade_to(m, MOG_LAB_05B7);                   /* LAB_03F2 */
         mog_clear_keys(m);                              /* LAB_0B82 */
         uint32_t id = 0, screen = 0;
         for (;;) {                                      /* LAB_008C / LAB_0095 */
             busy_tick(m);
-            uint32_t z = mog_zone_at(m, rw(m, MOG_LAB_097F), rw(m, MOG_LAB_0980));
+            uint32_t z = mog_zone_at(m, rw(m, MOG_v_PointerX), rw(m, MOG_v_PointerY));
             if ((uint16_t)z && (mog_read_joy(m) & MOG_JOY_FIRE)) {   /* TST.W D0 */
                 id = rl(m, z + 16);
                 if (id >= 1 && id <= 5)
@@ -776,12 +776,12 @@ static void sacrifice(MogCombat *m)
     mog_message_screen(m, MOG_SECSTRT_42, 1);           /* LAB_0137 */
     wb(m, MOG_v_CreatureLoaded, 0xFF);
     mog_set_planes(m, rl(m, MOG_v_BgPlanes));
-    mog_load_picture(m, MOG_LAB_0F50, rl(m, MOG_LAB_0D92));
+    mog_load_picture(m, MOG_s_Hen1P, rl(m, MOG_LAB_0D92));
     for (uint32_t i = 0; i < 32; i++)                   /* LAB_0422 */
         ww(m, MOG_t_PalTownA + 2 * i, rw(m, MOG_LAB_0D2B + 2 * i));
     wl(m, MOG_LAB_0F5A, rl(m, MOG_t_ChipBuffers + 8));
-    mog_load_cel(VM, MOG_LAB_0F51, rl(m, MOG_LAB_0F5A));
-    mog_load_sounds(m, MOG_LAB_0AC2, MOG_b_SoundsCreature, 0x2F78);    /* LAB_0AB0 */
+    mog_load_cel(VM, MOG_s_Hen1C, rl(m, MOG_LAB_0F5A));
+    mog_load_sounds(m, MOG_s_HeA, MOG_b_SoundsCreature, 0x2F78);    /* LAB_0AB0 */
     wl(m, MOG_t_Controllers + 40, MOG_LAB_04C4);
     ix_spawn(&m->eng, MOG_LAB_0F57, MOG_LAB_0F5A, 0xA0, 0, 0x64, 1, 40);
     ix_spawn(&m->eng, MOG_LAB_0F56, MOG_LAB_0F5A, 0xA0, 0, 0x64, 1, 40);
@@ -883,11 +883,11 @@ static void witch_load(MogCombat *m)
     /* LAB_0100 (disquette 3) : sans objet */
     mog_loading_screen(m);                              /* LAB_0134 */
     mog_set_planes(m, rl(m, MOG_b_Piv));
-    mog_load_picture(m, MOG_LAB_078A, rl(m, MOG_LAB_0D92));
+    mog_load_picture(m, MOG_s_Wi2P, rl(m, MOG_LAB_0D92));
     for (uint32_t i = 0; i < 32; i++)
         ww(m, MOG_t_PalTownA + 2 * i, rw(m, MOG_LAB_0D2B + 2 * i));
     mog_set_planes(m, rl(m, MOG_v_SheetPlanes));
-    mog_load_picture(m, MOG_LAB_0789, rl(m, MOG_LAB_0D92));
+    mog_load_picture(m, MOG_s_Wi1P, rl(m, MOG_LAB_0D92));
     for (uint32_t i = 0; i < 32; i++)
         ww(m, MOG_t_PalTownB + 2 * i, rw(m, MOG_LAB_0D2B + 2 * i));
     if (rb(m, MOG_v_CreatureLoaded) != 0x3C) {
@@ -895,9 +895,9 @@ static void witch_load(MogCombat *m)
         wl(m, MOG_v_LoadPtr, rl(m, MOG_t_ChipBuffers + 8));
         for (uint32_t i = 0; i < 5; i++)
             wl(m, MOG_t_BankEnemy + 4 * i, rl(m, MOG_v_LoadPtr));
-        mog_load_cel(VM, MOG_LAB_0788, rl(m, MOG_v_LoadPtr));
+        mog_load_cel(VM, MOG_s_Wi1C, rl(m, MOG_v_LoadPtr));
     }
-    mog_load_sounds(m, MOG_LAB_0ABE, MOG_b_SoundsWizard, 0xD6D8);    /* LAB_0132 : LAB_0AB4 */
+    mog_load_sounds(m, MOG_s_WzA, MOG_b_SoundsWizard, 0xD6D8);    /* LAB_0132 : LAB_0AB4 */
 }
 
 /* Scène animée jusqu'au feu (LAB_0457, LAB_0458, LAB_045D) */
@@ -923,9 +923,9 @@ static void witch(MogCombat *m)
     mog_reset_entities(m);                              /* LAB_0305 */
     copy_40000(m, rl(m, MOG_b_Piv), rl(m, MOG_v_BgPlanes));   /* LAB_041F */
     knight_colours(m, MOG_t_PalTownA, 0x0C);              /* LAB_04C5 */
-    ix_spawn(&m->eng, MOG_LAB_097A, MOG_t_BankEnemy, 0xA0, 0, 0x64, 1, 40);
+    ix_spawn(&m->eng, MOG_x_WizardStand, MOG_t_BankEnemy, 0xA0, 0, 0x64, 1, 40);
     mog_set_planes(m, rl(m, MOG_v_BgPlanes));
-    text_lines(m, MOG_LAB_091E, 0x96, 5, 0);            /* LAB_049E */
+    text_lines(m, MOG_s_AsYouRingTheBellAtThe, 0x96, 5, 0);            /* LAB_049E */
     mog_show_background(m);                             /* LAB_0418 */
     mog_swap_screens(m);
     ix_run_entities(&m->eng);
@@ -943,10 +943,10 @@ static void witch(MogCombat *m)
     mog_random_event(m);                                /* LAB_045E */
     copy_40000(m, rl(m, MOG_v_SheetPlanes), rl(m, MOG_v_BgPlanes));
     mog_set_planes(m, rl(m, MOG_v_BgPlanes));
-    text_lines(m, rl(m, MOG_LAB_0909), 0x32, 0x82, 1);
+    text_lines(m, rl(m, MOG_v_EventMessage), 0x32, 0x82, 1);
     mog_show_background(m);
-    ix_spawn(&m->eng, MOG_LAB_0978, MOG_t_BankEnemy, 0xA0, 0, 0x64, 1, 40);
-    ix_spawn(&m->eng, MOG_LAB_0979, MOG_t_BankEnemy, 0xA0, 0, 0x64, 1, 40);
+    ix_spawn(&m->eng, MOG_x_WizardA, MOG_t_BankEnemy, 0xA0, 0, 0x64, 1, 40);
+    ix_spawn(&m->eng, MOG_x_WizardB, MOG_t_BankEnemy, 0xA0, 0, 0x64, 1, 40);
     mog_swap_screens(m);
     wl(m, MOG_v_PalFadeTarget, MOG_t_PalTownB);
     ww(m, MOG_v_PalFadeDelay, 2);
@@ -958,13 +958,13 @@ static void witch(MogCombat *m)
     copy_40000(m, rl(m, MOG_b_Piv), rl(m, MOG_v_BgPlanes));
     black_palette(m);
     mog_set_planes(m, rl(m, MOG_v_BgPlanes));
-    ix_spawn(&m->eng, MOG_LAB_097A, MOG_t_BankEnemy, 0xA0, 0, 0x64, 1, 40);
-    uint32_t t = MOG_LAB_0933;
-    switch (rw(m, MOG_LAB_090B)) {
-    case 2: t = MOG_LAB_0930; break;
-    case 3: t = MOG_LAB_0932; break;
-    case 1: t = MOG_LAB_092E; break;
-    case 4: t = MOG_LAB_0934; break;
+    ix_spawn(&m->eng, MOG_x_WizardStand, MOG_t_BankEnemy, 0xA0, 0, 0x64, 1, 40);
+    uint32_t t = MOG_t_WizardNoneText;
+    switch (rw(m, MOG_v_EventKind)) {
+    case 2: t = MOG_t_WizardGoldText; break;
+    case 3: t = MOG_t_WizardStatText; break;
+    case 1: t = MOG_t_WizardItemText; break;
+    case 4: t = MOG_t_WizardCurseText; break;
     }
     text_lines(m, t, 0x96, 5, 0);
     mog_show_background(m);

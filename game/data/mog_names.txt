@@ -84,7 +84,7 @@ LAB_05C2    b_Piv               tampon d'un PIV compressé avant décodage
 LAB_05C3    v_Objects           les 20 objets du combat (IX_OBJECT_SIZE octets chacun)
 LAB_05C4    v_CursorCel         CEL du curseur (menu) ou de la carte (LAB_05E2+4)
 LAB_05C5    v_Players           nombre de joueurs humains (1 à 4)
-LAB_05C6    b_MapCreatures      24 créatures de la carte (20 octets chacune)
+LAB_05C6    v_MapCreatures      créatures (repaires) de la carte : 24 × 20 octets (= LAB_05B9+68)
 LAB_05C7    b_SoundsKnight      banque de sons du chevalier (kn.a)
 LAB_05C8    b_SoundsCreature    banque de sons de la créature (une à la fois)
 LAB_05C9    b_SoundsReplay      banque Re.a
@@ -115,10 +115,10 @@ LAB_05E2    t_BankMap           banque CEL de la carte
 LAB_05E5    t_PalTownA          palette d'une ville (LAB_04C5)
 LAB_05E6    t_PalTownB          palette d'une ville (écran suivant)
 LAB_05E7    v_MessageText       enregistrements de texte de l'écran de message
-LAB_05E8    v_TerrainNextGlade  terrain suivant (clairière, LAB_07B8)
+LAB_05E8    v_TerrainNextSwamp  terrain suivant (marais, LAB_07B8)
 LAB_05E9    v_TerrainNextWater  terrain suivant (eau, LAB_07B6)
-LAB_05EA    v_TerrainNextForest terrain suivant (forêt, LAB_07B7)
-LAB_05EB    v_TerrainNextSwamp  terrain suivant (marais, LAB_07B9 ; octet)
+LAB_05EA    v_TerrainNextGlade  terrain suivant (clairière, LAB_07B7)
+LAB_05EB    v_TerrainNextForest terrain suivant (forêt, LAB_07B9 ; octet)
 LAB_05EC    v_FoesToBeat        adversaires à vaincre
 LAB_05ED    v_FoesAtOnce        adversaires présents à la fois
 LAB_05EE    v_FoesEntered       adversaires entrés
@@ -328,3 +328,502 @@ LAB_06F7    v_ChooseKnightObj   objet du chevalier à choisir
 LAB_06F8    v_ChooseLeft        joueurs restant à choisir
 LAB_06F9    v_KnightsFree       chevaliers libres (bits)
 LAB_06FD    t_MenuPalette       palette du menu
+
+# --- Menu, villes, fichiers ---
+LAB_0702    t_KnightChoiceX     X des quatre chevaliers du choix
+LAB_0703    v_KnightChoice      chevalier sous le curseur du choix
+LAB_0704    v_TownPlanes        plans de l'image de la ville (= LAB_05C1)
+LAB_0705    v_BoldFont          grande police (copie de LAB_05E3+16)
+LAB_0709    t_NextDayText       texte de l'écran « jour suivant »
+LAB_070E    s_MiC               "mi.c" (icônes de la carte)
+LAB_070F    t_TownWaitMessage   message d'attente avant la ville
+LAB_0713    t_TownWaitText      son enregistrement de texte (nom de la ville)
+LAB_0714    v_KnightCtlFn       contrôleur du chevalier humain (LAB_029F ; changé si copie)
+LAB_0715    s_HighWoodPiv       "HighWood.piv"
+LAB_0716    s_WaterDeepPiv      "WaterDeep.piv"
+LAB_071B    s_Highwood          "Highwood"
+LAB_071C    s_Waterdeep         "Waterdeep"
+LAB_071D    v_LoadingTextIndex  texte suivant de l'écran de chargement (0-13)
+LAB_071E    t_LoadingTexts      textes de l'écran de chargement
+LAB_076D    v_TerrainMode       2 : terrain du repaire (LAB_076E) au lieu du cycle
+LAB_076E    v_LairTerrain       fichier .t du repaire
+LAB_076F    s_Kn1Ob             "kn1.ob"
+LAB_0770    s_Kn2Ob             "kn2.ob"
+LAB_0771    s_Kn3Ob             "kn3.ob"
+LAB_0772    s_Kn4Ob             "kn4.ob"
+LAB_0773    s_Kn5Ob             "Kn5.ob"
+LAB_0774    s_BloCel            "blo.cel"
+LAB_0775    s_He1Ob             "He1.ob"
+LAB_0776    s_He2Ob             "He2.ob"
+LAB_0777    s_He3Ob             "He3.ob"
+LAB_0778    s_TroggAxe1Cel      "TroggAxe1.cel"
+LAB_0779    s_TroggAxe2Cel      "TroggAxe2.cel"
+LAB_077A    s_TroggSpear1Cel    "TroggSpear1.cel"
+LAB_077B    s_TroggSpear2Cel    "TroggSpear2.cel"
+LAB_077C    s_Ratmen1Cel        "Ratmen1.cel"
+LAB_077D    s_Ratmen2Cel        "Ratmen2.cel"
+LAB_077E    s_Be1C              "be1.c"
+LAB_077F    s_Be2C              "be2.c"
+LAB_0780    s_Dragon1Cel        "Dragon1.cel"
+LAB_0781    s_Dragon2Cel        "Dragon2.cel"
+LAB_0782    s_Mudmen1Cel        "Mudmen1.cel"
+LAB_0783    s_Mudmen2Cel        "Mudmen2.cel"
+LAB_0784    s_KiCel             "ki.cel"
+LAB_0785    s_Balok1Cel         "Balok1.cel"
+LAB_0786    s_Balok3Cel         "Balok3.cel"
+LAB_0787    s_Balok2Cel         "Balok2.cel"
+LAB_0788    s_Wi1C              "wi1.c"
+LAB_0789    s_Wi1P              "wi1.p"
+LAB_078A    s_Wi2P              "wi2.p"
+LAB_078B    s_BoldF             "bold.f"
+LAB_078C    s_SmallFont         "Small.font"
+LAB_07AD    s_SelCel            "Sel.cel"
+LAB_07AE    s_MessagePiv        "message.piv"
+LAB_07AF    s_ChPiv             "ch.piv"
+LAB_07B0    s_Demon1Cel         "Demon1.cel"
+LAB_07B1    s_Demon2Cel         "Demon2.cel"
+LAB_07B2    s_Demon3Cel         "Demon3.cel"
+LAB_07B3    s_Demon4Cel         "Demon4.cel"
+LAB_07B4    s_Troll1Cel         "Troll1.cel"
+LAB_07B5    s_Troll2Cel         "Troll2.cel"
+LAB_07B6    t_TerrainsWater     8 terrains de l'eau (Wa*.t)
+LAB_07B7    t_TerrainsGlade     8 terrains de la clairière (GL*.t)
+LAB_07B8    t_TerrainsSwamp     8 terrains du marais (Sw*.t)
+LAB_07B9    t_TerrainsForest    8 terrains de la forêt (FO*.t)
+LAB_07BA    t_EntriesA          positions d'entrée des adversaires (Troggs)
+LAB_07BB    t_EntriesB          positions d'entrée (LAB_0189)
+LAB_07BC    t_EntriesC          positions d'entrée (hommes-rats, Démon)
+LAB_07BD    t_LairCreature      créature de chacun des 24 repaires
+LAB_07BE    t_LairPos           position (X, Y) des repaires
+LAB_07BF    t_LairPlace         type de lieu des repaires (décor du combat)
+LAB_07C0    t_LairTerrain       fichier .t des repaires
+
+# --- Scripts IMAGEXCEL des combattants (tables +34 attaques, +30 réactions, +46 marche ; +22 repos, +26 après avoir touché) ---
+LAB_07DB    x_KnightStand       chevalier au repos (+22 ; aussi attaque 0 et réaction 0)
+LAB_07DC    x_KnightRecoil      chevalier après avoir touché (+26 ; aussi réactions 4 et 7)
+LAB_0800    x_TroggAStand       Trogg (LAB_0169) au repos (+22, +26)
+LAB_0828    x_TroggBStand       Trogg à hache (LAB_0170) au repos (+22, +26)
+LAB_081A    x_TroggSpearStand   Trogg à lance au repos (+22, +26)
+LAB_0840    x_PassingKnightStand chevalier de passage au repos (+22 ; aussi réaction 4)
+LAB_0844    x_PassingKnightRecoil chevalier de passage après avoir touché (+26)
+LAB_084F    x_RatmenStand       homme-rat au repos (+22, +26)
+LAB_0888    x_BalokStand        Balok au repos (+22)
+LAB_088F    x_BalokRecoil       Balok après avoir touché (+26)
+LAB_089A    x_MudmenStand       Mudmen au repos (+22, +26)
+LAB_08A5    x_TrollStand        Troll au repos (+22, +26)
+LAB_0882    x_DragonStand       Dragon au repos (+22, +26 ; LAB_0195)
+LAB_07DD    x_KnightWalkH0      marche horizontale, phase 0 (t_KnightWalk+0)
+LAB_07DE    x_KnightWalkH1      marche horizontale, phase 1 (t_KnightWalk+4)
+LAB_07DF    x_KnightWalkH2      marche horizontale, phase 2 (t_KnightWalk+8)
+LAB_07E0    x_KnightWalkH3      marche horizontale, phase 3 (t_KnightWalk+12)
+LAB_07E1    x_KnightWalkUp0     marche vers le haut, phase 0 (t_KnightWalk+32)
+LAB_07E2    x_KnightWalkUp1     marche vers le haut, phase 1 (t_KnightWalk+36)
+LAB_07E3    x_KnightWalkUp2     marche vers le haut, phase 2 (t_KnightWalk+40)
+LAB_07E4    x_KnightWalkUp3     marche vers le haut, phase 3 (t_KnightWalk+44)
+LAB_07E5    x_KnightWalkDown0   marche vers le bas, phase 0 (t_KnightWalk+64)
+LAB_07E6    x_KnightWalkDown1   marche vers le bas, phase 1 (t_KnightWalk+68)
+LAB_07E7    x_KnightWalkDown2   marche vers le bas, phase 2 (t_KnightWalk+72)
+LAB_07E8    x_KnightWalkDown3   marche vers le bas, phase 3 (t_KnightWalk+76)
+LAB_07E9    x_KnightAtk5        attaque 5 (t_KnightAttacks+20)
+LAB_07EA    x_KnightAtk3        attaque 3 (t_KnightAttacks+12)
+LAB_07ED    x_KnightAtk2        attaque 2 (t_KnightAttacks+8)
+LAB_07EE    x_KnightAtk8        attaque 8 (t_KnightAttacks+32)
+LAB_07EF    x_KnightAtk1        attaque 1 (t_KnightAttacks+4)
+LAB_07F1    x_KnightAtk6        attaque 6 (t_KnightAttacks+24)
+LAB_07F3    x_KnightAtk7        attaque 7 (t_KnightAttacks+28)
+LAB_07F4    x_KnightAtk4        attaque 4 (t_KnightAttacks+16)
+LAB_07F5    x_KnightReact8      réaction à l'attaque 8 (t_KnightScripts+32)
+LAB_07F6    x_KnightReact1      réaction à l'attaque 1 (t_KnightScripts+4)
+LAB_0801    x_TroggAAtk2        attaque 2 (t_TroggAAttacks+8)
+LAB_0802    x_TroggAAtk6        attaque 6 (t_TroggAAttacks+24)
+LAB_0803    x_TroggAWalkH0      marche horizontale, phase 0 (t_TroggAWalk+0)
+LAB_0804    x_TroggAWalkH1      marche horizontale, phase 1 (t_TroggAWalk+4)
+LAB_0805    x_TroggAWalkH2      marche horizontale, phase 2 (t_TroggAWalk+8)
+LAB_0806    x_TroggAWalkUp0     marche vers le haut, phase 0 (t_TroggAWalk+32)
+LAB_0807    x_TroggAWalkUp1     marche vers le haut, phase 1 (t_TroggAWalk+36)
+LAB_0808    x_TroggAWalkUp2     marche vers le haut, phase 2 (t_TroggAWalk+40)
+LAB_0809    x_TroggAWalkUp3     marche vers le haut, phase 3 (t_TroggAWalk+44)
+LAB_080A    x_TroggAWalkDown0   marche vers le bas, phase 0 (t_TroggAWalk+64)
+LAB_080B    x_TroggAWalkDown1   marche vers le bas, phase 1 (t_TroggAWalk+68)
+LAB_080C    x_TroggAWalkDown2   marche vers le bas, phase 2 (t_TroggAWalk+72)
+LAB_080D    x_TroggAWalkDown3   marche vers le bas, phase 3 (t_TroggAWalk+76)
+LAB_080E    x_TroggAReact8      réaction à l'attaque 8 (t_TroggAScripts+32)
+LAB_080F    x_TroggAReact2      réaction à l'attaque 2 (t_TroggAScripts+8)
+LAB_0810    x_TroggAReact1      réaction à l'attaque 1 (t_TroggAScripts+4)
+LAB_0814    x_TroggSpearReact8  réaction à l'attaque 8 (t_TroggSpearScripts+32)
+LAB_0815    x_TroggSpearReact2  réaction à l'attaque 2 (t_TroggSpearScripts+8)
+LAB_0816    x_TroggSpearReact1  réaction à l'attaque 1 (t_TroggSpearScripts+4)
+LAB_081D    x_TroggSpearWalkH0  marche horizontale, phase 0 (t_TroggSpearWalk+0)
+LAB_081E    x_TroggSpearWalkH1  marche horizontale, phase 1 (t_TroggSpearWalk+4)
+LAB_081F    x_TroggSpearWalkH2  marche horizontale, phase 2 (t_TroggSpearWalk+8)
+LAB_0820    x_TroggSpearWalkUp0 marche vers le haut, phase 0 (t_TroggSpearWalk+32)
+LAB_0821    x_TroggSpearWalkUp1 marche vers le haut, phase 1 (t_TroggSpearWalk+36)
+LAB_0822    x_TroggSpearWalkUp2 marche vers le haut, phase 2 (t_TroggSpearWalk+40)
+LAB_0823    x_TroggSpearWalkUp3 marche vers le haut, phase 3 (t_TroggSpearWalk+44)
+LAB_0824    x_TroggSpearWalkDown0 marche vers le bas, phase 0 (t_TroggSpearWalk+64)
+LAB_0825    x_TroggSpearWalkDown1 marche vers le bas, phase 1 (t_TroggSpearWalk+68)
+LAB_0826    x_TroggSpearWalkDown2 marche vers le bas, phase 2 (t_TroggSpearWalk+72)
+LAB_0827    x_TroggSpearWalkDown3 marche vers le bas, phase 3 (t_TroggSpearWalk+76)
+LAB_0829    x_TroggBAtk2        attaque 2 (t_TroggBAttacks+8)
+LAB_082A    x_TroggBAtk6        attaque 6 (t_TroggBAttacks+24)
+LAB_082B    x_TroggBWalkH0      marche horizontale, phase 0 (t_TroggBWalk+0)
+LAB_082C    x_TroggBWalkH1      marche horizontale, phase 1 (t_TroggBWalk+4)
+LAB_082D    x_TroggBWalkH2      marche horizontale, phase 2 (t_TroggBWalk+8)
+LAB_082E    x_TroggBWalkUp0     marche vers le haut, phase 0 (t_TroggBWalk+32)
+LAB_082F    x_TroggBWalkUp1     marche vers le haut, phase 1 (t_TroggBWalk+36)
+LAB_0830    x_TroggBWalkUp2     marche vers le haut, phase 2 (t_TroggBWalk+40)
+LAB_0831    x_TroggBWalkUp3     marche vers le haut, phase 3 (t_TroggBWalk+44)
+LAB_0832    x_TroggBWalkDown0   marche vers le bas, phase 0 (t_TroggBWalk+64)
+LAB_0833    x_TroggBWalkDown1   marche vers le bas, phase 1 (t_TroggBWalk+68)
+LAB_0834    x_TroggBWalkDown2   marche vers le bas, phase 2 (t_TroggBWalk+72)
+LAB_0835    x_TroggBWalkDown3   marche vers le bas, phase 3 (t_TroggBWalk+76)
+LAB_0836    x_TroggBReact8      réaction à l'attaque 8 (t_TroggBScripts+32)
+LAB_0837    x_TroggBReact2      réaction à l'attaque 2 (t_TroggBScripts+8)
+LAB_0838    x_TroggBReact1      réaction à l'attaque 1 (t_TroggBScripts+4)
+LAB_0845    x_PassingKnightReact8 réaction à l'attaque 8 (t_PassingKnightScripts+32)
+LAB_0847    x_PassingKnightReact2 réaction à l'attaque 2 (t_PassingKnightScripts+8)
+LAB_0852    x_RatmenWalkUp0     marche vers le haut, phase 0 (t_RatmenWalk+32)
+LAB_0853    x_RatmenWalkUp1     marche vers le haut, phase 1 (t_RatmenWalk+36)
+LAB_0854    x_RatmenWalkUp2     marche vers le haut, phase 2 (t_RatmenWalk+40)
+LAB_0855    x_RatmenWalkUp3     marche vers le haut, phase 3 (t_RatmenWalk+44)
+LAB_0860    x_RatmenReact8      réaction à l'attaque 8 (t_RatmenScripts+32)
+LAB_0862    x_RatmenReact1      réaction à l'attaque 1 (t_RatmenScripts+4)
+LAB_086A    x_RatmenReact2      réaction à l'attaque 2 (t_RatmenScripts+8)
+LAB_086C    x_RatmenWalkH0      marche horizontale, phase 0 (t_RatmenWalk+0)
+LAB_086D    x_RatmenWalkH1      marche horizontale, phase 1 (t_RatmenWalk+4)
+LAB_086E    x_RatmenWalkH2      marche horizontale, phase 2 (t_RatmenWalk+8)
+LAB_086F    x_RatmenWalkH3      marche horizontale, phase 3 (t_RatmenWalk+12)
+LAB_0873    x_DragonWalkUp0     marche vers le haut, phase 0 (t_DragonWalk+32)
+LAB_0874    x_DragonWalkUp1     marche vers le haut, phase 1 (t_DragonWalk+36)
+LAB_0875    x_DragonWalkUp2     marche vers le haut, phase 2 (t_DragonWalk+40)
+LAB_0876    x_DragonWalkUp3     marche vers le haut, phase 3 (t_DragonWalk+44)
+LAB_0877    x_DragonWalkUp4     marche vers le haut, phase 4 (t_DragonWalk+48)
+LAB_0879    x_DragonWalkDown0   marche vers le bas, phase 0 (t_DragonWalk+64)
+LAB_087A    x_DragonWalkDown1   marche vers le bas, phase 1 (t_DragonWalk+68)
+LAB_087B    x_DragonWalkDown2   marche vers le bas, phase 2 (t_DragonWalk+72)
+LAB_087C    x_DragonWalkDown3   marche vers le bas, phase 3 (t_DragonWalk+76)
+LAB_087D    x_DragonWalkDown4   marche vers le bas, phase 4 (t_DragonWalk+80)
+LAB_087F    x_DragonReact2      réaction à l'attaque 2 (t_DragonScripts+8)
+LAB_089B    x_MudmenWalkH1      marche horizontale, phase 1 (t_MudmenWalk+4)
+LAB_089C    x_MudmenWalkH0      marche horizontale, phase 0 (t_MudmenWalk+0)
+LAB_089D    x_MudmenWalkH3      marche horizontale, phase 3 (t_MudmenWalk+12)
+LAB_08A6    x_TrollWalkH0       marche horizontale, phase 0 (t_TrollWalk+0)
+LAB_08A7    x_TrollWalkH1       marche horizontale, phase 1 (t_TrollWalk+4)
+LAB_08A8    x_TrollWalkH2       marche horizontale, phase 2 (t_TrollWalk+8)
+LAB_08A9    x_TrollWalkH3       marche horizontale, phase 3 (t_TrollWalk+12)
+
+# --- Scripts IMAGEXCEL : actions (contrôleurs, réactions, entrées) ---
+LAB_07EB    x_ThrownObject      objet lancé (LAB_02CA, contrôleur 52)
+LAB_07EC    x_ProjectileFly     objet projeté en vol (LAB_02CB)
+LAB_07F0    x_KnightRatReact7   réaction 7 du chevalier face aux hommes-rats
+LAB_07F2    x_KnightRatAtk4     attaque 4 du chevalier face aux hommes-rats
+LAB_07F7    x_KnightThrown      chevalier projeté (hommes-rats, Démon)
+LAB_07F8    x_KnightDie         chevalier tué
+LAB_07F9    x_KnightDieHead     chevalier tué (coup 8 ; décapité)
+LAB_07FA    x_KnightReleased    chevalier relâché par un homme-rat
+LAB_07FB    x_KnightDropped     chevalier lâché (Démon, Dragon)
+LAB_07FC    x_KnightEnter       entrée du chevalier dans le combat
+LAB_07FD    x_KnightCrushed     chevalier écrasé (créature qui bondit)
+LAB_07FE    x_KnightDragonReact réaction 2 / 8 du chevalier face au Dragon
+LAB_081B    x_TroggLunge        Trogg : attaque 4 de près (LAB_0236)
+LAB_081C    x_TroggKill         Trogg : achève sa cible
+LAB_0849    x_PassingKnightKillBack chevalier de passage : achève (de dos)
+LAB_084A    x_PassingKnightHitFront chevalier de passage touché (même sens)
+LAB_084B    x_PassingKnightHitBack chevalier de passage touché (sens opposé)
+LAB_084E    x_PassingKnightKill chevalier de passage : achève (de face)
+LAB_0850    x_RatJump           homme-rat : saut
+LAB_0851    x_RatFall           homme-rat : chute
+LAB_0857    x_RatAtk4           homme-rat : attaque 4
+LAB_0858    x_RatHit4           homme-rat touché par l'attaque 4
+LAB_0859    x_RatAtk8           homme-rat : attaque 8
+LAB_085A    x_RatHit8           homme-rat touché par l'attaque 8
+LAB_085B    x_RatOnKnight       homme-rat accroché au chevalier
+LAB_085C    x_RatLetGo          homme-rat lâche prise
+LAB_085D    x_RatShaken         homme-rat secoué (le chevalier se dégage)
+LAB_085E    x_RatHitByKnight8   homme-rat touché (coup 8)
+LAB_085F    x_RatHitByKnight4   homme-rat touché (coup 4)
+LAB_0863    x_RatWaitFar        homme-rat attend (loin)
+LAB_0864    x_RatWaitNear       homme-rat attend (près)
+LAB_0865    x_RatBite           homme-rat mord
+LAB_0866    x_RatBiting         homme-rat mord encore
+LAB_0867    x_RatBiteShaken     homme-rat secoué pendant la morsure
+LAB_0868    x_RatBiteEnd        homme-rat : fin de morsure
+LAB_0869    x_RatBiteKill       homme-rat : morsure mortelle
+LAB_086B    x_RatHitInAir       homme-rat touché en l'air
+LAB_0870    x_DemonCompanionEnter compagnon du Démon (entrée)
+LAB_0872    x_DragonAtk8        Dragon : attaque 8
+LAB_087E    x_DragonFire        Dragon : souffle de feu
+LAB_0880    x_DragonPartStand   parties du Dragon au repos (+22, +26)
+LAB_0881    x_DragonPartAtk     partie du Dragon : attaque
+LAB_0883    x_DragonAtk4        Dragon : attaque 4 (de près)
+LAB_0884    x_DragonKill        Dragon : achève sa cible
+LAB_0886    x_DragonFlame       flamme devant le Dragon (contrôleur 40)
+LAB_0887    x_DragonPartDie     partie du Dragon : mort du Dragon
+LAB_088A    x_LeaperLand        créature qui bondit : atterrit
+LAB_088B    x_LeaperFly         créature qui bondit : en vol
+LAB_088D    x_LeaperAtk8        créature qui bondit : attaque 8
+LAB_088E    x_LeaperRecoil8     créature qui bondit : après l'attaque 8
+LAB_0890    x_LeaperGrab        créature qui bondit : saisie (attaque $20)
+LAB_0891    x_LeaperHit         créature qui bondit touchée
+LAB_0893    x_LeaperHold        créature qui bondit : tient sa proie
+LAB_0894    x_LeaperRelease     créature qui bondit : lâche sa proie
+LAB_0895    x_LeaperEatA        créature qui bondit : dévore (A)
+LAB_0896    x_LeaperEatB        créature qui bondit : dévore (B)
+LAB_0897    x_MudmanMove        Mudman : avance
+LAB_0898    x_MudmanDive        Mudman : replonge
+LAB_0899    x_MudmanSurface     Mudman : émerge
+LAB_089E    x_MudmanAtk         Mudman : attaque de près
+LAB_089F    x_MudmanGrip        Mudman : agrippe
+LAB_08A0    x_MudmanShaken      Mudman : le chevalier se dégage
+LAB_08A1    x_MudmanSwallow     Mudman : avale
+LAB_08A2    x_MudmanDrag        Mudman : entraîne le chevalier
+LAB_08A3    x_MudmanHit         Mudman touché (aussi toutes ses réactions)
+LAB_08AA    x_TrollAtk8         Troll : attaque 8
+LAB_08AB    x_TrollAtk20        Troll : attaque $20
+LAB_08AC    x_TrollHit          Troll touché
+LAB_08AE    x_DemonStand        Démon au repos (+22)
+LAB_08AF    x_DemonCompanion    compagnon du Démon (LAB_0EEB)
+LAB_08B0    x_DemonRecoil       Démon après avoir touché (+26)
+LAB_08B4    x_DemonAtk20        Démon : attaque $20
+LAB_08B5    x_DemonAtk8         Démon : attaque 8
+LAB_08B6    x_DemonAtk4         Démon : attaque 4
+LAB_08B7    x_DemonReachA        Démon : tend les bras (état 5)
+LAB_08B8    x_DemonHold         Démon : tient le chevalier
+LAB_08B9    x_DemonReachB        Démon : tend les bras (état 4)
+LAB_08BA    x_DemonThrow        Démon : projette le chevalier
+LAB_08BB    x_DemonGrabB    Démon : saisit le chevalier à portée (état 4)
+LAB_08BC    x_DemonGrabA    Démon : saisit le chevalier à portée (état 5)
+LAB_08BD    x_DemonStruck       Démon touché
+LAB_08BF    x_Splash            éclaboussure au point d'impact (contrôleur 40)
+
+# --- Chaînes (noms tirés du texte) ---
+LAB_0122    s_Dragon5Cel        "Dragon5.cel"
+LAB_013B    s_Test              "Test"
+LAB_08C0    s_SirBanner         "SIR BANNER"
+LAB_08C1    s_SirDwain          "SIR DWAIN"
+LAB_08C2    s_SirBalain         "SIR BALAIN"
+LAB_08C3    s_SirEdward2        "SIR EDWARD"
+LAB_08E8    s_0123456789        "0123456789 "
+LAB_08EA    s_May               " may ... "
+LAB_08F1    s_EnterLair         "Enter Lair"
+LAB_08F2    s_BattleWith        "Battle with "
+LAB_091B    s_HeaPiv            "HEA.piv"
+LAB_091C    s_MysPiv            "MYS.piv"
+LAB_091D    s_MysCel            "mys.cel"
+LAB_091E    s_AsYouRingTheBellAtThe "As you ring the bell at the"
+LAB_092F    b_FoundName         "                              "
+LAB_0931    b_GoldText          "              "
+LAB_0971    s_YourGold          "Your Gold"
+LAB_0972    s_Donation          "Donation"
+LAB_0983    s_PoCel             "po.cel"
+LAB_098B    s_DrinkHealingPotion "Drink Healing potion"
+LAB_098C    s_UseGemOfSeeing    "Use Gem of Seeing"
+LAB_098D    s_RingOfProtection  "Ring of Protection"
+LAB_098E    s_TalismanOfTheWyrm "Talisman of the Wyrm"
+LAB_098F    s_CastScrollOfHaste "Cast scroll of Haste"
+LAB_0990    s_CastScrollOfAquisition "Cast scroll of Aquisition"
+LAB_0991    s_CastScrollOfTheHawk "Cast scroll of the Hawk"
+LAB_0992    s_CastScrollOfTheWyrm "Cast scroll of the Wyrm"
+LAB_0993    s_CastScrollOfProtection "Cast scroll of Protection"
+LAB_0994    s_NewMoonMoonstone  "New moon Moonstone"
+LAB_0995    s_FullMoonstone     "Full Moonstone"
+LAB_0996    s_HalfMoonstone     "Half Moonstone"
+LAB_0997    s_KeyToTheValley    "Key to the Valley"
+LAB_0998    s_PotionOfHealing   "Potion of Healing"
+LAB_0999    s_GemOfSeeing       "Gem of Seeing"
+LAB_099A    s_ScrollOfHaste     "Scroll of Haste"
+LAB_099B    s_ScrollOfAquisition "Scroll of Aquisition"
+LAB_099C    s_ScrollOfTheHawk   "Scroll of the Hawk"
+LAB_099D    s_ScrollOfTheWyrm   "Scroll of the Wyrm"
+LAB_099E    s_ScrollOfProtection "Scroll of Protection"
+LAB_099F    s_OfferPotionOfHealing "Offer potion of Healing"
+LAB_09A0    s_OfferGemOfSeeing  "Offer Gem of Seeing"
+LAB_09A1    s_OfferRingOfProtection "Offer Ring of Protection"
+LAB_09A2    s_OfferTalismanOfTheWyrm "Offer Talisman of the Wyrm"
+LAB_09A3    s_OfferScrollOfHaste "Offer scroll of Haste"
+LAB_09A4    s_OfferScrollOfAquisition "Offer scroll of Aquisition"
+LAB_09A5    s_OfferScrollOfTheHawk "Offer scroll of the Hawk"
+LAB_09A6    s_OfferScrollOfTheWyrm "Offer scroll of the Wyrm"
+LAB_09A7    s_OfferScrollOfProtection "Offer scroll of Protection"
+LAB_09A8    s_IncreaseStrength  "Increase Strength"
+LAB_09A9    s_IncreaseEndurance "Increase Endurance"
+LAB_09AA    s_IncreaseConstitution "Increase Constitution"
+LAB_09AB    s_Strength          "Strength"
+LAB_09AC    s_Endurance         "Endurance"
+LAB_09AD    s_Constitution      "Constitution"
+LAB_09AE    s_LifePoints        "Life points"
+LAB_09AF    s_Gold              "Gold"
+LAB_09B0    s_Dagger            "Dagger"
+LAB_09B1    s_PaddedArmour      "Padded armour"
+LAB_09B2    s_ChainMail         "Chain mail"
+LAB_09B3    s_PlateArmour       "Plate armour"
+LAB_09B4    s_BattleArmour      "Battle armour"
+LAB_09B5    s_LongSword         "Long sword"
+LAB_09B6    s_BroadSword        "Broad sword"
+LAB_09B7    s_ClaymoreSword     "Claymore sword"
+LAB_09B8    s_SwordOfSharpness  "Sword of Sharpness"
+LAB_09B9    s_TakePotionOfHealing "Take Potion of Healing"
+LAB_09BA    s_TakeGemOfSeeing   "Take Gem of Seeing"
+LAB_09BB    s_TakeRingOfProtection "Take Ring of Protection"
+LAB_09BC    s_TakeTalismanOfTheWyrm "Take Talisman of the Wyrm"
+LAB_09BD    s_TakeScrollOfHaste "Take scroll of Haste"
+LAB_09BE    s_TakeScrollOfAquisition "Take scroll of Aquisition"
+LAB_09BF    s_TakeScrollOfTheHawk "Take scroll of the Hawk"
+LAB_09C0    s_TakeScrollOfTheWyrm "Take scroll of the Wyrm"
+LAB_09C1    s_TakeScrollOfProtection "Take scroll of Protection"
+LAB_09C2    s_TakeGold          "Take Gold"
+LAB_09C3    s_TakeDaggers       "Take Daggers"
+LAB_09C4    s_TakeClaymoreSword "Take Claymore sword"
+LAB_09C5    s_TakeSwordOfSharpness "Take Sword of Sharpness"
+LAB_09C6    s_TakeBroadSword    "Take Broad sword"
+LAB_09C7    s_TakeBattleArmour  "Take Battle armour"
+LAB_09C8    s_TakePlateArmour   "Take Plate armour"
+LAB_09C9    s_TakeChainmail     "Take Chainmail"
+LAB_09CA    s_TakeKeyToTheValley "Take Key to the Valley"
+LAB_09CB    s_TakeMoonstone     "Take Moonstone"
+LAB_09CC    s_LifePointsLeft    "Life points left"
+LAB_09CD    s_BuyBroadSwordFor10Gp "Buy Broad Sword for 10 GP"
+LAB_09CE    s_BuyClaymoreSwordFor25Gp "Buy Claymore sword for 25 GP"
+LAB_09CF    s_BuyChainmailFor30Gp "Buy Chainmail for 30 GP"
+LAB_09D0    s_BuyPlateArmourFor50Gp "Buy Plate armour for 50 GP"
+LAB_09D1    s_BuyBattleArmourFor75Gp "Buy Battle armour for 75 GP"
+LAB_09D2    s_BuyADaggerFor2Gp  "Buy a dagger for 2 GP"
+LAB_09D3    s_BuySwordOfSharpnessFor52Gp "Buy Sword of Sharpness for 52 GP"
+LAB_09D4    s_BuyKeyFor12Gp     "Buy Key for 12 GP"
+LAB_09D5    s_BuyPotionOfHealingFor20Gp "Buy Potion of healing for 20 GP"
+LAB_09D6    s_BuyGemOfSeeingFor32Gp "Buy gem of seeing for 32 GP"
+LAB_09D7    s_BuyRingOfProtectionFor40Gp "Buy ring of protection for 40 GP"
+LAB_09D8    s_BuyTalismanFor52Gp "Buy Talisman for 52 GP"
+LAB_09D9    s_BuyScrollOfHasteFor36Gp "Buy scroll of Haste for 36 GP"
+LAB_09DA    s_BuyScrollOfAquisitionFor52Gp "Buy scroll of Aquisition for 52 GP"
+LAB_09DB    s_BuyScrollOfTheHawkFor52Gp "Buy scroll of the Hawk for 52 GP"
+LAB_09DC    s_BuyScrollOfTheWyrmFor40Gp "Buy scroll of the Wyrm for 40 GP"
+LAB_09DD    s_BuyScrollOfProtectionFor24Gp "Buy scroll of Protection for 24 GP"
+LAB_09DE    s_BuyMoonstoneFor20Gp "Buy Moonstone for 20 GP"
+LAB_09DF    s_SwordOfSharpness2 "Sword of Sharpness"
+LAB_09E0    s_SellKeyFor6Gp     "Sell Key for 6 GP"
+LAB_09E1    s_SellPotionOfHealingFor10Gp "Sell Potion of healing for 10 GP"
+LAB_09E2    s_SellGemOfSeeingFor16Gp "Sell gem of seeing for 16 GP"
+LAB_09E3    s_SellRingFor20Gp   "Sell ring for 20 GP"
+LAB_09E4    s_SellTalismanFor26Gp "Sell Talisman for 26 GP"
+LAB_09E5    s_SellScrollOfHasteFor16Gp "Sell scroll of Haste for 16 GP"
+LAB_09E6    s_SellScrollOfAquisitionFor26G "Sell scroll of Aquisition for 26 GP"
+LAB_09E7    s_SellScrollOfTheHawkFor26Gp "Sell scroll of the Hawk for 26 GP"
+LAB_09E8    s_SellScrollOfTheWyrmFor20Gp "Sell scroll of the Wyrm for 20 GP"
+LAB_09E9    s_SellScrollOfProtectionFor12G "Sell scroll of Protection for 12 GP"
+LAB_09EA    s_SellMoonstoneFor10Gp "Sell Moonstone for 10 GP"
+SECSTRT_17  s_KnA               "kn.a"
+LAB_0AB7    s_BeA               "Be.a"
+LAB_0AB8    s_BaA               "Ba.a"
+LAB_0AB9    s_DrA               "Dr.a"
+LAB_0ABA    s_ToA               "To.a"
+LAB_0ABB    s_TrA               "Tr.a"
+LAB_0ABD    s_GuA               "Gu.a"
+LAB_0ABE    s_WzA               "Wz.a"
+LAB_0ABF    s_RaA               "Ra.a"
+LAB_0AC0    s_MuA               "Mu.a"
+LAB_0AC1    s_ReA               "Re.a"
+LAB_0AC2    s_HeA               "He.a"
+LAB_0F47    s_GoldPieces        "     gold pieces."
+LAB_0F49    s_GoldPieces2       "     gold pieces."
+LAB_0F4B    s_GoldPieces3       "     gold pieces."
+LAB_0F4D    s_TavPiv            "tav.piv"
+LAB_0F4E    s_DicePiv           "dice.piv"
+LAB_0F4F    s_DiceCel           "dice.cel"
+LAB_0F50    s_Hen1P             "Hen1.p"
+LAB_0F51    s_Hen1C             "Hen1.c"
+
+# --- Lieux, repaires, recul, palettes du combat ---
+LAB_08C4    v_PlaceType         type de lieu du combat (0 clairière, 4 forêt, 8 marais, 12 eau)
+LAB_08C5    t_LairTreasure      trésor des repaires : seuils de tirage et genres
+LAB_08C6    v_Lair              repaire (créature de la carte) courant
+LAB_08CC    t_BackStepsA        pas du recul (A)
+LAB_08CD    t_BackStepsB        pas du recul (B, Démon)
+LAB_08CE    v_BackSteps         table de pas du recul en cours (LAB_0211)
+LAB_08CF    v_BackStepIndex     pas suivant du recul (-1 : aucun)
+LAB_08D0    v_BackDir           sens du recul
+LAB_08D1    t_PalGlade          palette du combat en clairière
+LAB_08D2    t_PalForest         palette du combat en forêt
+LAB_08D3    t_PalWater          palette du combat sur l'eau
+LAB_08D4    t_PalSwamp          palette du combat au marais
+LAB_08D5    t_PalCombatBase     couleurs communes des combats (46 octets)
+LAB_08D8    t_PalBlack          palette noire (fondus)
+LAB_08D9    t_PalCombat         palette du combat construite
+LAB_08DA    v_HoverX            X du point testé sur les zones
+LAB_08DB    v_HoverY            Y du point testé
+
+# --- Menu des lieux, achats du chevalier noir, cases de la carte ---
+LAB_08E9    b_TextLine          ligne de texte composée
+LAB_08F4    t_PlaceNames        noms des lieux (icônes $15 et plus)
+LAB_08F5    v_PlacesMenuX       X du menu des lieux
+LAB_08F6    v_PlacesMenuY       Y de la ligne suivante du menu
+LAB_08F7    v_AiBuyPrice        achat envisagé par le chevalier noir : prix
+LAB_08F8    v_AiBuyItem         objet (genre)
+LAB_08F9    v_AiBuyExtra        épée gardée ($18) ou second objet
+LAB_08FA    t_CellSlow          ralentissement de chaque case de la carte (40 × 25)
+LAB_08FB    t_CellPlace         type de lieu de chaque case
+LAB_08FC    t_DragonMapScripts  scripts du dragon sur la carte
+LAB_0900    x_DragonMapDive     dragon qui descend sur la carte
+
+# --- Événements de la manche (LAB_045E) ---
+LAB_0905    t_GoldMessages      messages « or trouvé »
+LAB_0906    v_GoldMessageIndex  message d'or suivant (0-2)
+LAB_0907    t_ItemMessages      messages « objet trouvé »
+LAB_0908    v_ItemMessageIndex  message d'objet suivant (0-3)
+LAB_0909    v_EventMessage      message de l'événement
+LAB_090A    t_StatGains         caractéristiques (décalage objet, message)
+LAB_090B    v_EventKind         événement : 1 objet, 2 or, 3 caractéristique, 4 envoûtement
+LAB_090C    v_EventStat         caractéristique gagnée
+LAB_090D    v_LastItem          dernier objet trouvé (jamais deux fois de suite)
+LAB_090E    t_FindItems         objets à trouver (seuil, genre)
+LAB_090F    t_ItemNames         noms des objets (genre, chaîne)
+LAB_092D    t_BewitchedMessage  message d'envoûtement
+
+# --- Villes : guérisseur, maître d'armes, magicien ---
+LAB_091A    v_PurseFrame        image des bourses
+LAB_0935    t_HealerText        texte d'accueil du guérisseur
+LAB_0938    t_ShopCancelled     texte : rien acheté (annulé)
+LAB_0939    t_ShopNoGold        texte : aucune pièce proposée
+LAB_093A    t_HealerTooLittle   texte : trop peu d'or
+LAB_093C    t_HealerHealed      texte : soigné
+LAB_093D    t_HealerCured       texte : soigné et guéri du poison
+LAB_0947    t_MasterText        texte d'accueil du maître d'armes
+LAB_0956    t_MasterMaxed       texte : caractéristiques au maximum
+LAB_0959    t_MasterLost        texte : caractéristique perdue
+LAB_095B    t_MasterGainTexts   textes du gain de caractéristique
+LAB_095C    t_MasterLossTexts   textes de la perte
+LAB_092E    t_WizardItemText    texte du magicien : objet
+LAB_0930    t_WizardGoldText    texte du magicien : or
+LAB_0932    t_WizardStatText    texte du magicien : caractéristique
+LAB_0933    t_WizardNoneText    texte du magicien : rien
+LAB_0934    t_WizardCurseText   texte du magicien : envoûtement
+LAB_0975    b_NumberText        nombre écrit (bourses)
+LAB_0976    v_GoldOffered       or proposé
+LAB_0977    v_GoldLeft          or du chevalier pendant l'offre
+LAB_0978    x_WizardA           magicien (scène de l'événement, A)
+LAB_0979    x_WizardB           magicien (scène de l'événement, B)
+LAB_097A    x_WizardStand       magicien au repos
+
+# --- Hasard, niveau, pointeur, panneaux ---
+LAB_0973    v_RandomSeed        graine du tirage (LAB_0004 : une des quatre de LAB_0974)
+LAB_0974    t_RandomSeeds       graines de départ
+LAB_097B    t_KnightAiSkill     seuil de réussite du chevalier ordinateur par manche
+LAB_097C    v_PointerHidden     pointeur caché
+LAB_097D    v_PointerSprite     données du sprite du pointeur
+LAB_097E    v_PointerSprite2    données du sprite jumeau
+LAB_097F    v_PointerX          X du pointeur
+LAB_0980    v_PointerY          Y du pointeur
+LAB_0981    v_PointerOn         pointeur mené par la VBL
+LAB_0982    v_PointerHook       serveur d'interruption du pointeur
+LAB_0984    v_ScreenChanged     inventaire changé (écran à refaire)
+LAB_0985    v_PanelX            X du panneau (0 gauche, 160 droite)
+LAB_0986    v_IconCel           CEL des icônes des écrans
+LAB_0987    b_ScreenNumber      nombre écrit (écrans)
+LAB_0988    v_Screen0988        remis à zéro au panneau du chevalier
+LAB_0989    v_Screen0989        remis à zéro au panneau du chevalier
+LAB_098A    t_PanelFrames       cadres des panneaux (frame, X ; -1 fin)
+LAB_09EB    s_Space             " "
+LAB_09EE    t_ExitZoneText      texte de la zone « sortie »
+LAB_09EF    t_NextKnightText    texte du bouton « chevalier suivant »
+LAB_09F0    t_ScreenPalette     palette des écrans à pointeur
+LAB_09F1    t_PanelKnightColours couleurs des chevaliers des panneaux

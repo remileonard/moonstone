@@ -102,9 +102,9 @@ static uint16_t cell_index(MogCombat *m)
 /* LAB_0E52 : type de lieu (décor des combats) de la case */
 static void cell_place(MogCombat *m)
 {
-    wl(m, MOG_LAB_076D, 0);
+    wl(m, MOG_v_TerrainMode, 0);
     uint16_t d1 = cell_index(m);
-    wl(m, MOG_LAB_08C4, rb(m, MOG_LAB_08FB + (uint32_t)(int32_t)sw(d1)));
+    wl(m, MOG_v_PlaceType, rb(m, MOG_t_CellPlace + (uint32_t)(int32_t)sw(d1)));
 }
 
 /* LAB_0066 : dimensions de l'icône n° d0 */
@@ -260,7 +260,7 @@ static void terrain_slow(MogCombat *m)
     if (rw(m, MOG_v_BootsOn) || rw(m, MOG_v_Boots2On))
         return;
     uint16_t d1 = cell_index(m);
-    int8_t d7 = (int8_t)rb(m, MOG_LAB_08FA + (uint32_t)(int32_t)sw(d1));
+    int8_t d7 = (int8_t)rb(m, MOG_t_CellSlow + (uint32_t)(int32_t)sw(d1));
     if (!d7)
         return;
     uint16_t c = (uint16_t)(rw(m, MOG_LAB_0DDA) + 1);
@@ -277,12 +277,12 @@ static void terrain_slow(MogCombat *m)
 static void draw_places(MogCombat *m)
 {
     set_planes(m, rl(m, MOG_v_BgPlanes));
-    wl(m, MOG_LAB_08C6, rl(m, MOG_t_FastBuffers + 68));
+    wl(m, MOG_v_Lair, rl(m, MOG_t_FastBuffers + 68));
     for (int i = 0; i < 24; i++) {
-        uint32_t a0 = rl(m, MOG_LAB_08C6);
+        uint32_t a0 = rl(m, MOG_v_Lair);
         if (sw(rw(m, a0 + 10)) >= 0)
             icon(m, 0x14, rw(m, a0 + 10), rw(m, a0 + 12));
-        wl(m, MOG_LAB_08C6, rl(m, MOG_LAB_08C6) + 20);
+        wl(m, MOG_v_Lair, rl(m, MOG_v_Lair) + 20);
     }
 }
 
@@ -347,7 +347,7 @@ static void map_colours_off(MogCombat *m)
         wl(m, rl(m, MOG_LAB_0DDE), 0);
         ww(m, MOG_v_MapColoursOn, 0);
     }
-    wl(m, MOG_v_PalFadeTarget, MOG_LAB_08D8);                /* LAB_03F0 */
+    wl(m, MOG_v_PalFadeTarget, MOG_t_PalBlack);                /* LAB_03F0 */
     ww(m, MOG_v_PalFadeDelay, 2);
     ww(m, MOG_v_PalFadeCount, 2);
     mog_wait_vbls(m, 0x24);
@@ -395,8 +395,8 @@ void mog_map_dragon(MogCombat *m)
     wl(m, d + 38, MOG_t_BankMapDragon);
     wb(m, d + 77, 0x28);
     wb(m, d + 12, 0);
-    wl(m, d + 46, MOG_LAB_08FC);
-    uint32_t script = rl(m, MOG_LAB_08FC);
+    wl(m, d + 46, MOG_t_DragonMapScripts);
+    uint32_t script = rl(m, MOG_t_DragonMapScripts);
     ix_start_entity(&m->eng, script, d, MOG_t_BankMapDragon, sw(rw(m, script + 4)),
                     sw(rw(m, script + 6)), sw(rw(m, script + 8)), 3, 0x28);
     ww(m, MOG_LAB_0DDC, 2);
@@ -421,7 +421,7 @@ int mog_map_dragon_ctl(MogCombat *m, uint32_t a0, CtlResult *out)
     uint16_t dx = rw(m, MOG_LAB_0DDC);
     if (!(sw(rw(m, MOG_v_DragonDiveTimer)) > 0x3C)) {
         ww(m, a0 + 4, (uint16_t)(rw(m, a0 + 4) + dx));
-        *out = mog_set_script(m, MOG_LAB_0900);
+        *out = mog_set_script(m, MOG_x_DragonMapDive);
         return 1;
     }
     ww(m, a0 + 4, (uint16_t)(rw(m, a0 + 4) + dx));
@@ -449,7 +449,7 @@ int mog_map_dragon_ctl(MogCombat *m, uint32_t a0, CtlResult *out)
         ww(m, a0 + 8, 0xC8);
     uint8_t f = (uint8_t)((rb(m, a0 + 12) + 1) & 15);
     wb(m, a0 + 12, f);
-    *out = mog_set_script(m, rl(m, MOG_LAB_08FC + (uint32_t)(int32_t)(int8_t)f * 4));
+    *out = mog_set_script(m, rl(m, MOG_t_DragonMapScripts + (uint32_t)(int32_t)(int8_t)f * 4));
     return 1;
 }
 
@@ -472,7 +472,7 @@ static void sort_creatures(MogCombat *m)
     if (rw(m, MOG_v_CreaturesSorted))
         return;
     ww(m, MOG_v_CreaturesSorted, 1);
-    uint32_t a0 = rl(m, MOG_b_MapCreatures), a1 = CUR, a2 = MOG_t_CreaturesByDist;
+    uint32_t a0 = rl(m, MOG_v_MapCreatures), a1 = CUR, a2 = MOG_t_CreaturesByDist;
     uint16_t x = rw(m, a1 + 126), y = rw(m, a1 + 128);
     for (int i = 0; i < 24; i++, a0 += 20, a2 += 6) {
         uint16_t d3;
@@ -533,7 +533,7 @@ static uint32_t pick_stat(MogCombat *m, uint32_t *entry)
         if (d0 > 8)
             d0 -= 7;
         d0 <<= 3;
-        uint32_t d1 = rl(m, MOG_LAB_090A + d0);
+        uint32_t d1 = rl(m, MOG_t_StatGains + d0);
         if (entry)
             *entry = d0;
         if (rb(m, CUR + (uint32_t)(int32_t)sw((uint16_t)d1)) != 5)
@@ -755,30 +755,30 @@ static int want_to_buy(MogCombat *m)
     if (gold <= 0x0A)
         return 0;
     if (gold > 0x19 && !((int8_t)rb(m, a0 + 73) > 2)) {
-        ww(m, MOG_LAB_08F7, 0x19);                      /* une vie */
-        ww(m, MOG_LAB_08F8, 0x49);
+        ww(m, MOG_v_AiBuyPrice, 0x19);                      /* une vie */
+        ww(m, MOG_v_AiBuyItem, 0x49);
         return 1;
     }
     uint32_t armour = rl(m, a0 + 92);
     if (!(gold < 0x4B)) {
         if (armour != 0x1E) {
-            ww(m, MOG_LAB_08F7, 0x4B);
-            ww(m, MOG_LAB_08F8, 0x5C);
-            wl(m, MOG_LAB_08F9, 0x1E);
+            ww(m, MOG_v_AiBuyPrice, 0x4B);
+            ww(m, MOG_v_AiBuyItem, 0x5C);
+            wl(m, MOG_v_AiBuyExtra, 0x1E);
             return 1;
         }
     } else if (!(gold < 0x32)) {
         if (!((int32_t)armour >= 0x1D)) {
-            ww(m, MOG_LAB_08F7, 0x32);
-            ww(m, MOG_LAB_08F8, 0x5C);
-            wl(m, MOG_LAB_08F9, 0x1D);
+            ww(m, MOG_v_AiBuyPrice, 0x32);
+            ww(m, MOG_v_AiBuyItem, 0x5C);
+            wl(m, MOG_v_AiBuyExtra, 0x1D);
             return 1;
         }
     } else if (!(gold < 0x1E)) {
         if (!((int32_t)armour >= 0x1C)) {
-            ww(m, MOG_LAB_08F7, 0x1E);
-            ww(m, MOG_LAB_08F8, 0x5C);
-            wl(m, MOG_LAB_08F9, 0x1C);
+            ww(m, MOG_v_AiBuyPrice, 0x1E);
+            ww(m, MOG_v_AiBuyItem, 0x5C);
+            wl(m, MOG_v_AiBuyExtra, 0x1C);
             return 1;
         }
     }
@@ -788,22 +788,22 @@ static int want_to_buy(MogCombat *m)
     if (!(gold < 0x19)) {
         if (weapon == 0x18)
             goto daggers;
-        ww(m, MOG_LAB_08F7, 0x19);
-        ww(m, MOG_LAB_08F8, 0x58);
-        wl(m, MOG_LAB_08F9, 0x18);
+        ww(m, MOG_v_AiBuyPrice, 0x19);
+        ww(m, MOG_v_AiBuyItem, 0x58);
+        wl(m, MOG_v_AiBuyExtra, 0x18);
     }
     if (!(gold < 0x0A) && !((int32_t)weapon >= 0x17)) { /* LAB_0E32 */
-        ww(m, MOG_LAB_08F7, 0x0A);
-        ww(m, MOG_LAB_08F8, 0x58);
+        ww(m, MOG_v_AiBuyPrice, 0x0A);
+        ww(m, MOG_v_AiBuyItem, 0x58);
         wl(m, 0x58, 0x17);                              /* EXT_0005 : sic */
         return 1;
     }
 daggers:
     if ((int8_t)rb(m, a0 + 76) > 5)                     /* LAB_0E33 */
         return 0;
-    ww(m, MOG_LAB_08F7, 2);
-    ww(m, MOG_LAB_08F8, 0x4C);
-    ww(m, MOG_LAB_08F9, 0);
+    ww(m, MOG_v_AiBuyPrice, 2);
+    ww(m, MOG_v_AiBuyItem, 0x4C);
+    ww(m, MOG_v_AiBuyExtra, 0);
     return 1;
 }
 
@@ -833,13 +833,13 @@ static int in_places(MogCombat *m, uint32_t d1, uint32_t d2)
 static void buy(MogCombat *m)
 {
     uint32_t a0 = CUR;
-    ww(m, a0 + 74, (uint16_t)(rw(m, a0 + 74) - rw(m, MOG_LAB_08F7)));
-    switch (rw(m, MOG_LAB_08F8)) {
+    ww(m, a0 + 74, (uint16_t)(rw(m, a0 + 74) - rw(m, MOG_v_AiBuyPrice)));
+    switch (rw(m, MOG_v_AiBuyItem)) {
     case 0x58:
-        wl(m, a0 + 88, rl(m, MOG_LAB_08F9));
+        wl(m, a0 + 88, rl(m, MOG_v_AiBuyExtra));
         break;
     case 0x5C:
-        wl(m, a0 + 92, rl(m, MOG_LAB_08F9));
+        wl(m, a0 + 92, rl(m, MOG_v_AiBuyExtra));
         mog_update_knight(m, a0);                       /* LAB_0013, LAB_0019 */
         break;
     case 0x49:
@@ -878,7 +878,7 @@ static void before_combat(MogCombat *m)
     for (uint32_t i = 0; i < 0xA50; i++)
         wb(m, a0 + i, 0);
     mog_boot_tables_0155(VM);                           /* LAB_0155 */
-    wl(m, MOG_v_PalFadeTarget, MOG_LAB_08D8);                /* LAB_03F0 */
+    wl(m, MOG_v_PalFadeTarget, MOG_t_PalBlack);                /* LAB_03F0 */
     ww(m, MOG_v_PalFadeDelay, 2);
     ww(m, MOG_v_PalFadeCount, 2);
     mog_wait_vbls(m, 0x24);
@@ -1003,10 +1003,10 @@ static int pvp(MogCombat *m, uint32_t a0, uint32_t a1)
 /* LAB_01A3 : rencontre du repaire LAB_08C6 (t_CreatureInit selon le genre) */
 static void lair_encounter(MogCombat *m)
 {
-    uint32_t a0 = rl(m, MOG_LAB_08C6);
-    wl(m, MOG_LAB_076D, 2);
-    wl(m, MOG_LAB_076E, rl(m, a0 + 16));
-    wl(m, MOG_LAB_08C4, rw(m, a0 + 14));
+    uint32_t a0 = rl(m, MOG_v_Lair);
+    wl(m, MOG_v_TerrainMode, 2);
+    wl(m, MOG_v_LairTerrain, rl(m, a0 + 16));
+    wl(m, MOG_v_PlaceType, rw(m, a0 + 14));
     uint32_t d0 = (uint32_t)(int32_t)sw(rw(m, a0 + 4));
     mog_encounter_init(m, rl(m, MOG_t_CreatureInit + d0));
 }
@@ -1016,7 +1016,7 @@ static void lair_emptied(MogCombat *m)
 {
     if (rw(m, MOG_v_BootsOn))
         return;
-    uint32_t a0 = rl(m, MOG_LAB_08C6);
+    uint32_t a0 = rl(m, MOG_v_Lair);
     int d0 = rw(m, a0 + 8) != 0;
     uint32_t a1 = rl(m, a0);
     for (uint32_t i = 0; i < 24; i++)
@@ -1030,7 +1030,7 @@ static void lair_emptied(MogCombat *m)
  * (écran 2) ou, vaincu, inventaire (écran 9) */
 static void lair(MogCombat *m, uint32_t a1)
 {
-    wl(m, MOG_LAB_08C6, a1);
+    wl(m, MOG_v_Lair, a1);
     map_colours_off(m);                                 /* LAB_0DC8 */
     if (!rw(m, MOG_v_BootsOn)) {
         before_combat(m);                               /* LAB_0065 */
@@ -1071,33 +1071,33 @@ static uint32_t str_copy(MogCombat *m, uint32_t d, uint32_t s)
 static void places_menu(MogCombat *m)
 {
     wl(m, MOG_v_Combatants + 10, rl(m, MOG_t_FontBank));
-    ww(m, MOG_LAB_08F5, 0x32);
-    ww(m, MOG_LAB_08F6, 0x64);
+    ww(m, MOG_v_PlacesMenuX, 0x32);
+    ww(m, MOG_v_PlacesMenuY, 0x64);
     icon(m, 0x20, 0x32, 0x64);
     uint32_t a0 = CUR;
-    uint32_t a2 = str_copy(m, MOG_LAB_08E9, rl(m, a0 + 108));
-    str_copy(m, a2 - 1, MOG_LAB_08EA);
-    icon(m, (uint16_t)rl(m, a0 + 54), (uint16_t)(rw(m, MOG_LAB_08F5) + 5),
-         (uint16_t)(rw(m, MOG_LAB_08F6) + 5));
-    mog_text(m, MOG_LAB_08E9, (uint16_t)(rw(m, MOG_LAB_08F5) + 15),
-             (uint16_t)(rw(m, MOG_LAB_08F6) + 5), 0);
-    ww(m, MOG_LAB_08F6, (uint16_t)(rw(m, MOG_LAB_08F6) + 15));
+    uint32_t a2 = str_copy(m, MOG_b_TextLine, rl(m, a0 + 108));
+    str_copy(m, a2 - 1, MOG_s_May);
+    icon(m, (uint16_t)rl(m, a0 + 54), (uint16_t)(rw(m, MOG_v_PlacesMenuX) + 5),
+         (uint16_t)(rw(m, MOG_v_PlacesMenuY) + 5));
+    mog_text(m, MOG_b_TextLine, (uint16_t)(rw(m, MOG_v_PlacesMenuX) + 15),
+             (uint16_t)(rw(m, MOG_v_PlacesMenuY) + 5), 0);
+    ww(m, MOG_v_PlacesMenuY, (uint16_t)(rw(m, MOG_v_PlacesMenuY) + 15));
     wb(m, MOG_v_PlaceDigit, '1');
     for (uint32_t a5 = MOG_t_PlacesReached; rl(m, a5); a5 += 8) {
-        a2 = MOG_LAB_08E9;
+        a2 = MOG_b_TextLine;
         wb(m, a2++, rb(m, MOG_v_PlaceDigit));
         wb(m, a2++, ' ');
         uint32_t t = rl(m, a5 + 4);                     /* LAB_0E4E */
         if (t == 2)
-            str_copy(m, a2, MOG_LAB_08F1);
+            str_copy(m, a2, MOG_s_EnterLair);
         else if (t == 1) {
-            a2 = str_copy(m, a2, MOG_LAB_08F2) - 1;
+            a2 = str_copy(m, a2, MOG_s_BattleWith) - 1;
             str_copy(m, a2, rl(m, rl(m, a5) + 108));
         } else
-            str_copy(m, a2, rl(m, MOG_LAB_08F4 + ((t - 0x15) << 2)));
-        mog_text(m, MOG_LAB_08E9, (uint16_t)(rw(m, MOG_LAB_08F5) + 5), rw(m, MOG_LAB_08F6), 0);
+            str_copy(m, a2, rl(m, MOG_t_PlaceNames + ((t - 0x15) << 2)));
+        mog_text(m, MOG_b_TextLine, (uint16_t)(rw(m, MOG_v_PlacesMenuX) + 5), rw(m, MOG_v_PlacesMenuY), 0);
         wb(m, MOG_v_PlaceDigit, (uint8_t)(rb(m, MOG_v_PlaceDigit) + 1));
-        ww(m, MOG_LAB_08F6, (uint16_t)(rw(m, MOG_LAB_08F6) + 6));
+        ww(m, MOG_v_PlacesMenuY, (uint16_t)(rw(m, MOG_v_PlacesMenuY) + 6));
     }
 }
 
@@ -1283,17 +1283,17 @@ uint32_t mog_number(MogCombat *m, uint32_t d0, uint32_t a2)
     uint32_t d1 = d0, d2 = d0;
     int16_t q = (int16_t)((int32_t)d0 / 100);
     if (q) {
-        wb(m, a2++, rb(m, MOG_LAB_08E8 + (uint32_t)(int32_t)q));
+        wb(m, a2++, rb(m, MOG_s_0123456789 + (uint32_t)(int32_t)q));
         d2 = (d2 & 0xFFFF0000u) | (uint16_t)(d2 - (uint16_t)(q & 0xFF) * 100u);
     }
     q = (int16_t)((int32_t)d2 / 10);                    /* LAB_0443 */
     if (q) {
-        wb(m, a2++, rb(m, MOG_LAB_08E8 + (uint32_t)(int32_t)q));
+        wb(m, a2++, rb(m, MOG_s_0123456789 + (uint32_t)(int32_t)q));
         d2 = (d2 & 0xFFFF0000u) | (uint16_t)(d2 - (uint16_t)(q & 0xFF) * 10u);
     } else if (!((int32_t)d1 < 0x64)) {                 /* LAB_0444 */
-        wb(m, a2++, rb(m, MOG_LAB_08E8));
+        wb(m, a2++, rb(m, MOG_s_0123456789));
     }
-    wb(m, a2++, rb(m, MOG_LAB_08E8 + (uint32_t)(int32_t)(int16_t)d2));   /* LAB_0445 */
+    wb(m, a2++, rb(m, MOG_s_0123456789 + (uint32_t)(int32_t)(int16_t)d2));   /* LAB_0445 */
     return a2;
 }
 
@@ -1306,20 +1306,20 @@ static void find_gold(MogCombat *m, int d3)
         d0 -= 0x0A;
     d0 += 0x0A;
     if (d3) {
-        uint32_t a0 = rl(m, MOG_LAB_08C6);
+        uint32_t a0 = rl(m, MOG_v_Lair);
         ww(m, a0 + 8, (uint16_t)(rw(m, a0 + 8) + d0));
         return;
     }
     uint32_t a0 = CUR;
     ww(m, a0 + 74, (uint16_t)(rw(m, a0 + 74) + d0));
-    mog_number(m, d0, MOG_LAB_0931);
-    uint32_t a2 = MOG_LAB_0931;
+    mog_number(m, d0, MOG_b_GoldText);
+    uint32_t a2 = MOG_b_GoldText;
     for (int i = 0; i < 5 && rb(m, a2); i++)
         a2++;
     static const char gold[] = " gold";
     for (int i = 0; i < 6; i++)
         wb(m, a2 + (uint32_t)i, (uint8_t)gold[i]);
-    ww(m, MOG_LAB_090B, 2);
+    ww(m, MOG_v_EventKind, 2);
 }
 
 /* LAB_0471 : objet trouvé (table LAB_090E), jamais deux fois de suite ;
@@ -1329,7 +1329,7 @@ static void find_item(MogCombat *m, int d3)
     uint32_t d0, a0, a1;
     for (;;) {
         d0 = d100(m);
-        a0 = MOG_LAB_090E;
+        a0 = MOG_t_FindItems;
         for (int d7 = 11; d7 >= 0; d7--) {
             uint32_t t = rl(m, a0);
             a0 += 4;
@@ -1338,13 +1338,13 @@ static void find_item(MogCombat *m, int d3)
             a0 += 4;
         }
         d0 = rl(m, a0);                                 /* LAB_0473 */
-        if (d0 == rl(m, MOG_LAB_090D))
+        if (d0 == rl(m, MOG_v_LastItem))
             continue;
-        wl(m, MOG_LAB_090D, d0);
+        wl(m, MOG_v_LastItem, d0);
         a1 = CUR;
         a0 = rl(m, a1 + 96);
         if (d3 == 1) {
-            a1 = rl(m, MOG_LAB_08C6);
+            a1 = rl(m, MOG_v_Lair);
             a0 = rl(m, a1);
         } else if (d3 == 2) {
             a0 = MOG_t_ShopInventory;
@@ -1364,19 +1364,19 @@ static void find_item(MogCombat *m, int d3)
             ww(m, k + 80, (uint16_t)(rw(m, k + 80) + 0x14));
             mog_knight_hp(m, k);
         }
-        uint32_t a4 = MOG_LAB_090F;                     /* LAB_0477 : nom */
-        uint16_t id = (uint16_t)rl(m, MOG_LAB_090D);
+        uint32_t a4 = MOG_t_ItemNames;                     /* LAB_0477 : nom */
+        uint16_t id = (uint16_t)rl(m, MOG_v_LastItem);
         while (rw(m, a4) != id)
             a4 += 6;
         a4 = rl(m, a4 + 2);
-        uint32_t a5 = MOG_LAB_092F;
+        uint32_t a5 = MOG_b_FoundName;
         uint8_t c;
         do {
             c = rb(m, a4++);
             wb(m, a5++, c);
         } while (c);
     }
-    ww(m, MOG_LAB_090B, 1);
+    ww(m, MOG_v_EventKind, 1);
 }
 
 /* LAB_045E : événement de la manche d'un chevalier noir : objet, gain de
@@ -1390,8 +1390,8 @@ static void random_event(MogCombat *m)
         d0 = (d0 & 0xFFFFFF00u) | (uint8_t)(d0 + rb(m, a0 + 83));     /* ADD.B */
         if ((int32_t)d0 <= 0x1E) {                      /* LAB_0461 */
             find_item(m, 0);
-            ww(m, MOG_LAB_0908, (uint16_t)((rw(m, MOG_LAB_0908) + 1) & 3));
-            wl(m, MOG_LAB_0909, rl(m, MOG_LAB_0907 + (uint32_t)(uint16_t)(rw(m, MOG_LAB_0908) << 2)));
+            ww(m, MOG_v_ItemMessageIndex, (uint16_t)((rw(m, MOG_v_ItemMessageIndex) + 1) & 3));
+            wl(m, MOG_v_EventMessage, rl(m, MOG_t_ItemMessages + (uint32_t)(uint16_t)(rw(m, MOG_v_ItemMessageIndex) << 2)));
             return;
         }
         if ((int32_t)d0 <= 0x46) {                      /* LAB_0462 */
@@ -1401,31 +1401,31 @@ static void random_event(MogCombat *m)
                 continue;
             uint32_t k = CUR, a = k + (uint32_t)(int32_t)d1;
             wb(m, a, (uint8_t)(rb(m, a) + 1));
-            wl(m, MOG_LAB_0909, rl(m, MOG_LAB_090A + entry + 4));
+            wl(m, MOG_v_EventMessage, rl(m, MOG_t_StatGains + entry + 4));
             if ((uint16_t)d1 == 0x47) {
                 mog_knight_hp(m, CUR);
                 ww(m, CUR + 80, (uint16_t)(rw(m, CUR + 80) + 0x0A));
             }
             if ((uint16_t)d1 == 0x48)
                 mog_knight_defence(m, CUR);
-            ww(m, MOG_LAB_090C, (uint16_t)d1);
-            ww(m, MOG_LAB_090B, 3);
+            ww(m, MOG_v_EventStat, (uint16_t)d1);
+            ww(m, MOG_v_EventKind, 3);
             return;
         }
         if ((int32_t)d0 <= 0x5A) {                      /* LAB_045F */
             find_gold(m, 0);
-            uint16_t n = (uint16_t)(rw(m, MOG_LAB_0906) + 1);
+            uint16_t n = (uint16_t)(rw(m, MOG_v_GoldMessageIndex) + 1);
             if (!(sw(n) < 3))
                 n = 0;
-            ww(m, MOG_LAB_0906, n);
-            wl(m, MOG_LAB_0909, rl(m, MOG_LAB_0905 + (uint32_t)(uint16_t)(n << 2)));
+            ww(m, MOG_v_GoldMessageIndex, n);
+            wl(m, MOG_v_EventMessage, rl(m, MOG_t_GoldMessages + (uint32_t)(uint16_t)(n << 2)));
             return;
         }
         if (rb(m, a0 + 83) == 0xFF)
             continue;
         wb(m, a0 + 82, 3);
-        ww(m, MOG_LAB_090B, 4);
-        wl(m, MOG_LAB_0909, MOG_LAB_092D);
+        ww(m, MOG_v_EventKind, 4);
+        wl(m, MOG_v_EventMessage, MOG_t_BewitchedMessage);
         return;
     }
 }
@@ -1496,7 +1496,7 @@ static void next_day_screen(MogCombat *m)
         wb(m, dst + i, rb(m, src + i));
     mog_piv_decode(m, rl(m, MOG_LAB_0D92));
     wl(m, MOG_v_Combatants + 10, rl(m, MOG_t_FontBank + 16));
-    mog_text_records(m, MOG_LAB_0709);
+    mog_text_records(m, MOG_t_NextDayText);
     uint16_t d0 = rw(m, MOG_v_Combatants + 18);
     ww(m, MOG_v_BlitByCpu, 1);
     mog_draw_cel(VM, &m->blt, rl(m, MOG_t_BankMap + 4), d0, 0x77, 0x0C);

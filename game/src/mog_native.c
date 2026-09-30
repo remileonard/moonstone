@@ -18,12 +18,12 @@ static int16_t sw(uint16_t v) { return (int16_t)v; }
 /* LAB_04A1 : 8 pas d'un registre à décalage (bit entrant = bit 4 ^ bit 1) */
 uint32_t mog_random(MogCombat *m)
 {
-    uint32_t d0 = ix_rl(VM, MOG_LAB_0973);
+    uint32_t d0 = ix_rl(VM, MOG_v_RandomSeed);
     for (int i = 0; i < 8; i++) {
         uint32_t b = ((d0 >> 4) ^ (d0 >> 1)) & 1u;
         d0 = (d0 >> 1) | (b << 31);
     }
-    ix_wl(VM, MOG_LAB_0973, d0);
+    ix_wl(VM, MOG_v_RandomSeed, d0);
     return d0;
 }
 
@@ -94,11 +94,11 @@ static void freeze_others(MogCombat *m)
 /* LAB_0211 : recul (table de pas LAB_08CE, sens LAB_08D0) */
 static void knockback(MogCombat *m, uint32_t a1)
 {
-    ix_ww(VM, MOG_LAB_08CF, (uint16_t)(ix_rw(VM, MOG_LAB_08CF) + 1));
+    ix_ww(VM, MOG_v_BackStepIndex, (uint16_t)(ix_rw(VM, MOG_v_BackStepIndex) + 1));
     ix_wl(VM, MOG_v_CurObj, a1);
     uint32_t a0 = a1;
     ix_ww(VM, a0 + 62, 0);
-    uint8_t dir = ix_rb(VM, MOG_LAB_08D0);
+    uint8_t dir = ix_rb(VM, MOG_v_BackDir);
     ix_wb(VM, a0 + 10, dir);
     int bit = dir == 1 ? 0 : 1;                         /* LAB_0213 : vers la droite */
     ix_wb(VM, a0 + 63, (uint8_t)(ix_rb(VM, a0 + 63) | (1u << bit)));
@@ -106,8 +106,8 @@ static void knockback(MogCombat *m, uint32_t a1)
     if (!(ix_rb(VM, a0 + 63) & (1u << bit)))
         return;
     uint32_t en = ix_find_entity(&m->eng, ix_rl(VM, MOG_v_CurObj));
-    uint32_t tab = ix_rl(VM, MOG_LAB_08CE);
-    uint16_t k = (uint16_t)(ix_rw(VM, MOG_LAB_08CF) << 1);
+    uint32_t tab = ix_rl(VM, MOG_v_BackSteps);
+    uint16_t k = (uint16_t)(ix_rw(VM, MOG_v_BackStepIndex) << 1);
     uint16_t step = ix_rw(VM, tab + (uint32_t)(int32_t)sw(k));
     uint16_t x = ix_rw(VM, en + 6);
     ix_ww(VM, en + 6, (uint16_t)(bit ? x - step : x + step));
@@ -117,7 +117,7 @@ static void knockback(MogCombat *m, uint32_t a1)
 static void throw_object(MogCombat *m, uint32_t en, uint32_t a1)
 {
     ix_wb(VM, a1 + 76, (uint8_t)(ix_rb(VM, a1 + 76) - 1));
-    uint32_t o = ix_spawn(&m->eng, MOG_LAB_07EB, ix_rl(VM, en + 28),
+    uint32_t o = ix_spawn(&m->eng, MOG_x_ThrownObject, ix_rl(VM, en + 28),
                           sw(ix_rw(VM, en + 6)), sw(ix_rw(VM, en + 8)),
                           sw(ix_rw(VM, en + 10)), ix_rb(VM, en + 22), 52);
     ix_wl(VM, o + 42, MOG_LAB_0302);
@@ -206,9 +206,9 @@ static void demon_throw(MogCombat *m)
     uint32_t script = ix_rl(VM, a1 + 22);
     if (!((int16_t)ix_rw(VM, a1 + 80) > 0)) {           /* mort : fondu au noir */
         for (int i = 0; i < 6; i++)
-            ix_ww(VM, MOG_LAB_08D9 + 4 + 2u * (unsigned)i, 0);
-        set_palette(m, MOG_LAB_08D9);
-        script = MOG_LAB_07F7;
+            ix_ww(VM, MOG_t_PalCombat + 4 + 2u * (unsigned)i, 0);
+        set_palette(m, MOG_t_PalCombat);
+        script = MOG_x_KnightThrown;
     }
     mog_restart_entity(m, ix_rl(VM, MOG_v_PlayerObj), script);
 }
@@ -224,7 +224,7 @@ static void demon_companion(MogCombat *m, uint32_t banks)
     ix_ww(VM, a1 + 6, h);
     ix_ww(VM, a1 + 8, x);                               /* (X aussi en profondeur) */
     ix_wb(VM, a1 + 10, dir);
-    ix_start_entity(&m->eng, MOG_LAB_08AF, a1, banks, (int16_t)x, (int16_t)h,
+    ix_start_entity(&m->eng, MOG_x_DemonCompanion, a1, banks, (int16_t)x, (int16_t)h,
                     (int16_t)x, dir, 8);
 }
 
@@ -238,7 +238,7 @@ int mog_native(MogCombat *m, uint32_t routine, uint32_t en)
     case MOG_LAB_000D:                                  /* le joueur meurt */
         ix_ww(VM, ix_rl(VM, MOG_v_Combatants) + 80, 0xFFFF);
         return 1;
-    case MOG_LAB_0210: ix_ww(VM, MOG_LAB_08CF, 0xFFFF); return 1;
+    case MOG_LAB_0210: ix_ww(VM, MOG_v_BackStepIndex, 0xFFFF); return 1;
     case MOG_LAB_0211: knockback(m, obj); return 1;
     case MOG_LAB_02CA: throw_object(m, en, obj); return 1;
     case MOG_LAB_02DB: ix_ww(VM, MOG_v_EnemyActed, 1); return 1;

@@ -49,7 +49,7 @@ static CtlResult passing_knight(MogCombat *m, uint32_t a0)
             ix_ww(VM, ix_rl(VM, MOG_v_Combatants) + 80, 0xFFFF);   /* LAB_000D */
             mog_end_combat(m);
             return mog_set_script(m, ix_rb(VM, a1 + 10) != ix_rb(VM, tgt + 10)
-                                     ? MOG_LAB_084E : MOG_LAB_0849);
+                                     ? MOG_x_PassingKnightKill : MOG_x_PassingKnightKillBack);
         }
     }
 
@@ -371,7 +371,7 @@ static CtlResult creature_0236(MogCombat *m, uint32_t a0)
                 ix_wl(VM, MOG_v_CtlScript, 0xFFFFFFFFu);
                 if (ix_rb(VM, a1 + 77) == 0x20 && !ix_rl(VM, MOG_v_Gore)) {
                     mog_kill_entity_of(m, tgt);
-                    return mog_set_script(m, MOG_LAB_081C);
+                    return mog_set_script(m, MOG_x_TroggKill);
                 }
             }
             if (ix_rb(VM, a1 + 77) == 0x20)             /* LAB_024C */
@@ -421,7 +421,7 @@ static CtlResult creature_0236(MogCombat *m, uint32_t a0)
                     if (!(d > sw(ix_rw(VM, a0 + 116)))) {
                         ix_wb(VM, a0 + 106, 0x14);
                         ix_ww(VM, a0 + 64, 4);
-                        return mog_set_script(m, MOG_LAB_081B);
+                        return mog_set_script(m, MOG_x_TroggLunge);
                     }
                 } else if (!(d > 100)) {                /* LAB_0243 */
                     if (sw((uint16_t)random100(m)) > 30)
@@ -689,7 +689,7 @@ static CtlResult rat_waiting(MogCombat *m, Regs *r)
         return rat_jump(m, r);
     }
     dist_x(m, r);
-    return mog_set_script(m, sw((uint16_t)r->d0) < 60 ? MOG_LAB_0864 : MOG_LAB_0863);
+    return mog_set_script(m, sw((uint16_t)r->d0) < 60 ? MOG_x_RatWaitNear : MOG_x_RatWaitFar);
 }
 
 /* LAB_0256 : saute vers le chevalier */
@@ -714,7 +714,7 @@ static CtlResult rat_jump(MogCombat *m, Regs *r)
     start_flight(m);                                    /* LAB_0258 */
     a0 = me(m);                                         /* LAB_0259 */
     ix_wb(VM, a0 + 104, (uint8_t)(ix_rb(VM, a0 + 104) | 1));
-    return mog_set_script(m, MOG_LAB_0850);
+    return mog_set_script(m, MOG_x_RatJump);
 }
 
 static CtlResult ratman(MogCombat *m, uint32_t a0)
@@ -733,7 +733,7 @@ static CtlResult ratman(MogCombat *m, uint32_t a0)
             if (btst8(m, a1 + 104, 0)) {                /* LAB_026F : en l'air */
                 mog_message(m, "Rat hit in AIR");
                 if (k == 0x18) {                        /* LAB_0270 */
-                    ix_wl(VM, MOG_v_CtlScript, MOG_LAB_086B);
+                    ix_wl(VM, MOG_v_CtlScript, MOG_x_RatHitInAir);
                     ix_wb(VM, a1 + 104, 0);
                     ix_ww(VM, a1 + 6, 0);
                     ix_ww(VM, a1 + 80, 0xFFFF);
@@ -742,10 +742,10 @@ static CtlResult ratman(MogCombat *m, uint32_t a0)
                 hurt(m, a1, mog_knight_damage(m, foe(m)));
                 ix_wb(VM, a1 + 104, 0);
                 ix_ww(VM, a1 + 6, 0);
-                return mog_set_script(m, MOG_LAB_0862);
+                return mog_set_script(m, MOG_x_RatmenReact1);
             }
             if (k == 0x10 || k == 0x1C) {               /* LAB_026D */
-                ix_wl(VM, MOG_v_CtlScript, MOG_LAB_0860);
+                ix_wl(VM, MOG_v_CtlScript, MOG_x_RatmenReact8);
                 ix_wb(VM, a1 + 104, 0);
                 ix_ww(VM, a1 + 6, 0);
                 ix_ww(VM, a1 + 80, 0xFFFF);
@@ -766,7 +766,7 @@ static CtlResult ratman(MogCombat *m, uint32_t a0)
                 ix_wb(VM, a1 + 104, (uint8_t)(ix_rb(VM, a1 + 104) | 0x20));
                 bset8(m, MOG_v_KnightAiFlags, 5);
                 ix_ww(VM, a1 + 106, (uint16_t)(int16_t)(int8_t)(uint8_t)(ix_rb(VM, a0 + 72) + 6));
-                ix_wl(VM, MOG_v_CtlScript, MOG_LAB_085B);
+                ix_wl(VM, MOG_v_CtlScript, MOG_x_RatOnKnight);
                 ix_ww(VM, a1 + 6, 0);
                 mog_toggle_freeze(m, a0);
                 return mog_ctl_return(m);
@@ -775,7 +775,7 @@ static CtlResult ratman(MogCombat *m, uint32_t a0)
                 ix_ww(VM, a1 + 104, 0);
                 bset8(m, a1 + 105, 2);
                 bset8(m, MOG_v_KnightAiFlags, 3);
-                ix_wl(VM, MOG_v_CtlScript, MOG_LAB_0865);
+                ix_wl(VM, MOG_v_CtlScript, MOG_x_RatBite);
                 mog_toggle_freeze(m, a0);
                 return mog_ctl_return(m);
             }
@@ -790,9 +790,9 @@ static CtlResult ratman(MogCombat *m, uint32_t a0)
                 }
             }
             if (ix_rw(VM, a1 + 64) == 8)
-                ix_wl(VM, MOG_v_CtlScript, MOG_LAB_085A);
+                ix_wl(VM, MOG_v_CtlScript, MOG_x_RatHit8);
             if (ix_rw(VM, a1 + 64) == 4)
-                ix_wl(VM, MOG_v_CtlScript, MOG_LAB_0858);
+                ix_wl(VM, MOG_v_CtlScript, MOG_x_RatHit4);
             return mog_ctl_return(m);
         }
     }
@@ -805,7 +805,7 @@ static CtlResult ratman(MogCombat *m, uint32_t a0)
     if (s104 & 0x20) {                                  /* LAB_0264 : sur le chevalier */
         uint16_t j = poll_joystick(m);
         if ((j & 0x10) && (j & 4)) {                    /* LAB_0266 : secoué */
-            ix_wl(VM, MOG_v_CtlScript, MOG_LAB_085D);
+            ix_wl(VM, MOG_v_CtlScript, MOG_x_RatShaken);
             ix_wb(VM, a1 + 104, 0);
             bset8(m, a1 + 105, 0);
             return mog_ctl_return(m);
@@ -813,10 +813,10 @@ static CtlResult ratman(MogCombat *m, uint32_t a0)
         uint16_t n = (uint16_t)(ix_rw(VM, a1 + 106) - 1);   /* LAB_0265 */
         ix_ww(VM, a1 + 106, n);
         if (n)
-            return mog_set_script(m, MOG_LAB_085B);
+            return mog_set_script(m, MOG_x_RatOnKnight);
         ix_wb(VM, a1 + 104, 0);                         /* LAB_0267 */
         bset8(m, a1 + 104, 4);
-        return mog_set_script(m, MOG_LAB_085C);
+        return mog_set_script(m, MOG_x_RatLetGo);
     }
     if (btst8(m, a1 + 105, 0)) {                        /* LAB_026A : lâché */
         mog_toggle_freeze(m, ix_rl(VM, MOG_v_PlayerObj));
@@ -845,7 +845,7 @@ static CtlResult ratman(MogCombat *m, uint32_t a0)
         bset8(m, a1 + 104, 0);
         ix_wb(VM, a1 + 12, 0);
         ix_ww(VM, a1 + 6, 0xFFBA);
-        ix_wl(VM, MOG_v_CtlScript, MOG_LAB_0851);
+        ix_wl(VM, MOG_v_CtlScript, MOG_x_RatFall);
         uint32_t en = ix_find_entity(&m->eng, ix_rl(VM, MOG_v_PlayerObj));
         ix_wb(VM, en + 22, ix_rb(VM, a1 + 10));
         uint32_t k = ix_rl(VM, MOG_v_PlayerObj);
@@ -855,7 +855,7 @@ static CtlResult ratman(MogCombat *m, uint32_t a0)
         uint16_t old = ix_rw(VM, k + 80);
         ix_ww(VM, k + 80, (uint16_t)(old - 5));
         if (!(sw(old) > 5))                             /* BGT après SUBI */
-            s = MOG_LAB_07F7;
+            s = MOG_x_KnightThrown;
         mog_restart_entity(m, k, s);
         mog_toggle_freeze(m, foe(m));
         return mog_ctl_return(m);
@@ -865,7 +865,7 @@ static CtlResult ratman(MogCombat *m, uint32_t a0)
     if (btst8(m, a1 + 105, 2)) {                        /* LAB_0261 : mord */
         uint16_t j = poll_joystick(m);
         if ((j & 0x10) && (j & 4)) {
-            ix_wl(VM, MOG_v_CtlScript, MOG_LAB_0867);
+            ix_wl(VM, MOG_v_CtlScript, MOG_x_RatBiteShaken);
             a1 = me(m);
             uint16_t old = ix_rw(VM, a1 + 80);
             uint16_t d = mog_knight_damage(m, foe(m));
@@ -873,16 +873,16 @@ static CtlResult ratman(MogCombat *m, uint32_t a0)
             if (sw(old) > sw(d))                        /* BGT après SUB */
                 return mog_ctl_return(m);
             mog_toggle_freeze(m, foe(m));
-            release_knight(m, foe(m), MOG_LAB_07FA);
+            release_knight(m, foe(m), MOG_x_KnightReleased);
             bclr8(m, MOG_v_KnightAiFlags, 3);
-            return mog_set_script(m, MOG_LAB_0868);
+            return mog_set_script(m, MOG_x_RatBiteEnd);
         }
-        ix_wl(VM, MOG_v_CtlScript, MOG_LAB_0866);       /* LAB_0262 */
+        ix_wl(VM, MOG_v_CtlScript, MOG_x_RatBiting);       /* LAB_0262 */
         uint32_t k = foe(m);
         uint16_t old = ix_rw(VM, k + 80);
         ix_ww(VM, k + 80, (uint16_t)(old - 1));
         if (!(sw(old) > 1))
-            ix_wl(VM, MOG_v_CtlScript, MOG_LAB_0869);
+            ix_wl(VM, MOG_v_CtlScript, MOG_x_RatBiteKill);
         return mog_ctl_return(m);
     }
 
@@ -900,11 +900,11 @@ static CtlResult ratman(MogCombat *m, uint32_t a0)
         dist_x(m, &r);                                  /* LAB_0253 */
         if (!(sw((uint16_t)r.d0) > 40)) {
             ix_ww(VM, a1 + 64, 8);
-            return mog_set_script(m, MOG_LAB_0859);
+            return mog_set_script(m, MOG_x_RatAtk8);
         }
         if (!(sw((uint16_t)r.d0) > 50)) {
             ix_ww(VM, a1 + 64, 4);
-            return mog_set_script(m, MOG_LAB_0857);
+            return mog_set_script(m, MOG_x_RatAtk4);
         }
     }
 
@@ -933,7 +933,7 @@ static CtlResult ratman(MogCombat *m, uint32_t a0)
     start_flight(m);
     a0 = me(m);                                         /* LAB_0259 */
     ix_wb(VM, a0 + 104, (uint8_t)(ix_rb(VM, a0 + 104) | 1));
-    return mog_set_script(m, MOG_LAB_0850);
+    return mog_set_script(m, MOG_x_RatJump);
 }
 
 /* ------------------------------------------------------------------ */
@@ -944,7 +944,7 @@ static CtlResult ratman(MogCombat *m, uint32_t a0)
 static void splash(MogCombat *m, uint32_t a0)
 {
     ix_wl(VM, MOG_t_Controllers + 40, MOG_LAB_02D2);
-    ix_spawn(&m->eng, MOG_LAB_08BF, MOG_t_BankBlo, sw(ix_rw(VM, a0 + 122)), 0,
+    ix_spawn(&m->eng, MOG_x_Splash, MOG_t_BankBlo, sw(ix_rw(VM, a0 + 122)), 0,
              sw(ix_rw(VM, a0 + 124)), ix_rb(VM, ix_rl(VM, MOG_v_PlayerObj) + 10), 0x28);
 }
 
@@ -971,7 +971,7 @@ static CtlResult creature_0EC2(MogCombat *m, uint32_t a0)
         a0 = me(m);
         hurt(m, a0, d);
         splash(m, a0);
-        return mog_set_script(m, MOG_LAB_08AC);
+        return mog_set_script(m, MOG_x_TrollHit);
     }
     if (hp(m, ix_rl(VM, MOG_v_PlayerObj)) <= 0)
         return mog_ctl_return(m);
@@ -983,13 +983,13 @@ static CtlResult creature_0EC2(MogCombat *m, uint32_t a0)
         if (!(d < 100) && d < 150) {                    /* LAB_0ECA */
             if (ix_rw(VM, a0 + 64) != 0x20) {
                 ix_ww(VM, a0 + 64, 0x20);
-                return mog_set_script(m, MOG_LAB_08AB);
+                return mog_set_script(m, MOG_x_TrollAtk20);
             }
         }
         ix_ww(VM, a0 + 64, 8);                          /* LAB_0EC9 */
-        ix_wl(VM, MOG_v_CtlScript, MOG_LAB_08AA);
-        ix_wb(VM, MOG_LAB_08D0, ix_rb(VM, a0 + 10));
-        ix_wl(VM, MOG_LAB_08CE, MOG_LAB_08CC);
+        ix_wl(VM, MOG_v_CtlScript, MOG_x_TrollAtk8);
+        ix_wb(VM, MOG_v_BackDir, ix_rb(VM, a0 + 10));
+        ix_wl(VM, MOG_v_BackSteps, MOG_t_BackStepsA);
         return mog_ctl_return(m);
     }
     r.d6 = 0;
@@ -1018,7 +1018,7 @@ static int vs_level(MogCombat *m, Regs *r)
 {
     r->d0 = random100(m);
     int8_t d0 = (int8_t)r->d0;
-    int8_t t = (int8_t)ix_rb(VM, MOG_LAB_097B + (uint32_t)(int32_t)sw(ix_rw(VM, MOG_v_Round)));
+    int8_t t = (int8_t)ix_rb(VM, MOG_t_KnightAiSkill + (uint32_t)(int32_t)sw(ix_rw(VM, MOG_v_Round)));
     return d0 < t ? -1 : d0 > t;
 }
 
@@ -1051,7 +1051,7 @@ static CtlResult ai_knight(MogCombat *m, uint32_t a0)
             hurt(m, a1, mog_knight_damage(m, att));
             return mog_react_script(m, att, a1);
         }
-        return mog_set_script(m, MOG_LAB_07F9);
+        return mog_set_script(m, MOG_x_KnightDieHead);
     }
     if (ix_rl(VM, a0 + 14)) {                           /* LAB_0F17 : a touché */
         uint32_t tgt = ix_rl(VM, a0 + 14);
@@ -1145,11 +1145,11 @@ static CtlResult mudman(MogCombat *m, uint32_t a0)
         uint16_t d = mog_knight_damage(m, ix_rl(VM, a0 + 18));
         ix_wb(VM, a0 + 13, 0x14);
         hurt(m, a0, d);
-        return mog_set_script(m, MOG_LAB_08A3);
+        return mog_set_script(m, MOG_x_MudmanHit);
     }
     if (ix_rl(VM, a0 + 14)) {                           /* LAB_0EB4 : agrippe */
         mog_toggle_freeze(m, ix_rl(VM, a0 + 14));
-        ix_wl(VM, MOG_v_CtlScript, MOG_LAB_089F);
+        ix_wl(VM, MOG_v_CtlScript, MOG_x_MudmanGrip);
         bset8(m, MUD_STATE, 0);
         bset8(m, a0 + 104, 0);
         ix_wb(VM, a0 + 13, 0x28);
@@ -1167,14 +1167,14 @@ static CtlResult mudman(MogCombat *m, uint32_t a0)
         if (n) {
             uint16_t j = poll_joystick(m);
             if ((j & 0x10) && (j & 4)) {                /* dégagé */
-                ix_wl(VM, MOG_v_CtlScript, MOG_LAB_08A0);
+                ix_wl(VM, MOG_v_CtlScript, MOG_x_MudmanShaken);
                 bclr8(m, MUD_STATE, 0);
                 bclr8(m, a0 + 104, 0);
                 bset8(m, MUD_STATE, 6);
                 bset8(m, a0 + 104, 6);
                 return mog_ctl_return(m);
             }
-            return mog_set_script(m, MOG_LAB_089F);     /* LAB_0EAE */
+            return mog_set_script(m, MOG_x_MudmanGrip);     /* LAB_0EAE */
         }
         bclr8(m, MUD_STATE, 0);                         /* LAB_0EAF : englouti */
         bset8(m, MUD_STATE, 1);
@@ -1185,7 +1185,7 @@ static CtlResult mudman(MogCombat *m, uint32_t a0)
     if (btst8(m, MUD_STATE, 1)) {
 swallow:                                                /* LAB_0EB0 */
         if (btst8(m, a0 + 104, 1)) {
-            ix_wl(VM, MOG_v_CtlScript, MOG_LAB_08A1);
+            ix_wl(VM, MOG_v_CtlScript, MOG_x_MudmanSwallow);
             mog_kill_entity_of(m, foe(m));
             bclr8(m, MUD_STATE, 1);
             bclr8(m, a0 + 104, 1);
@@ -1203,7 +1203,7 @@ swallow:                                                /* LAB_0EB0 */
             mog_restart_entity(m, ix_rl(VM, k + 22), k);
             a0 = me(m);
             hurt(m, a0, 1);
-            ix_wl(VM, MOG_v_CtlScript, MOG_LAB_08A3);
+            ix_wl(VM, MOG_v_CtlScript, MOG_x_MudmanHit);
         }
         return mog_ctl_return(m);
     }
@@ -1221,7 +1221,7 @@ swallow:                                                /* LAB_0EB0 */
             dx = 0xFFB5;
         }
         ix_ww(VM, a0 + 4, (uint16_t)(ix_rw(VM, a0 + 4) + dx));
-        ix_wl(VM, MOG_v_CtlScript, MOG_LAB_0897);
+        ix_wl(VM, MOG_v_CtlScript, MOG_x_MudmanMove);
         bset8(m, a0 + 104, 3);
         bset8(m, a0 + 104, 4);
         return mog_ctl_return(m);
@@ -1234,13 +1234,13 @@ swallow:                                                /* LAB_0EB0 */
             if (!(d < 20) && !(d > 80)) {
                 mog_toggle_freeze(m, foe(m));
                 ix_ww(VM, ix_rl(VM, MOG_v_Combatants) + 80, 0xFFFF);
-                ix_wl(VM, MOG_v_CtlScript, MOG_LAB_08A2);
+                ix_wl(VM, MOG_v_CtlScript, MOG_x_MudmanDrag);
                 bset8(m, MUD_STATE, 2);
                 return mog_ctl_return(m);
             }
         }
         bclr8(m, a0 + 104, 4);                          /* LAB_0EAB */
-        return mog_set_script(m, MOG_LAB_0899);
+        return mog_set_script(m, MOG_x_MudmanSurface);
     }
 
     approach(m, &r);
@@ -1257,7 +1257,7 @@ swallow:                                                /* LAB_0EB0 */
     }
     if (!far && d > 0x32) {                             /* LAB_0E98 */
         if (d < 0x4B) {                                 /* LAB_0EA9 : replonge */
-            ix_wl(VM, MOG_v_CtlScript, MOG_LAB_0898);
+            ix_wl(VM, MOG_v_CtlScript, MOG_x_MudmanDive);
             ix_wb(VM, me(m) + 104, 0);
             bset8(m, me(m) + 104, 3);
             bset8(m, me(m) + 104, 4);
@@ -1266,7 +1266,7 @@ swallow:                                                /* LAB_0EB0 */
         if (d < 0x64) {                                 /* LAB_0EA5 */
             near_in_depth(m, &r);
             if ((uint16_t)r.d0)
-                return mog_set_script(m, MOG_LAB_089E);
+                return mog_set_script(m, MOG_x_MudmanAtk);
         }
     }
 
@@ -1360,13 +1360,13 @@ static void demon_release(MogCombat *m, uint8_t wait)
     if (!btst8(m, DEMON_STATE, 6))
         return;
     uint32_t a0 = ix_rl(VM, MOG_LAB_01A1);
-    ix_wb(VM, MOG_LAB_08D0, ix_rb(VM, a0 + 10));
+    ix_wb(VM, MOG_v_BackDir, ix_rb(VM, a0 + 10));
     mog_toggle_freeze(m, ix_rl(VM, MOG_v_PlayerObj));
-    mog_restart_entity(m, ix_rl(VM, MOG_v_PlayerObj), MOG_LAB_07FB);
+    mog_restart_entity(m, ix_rl(VM, MOG_v_PlayerObj), MOG_x_KnightDropped);
     bclr8(m, DEMON_STATE, 6);
     /* L'original écrit 106(A0) avec A0 = LAB_07FB (le script, chargé pour
      * LAB_030D) : l'octet LAB_07FC+20 du script change, pas le Démon. */
-    ix_wb(VM, MOG_LAB_07FB + 106, wait);
+    ix_wb(VM, MOG_x_KnightDropped + 106, wait);
 }
 
 /* LAB_0EE5 / LAB_0EE7 : saisie si le chevalier est à la bonne distance */
@@ -1396,7 +1396,7 @@ static CtlResult demon(MogCombat *m, uint32_t a0)
     if (ix_rl(VM, a0 + 18)) {                           /* LAB_0EF2 : touché */
         ix_ww(VM, DEMON_STATE, 0);
         mog_message(m, "DEMON STRUCK");
-        ix_wl(VM, MOG_v_CtlScript, MOG_LAB_08BD);
+        ix_wl(VM, MOG_v_CtlScript, MOG_x_DemonStruck);
         hurt(m, a0, mog_knight_damage(m, ix_rl(VM, a0 + 18)));
         dist_x(m, &r);
         if (!(sw((uint16_t)r.d0) > 60)) {               /* recule */
@@ -1419,13 +1419,13 @@ static CtlResult demon(MogCombat *m, uint32_t a0)
     if (btst8(m, DEMON_STATE, 0)) {                     /* LAB_0EE1 */
         bclr8(m, DEMON_STATE, 0);
         bset8(m, DEMON_STATE, 4);
-        ix_wl(VM, MOG_v_CtlScript, MOG_LAB_08B8);
+        ix_wl(VM, MOG_v_CtlScript, MOG_x_DemonHold);
         demon_release(m, 3);
         return demon_done(m);
     }
     if (btst8(m, DEMON_STATE, 3)) {                     /* LAB_0EE3 */
         bclr8(m, DEMON_STATE, 3);
-        ix_wl(VM, MOG_v_CtlScript, MOG_LAB_08BA);
+        ix_wl(VM, MOG_v_CtlScript, MOG_x_DemonThrow);
         demon_release(m, 5);
         return demon_done(m);
     }
@@ -1436,12 +1436,12 @@ static CtlResult demon(MogCombat *m, uint32_t a0)
     if (btst8(m, DEMON_STATE, 4)) {                     /* LAB_0EE7 */
         bset8(m, DEMON_STATE, 3);
         bclr8(m, DEMON_STATE, 4);
-        return demon_grab(m, &r, a0, MOG_LAB_08B9, 0x82, 0x96, MOG_LAB_08BB, 5);
+        return demon_grab(m, &r, a0, MOG_x_DemonReachB, 0x82, 0x96, MOG_x_DemonGrabB, 5);
     }
     if (btst8(m, DEMON_STATE, 5)) {                     /* LAB_0EE5 */
         bset8(m, DEMON_STATE, 0);
         bclr8(m, DEMON_STATE, 5);
-        return demon_grab(m, &r, a0, MOG_LAB_08B7, 0x78, 0x8C, MOG_LAB_08BC, 4);
+        return demon_grab(m, &r, a0, MOG_x_DemonReachA, 0x78, 0x8C, MOG_x_DemonGrabA, 4);
     }
     if (hp(m, foe(m)) <= 0)
         return mog_ctl_return(m);
@@ -1463,25 +1463,25 @@ static CtlResult demon(MogCombat *m, uint32_t a0)
     int16_t d = sw((uint16_t)r.d1);
     if (!(d > 100)) {                                   /* LAB_0EDD */
         ix_ww(VM, a0 + 64, 0x20);
-        ix_wl(VM, MOG_v_CtlScript, MOG_LAB_08B4);
-        ix_wb(VM, MOG_LAB_08D0, ix_rb(VM, a0 + 10));
-        ix_wl(VM, MOG_LAB_08CE, MOG_LAB_08CC);
+        ix_wl(VM, MOG_v_CtlScript, MOG_x_DemonAtk20);
+        ix_wb(VM, MOG_v_BackDir, ix_rb(VM, a0 + 10));
+        ix_wl(VM, MOG_v_BackSteps, MOG_t_BackStepsA);
         ix_wb(VM, a0 + 106, 6);
         return mog_ctl_return(m);
     }
     if (!(d > 0x82)) {                                  /* LAB_0EDE */
         ix_ww(VM, a0 + 64, 8);
         bset8(m, DEMON_STATE, 1);
-        ix_wl(VM, MOG_v_CtlScript, MOG_LAB_08B5);
+        ix_wl(VM, MOG_v_CtlScript, MOG_x_DemonAtk8);
         ix_wb(VM, a0 + 106, 6);
         return demon_done(m);
     }
     if (!(d > 0x8C)) {                                  /* LAB_0EDF */
         ix_ww(VM, a0 + 64, 4);
-        ix_wl(VM, MOG_v_CtlScript, MOG_LAB_08B6);
+        ix_wl(VM, MOG_v_CtlScript, MOG_x_DemonAtk4);
         bset8(m, DEMON_STATE, 5);
-        ix_wb(VM, MOG_LAB_08D0, ix_rb(VM, a0 + 10));
-        ix_wl(VM, MOG_LAB_08CE, MOG_LAB_08CD);
+        ix_wb(VM, MOG_v_BackDir, ix_rb(VM, a0 + 10));
+        ix_wl(VM, MOG_v_BackSteps, MOG_t_BackStepsB);
         ix_wb(VM, a0 + 106, 5);
     }
     return demon_walk(m, &r);                           /* LAB_0EE0 */
@@ -1512,7 +1512,7 @@ static CtlResult leaper(MogCombat *m, uint32_t a0)
         uint16_t left = (uint16_t)(ix_rw(VM, MOG_v_LeapSteps) - 1);
         ix_ww(VM, MOG_v_LeapSteps, left);
         if (left) {
-            ix_wl(VM, MOG_v_CtlScript, MOG_LAB_088B);
+            ix_wl(VM, MOG_v_CtlScript, MOG_x_LeaperFly);
             uint16_t half = (uint16_t)(ix_rw(VM, MOG_v_ChaseStepY) >> 1);
             if (sw(half) < sw(left) || sw((uint16_t)f.d3) < -40)
                 return mog_ctl_return(m);
@@ -1521,12 +1521,12 @@ static CtlResult leaper(MogCombat *m, uint32_t a0)
                 return mog_ctl_return(m);
             ix_ww(VM, a0 + 4, ix_rw(VM, a1 + 4));       /* écrase le chevalier */
             ix_ww(VM, a0 + 8, ix_rw(VM, a1 + 8));
-            mog_restart_entity(m, a1, MOG_LAB_07FD);
+            mog_restart_entity(m, a1, MOG_x_KnightCrushed);
             ix_ww(VM, ix_rl(VM, MOG_v_Combatants) + 80, 0xFFFF);
             a0 = me(m);
         }
         ix_wb(VM, a0 + 105, 5);                         /* LAB_02AA : atterrit */
-        ix_wl(VM, MOG_v_CtlScript, MOG_LAB_088A);
+        ix_wl(VM, MOG_v_CtlScript, MOG_x_LeaperLand);
         ix_ww(VM, a0 + 6, 0);
         ix_wb(VM, LEAP_STATE, 0);
         if (sw(ix_rw(VM, MOG_v_ChaseStepX)) < 8) {
@@ -1541,21 +1541,21 @@ static CtlResult leaper(MogCombat *m, uint32_t a0)
     if (ix_rl(VM, a0 + 18)) {                           /* LAB_02B1 : touché */
         hurt(m, a0, mog_knight_damage(m, ix_rl(VM, a0 + 18)));
         splash(m, a0);
-        return mog_set_script(m, MOG_LAB_0891);
+        return mog_set_script(m, MOG_x_LeaperHit);
     }
     if (ix_rl(VM, a0 + 14)) {                           /* LAB_02B2 : a touché */
         uint32_t tgt = ix_rl(VM, a0 + 14);
         uint16_t k = ix_rw(VM, a0 + 64);
         if (k == 0x20) {                                /* LAB_02B4 : saisit */
             mog_toggle_freeze(m, tgt);
-            ix_wl(VM, MOG_v_CtlScript, MOG_LAB_0893);
+            ix_wl(VM, MOG_v_CtlScript, MOG_x_LeaperHold);
             bset8(m, LEAP_STATE, 0);
             return mog_ctl_return(m);
         }
-        return mog_set_script(m, k == 8 ? MOG_LAB_088E : ix_rl(VM, a0 + 26));
+        return mog_set_script(m, k == 8 ? MOG_x_LeaperRecoil8 : ix_rl(VM, a0 + 26));
     }
     if (btst8(m, LEAP_STATE, 0)) {                      /* LAB_02B5 */
-        ix_wl(VM, MOG_v_CtlScript, MOG_LAB_0894);
+        ix_wl(VM, MOG_v_CtlScript, MOG_x_LeaperRelease);
         bclr8(m, LEAP_STATE, 0);
         bset8(m, LEAP_STATE, 5);
         return mog_ctl_return(m);
@@ -1565,7 +1565,7 @@ static CtlResult leaper(MogCombat *m, uint32_t a0)
         if (hp(m, k) <= 0) {                            /* LAB_02B6 */
             uint16_t t = (uint16_t)(ix_rw(VM, MOG_v_LeapToggle) ^ 1);
             ix_ww(VM, MOG_v_LeapToggle, t);
-            ix_wl(VM, MOG_v_CtlScript, t ? MOG_LAB_0895 : MOG_LAB_0896);
+            ix_wl(VM, MOG_v_CtlScript, t ? MOG_x_LeaperEatA : MOG_x_LeaperEatB);
             ix_wb(VM, LEAP_STATE, 0);
             bset8(m, LEAP_STATE, 6);
             return mog_ctl_return(m);
@@ -1595,17 +1595,17 @@ static CtlResult leaper(MogCombat *m, uint32_t a0)
             ix_wb(VM, a0 + 105, 0);
         } else if (!(d > 80)) {                         /* LAB_02A2 */
             if (ix_rw(VM, a0 + 64) != 8) {
-                ix_wl(VM, MOG_v_CtlScript, MOG_LAB_088D);
+                ix_wl(VM, MOG_v_CtlScript, MOG_x_LeaperAtk8);
                 ix_ww(VM, a0 + 64, 8);
-                ix_wb(VM, MOG_LAB_08D0, ix_rb(VM, a0 + 10));
-                ix_wl(VM, MOG_LAB_08CE, MOG_LAB_08CC);
+                ix_wb(VM, MOG_v_BackDir, ix_rb(VM, a0 + 10));
+                ix_wl(VM, MOG_v_BackSteps, MOG_t_BackStepsA);
                 return mog_ctl_return(m);
             }
             ix_ww(VM, a0 + 64, 0x20);                   /* LAB_02A4 */
-            return mog_set_script(m, MOG_LAB_0890);
+            return mog_set_script(m, MOG_x_LeaperGrab);
         } else if (!(d > 120)) {
             ix_ww(VM, a0 + 64, 0x20);
-            return mog_set_script(m, MOG_LAB_0890);
+            return mog_set_script(m, MOG_x_LeaperGrab);
         } else if (!ix_rb(VM, ix_rl(VM, MOG_v_PlayerObj) + 76) && !(d > 180)) {
             return mog_ctl_return(m);                   /* LAB_02A5 */
         }
@@ -1630,7 +1630,7 @@ static CtlResult leaper(MogCombat *m, uint32_t a0)
     start_flight(m);
     ix_wb(VM, LEAP_STATE, 0);
     bset8(m, LEAP_STATE, 1);
-    return mog_set_script(m, MOG_LAB_088A);
+    return mog_set_script(m, MOG_x_LeaperLand);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1720,7 +1720,7 @@ static void dragon_fire(MogCombat *m)
 {
     ix_wl(VM, MOG_t_Controllers + 40, MOG_LAB_02D2);
     uint32_t a1 = MOG_v_DragonObj;
-    ix_spawn(&m->eng, MOG_LAB_0886, MOG_t_BankEnemy, (int16_t)(ix_rw(VM, a1 + 4) + 0x37), 0,
+    ix_spawn(&m->eng, MOG_x_DragonFlame, MOG_t_BankEnemy, (int16_t)(ix_rw(VM, a1 + 4) + 0x37), 0,
              (int16_t)(ix_rw(VM, a1 + 8) + 5), 1, 0x28);
 }
 
@@ -1755,7 +1755,7 @@ static CtlResult dragon(MogCombat *m, uint32_t a0)
     } else if (ix_rl(VM, a1 + 14)) {                    /* LAB_028C : a touché */
         if (ix_rw(VM, a1 + 64) == 4) {                  /* LAB_028D */
             mog_kill_entity_of(m, ix_rl(VM, a1 + 14));
-            return mog_set_script(m, MOG_LAB_0884);
+            return mog_set_script(m, MOG_x_DragonKill);
         }
         return mog_set_script(m, 0xFFFFFFFFu);
     } else {
@@ -1805,18 +1805,18 @@ static CtlResult dragon(MogCombat *m, uint32_t a0)
         return dragon_done(m);
     if (!btst8(m, DRAGON_STATE, 5)) {                   /* LAB_0286 */
         ix_ww(VM, a1 + 64, 8);
-        ix_wl(VM, MOG_v_CtlScript, MOG_LAB_0872);
+        ix_wl(VM, MOG_v_CtlScript, MOG_x_DragonAtk8);
         return dragon_done(m);
     }
     if (!(sw(ix_rw(VM, MOG_v_DragonDist)) > 70) && !btst8(m, DRAGON_STATE, 7)) {
         bclr8(m, DRAGON_STATE, 7);                      /* LAB_0285 */
         ix_ww(VM, a1 + 64, 4);
-        ix_wl(VM, MOG_v_CtlScript, MOG_LAB_0883);
+        ix_wl(VM, MOG_v_CtlScript, MOG_x_DragonAtk4);
         return dragon_done(m);
     }
     bclr8(m, DRAGON_STATE, 7);                          /* LAB_0284 : feu */
     ix_ww(VM, a1 + 64, 0x20);
-    ix_wl(VM, MOG_v_CtlScript, MOG_LAB_087E);
+    ix_wl(VM, MOG_v_CtlScript, MOG_x_DragonFire);
     bset8(m, DRAGON_STATE, 6);
     dragon_fire(m);
     return dragon_done(m);
@@ -1835,19 +1835,19 @@ static CtlResult dragon_part(MogCombat *m, uint32_t a0)
         return mog_set_script(m, ix_rl(VM, a1 + 22));
     if (ix_rl(VM, a1 + 14)) {                           /* LAB_029C */
         if (ix_rb(VM, ix_rl(VM, a1 + 14) + 77) != 0x14) {
-            ix_wb(VM, MOG_LAB_08D0, 1);
-            ix_wl(VM, MOG_LAB_08CE, MOG_LAB_08CC);
+            ix_wb(VM, MOG_v_BackDir, 1);
+            ix_wl(VM, MOG_v_BackSteps, MOG_t_BackStepsA);
             ix_wl(VM, MOG_v_CtlScript, ix_rl(VM, a1 + 22));
         }
         return mog_ctl_return(m);
     }
     if (hp(m, MOG_v_DragonObj) <= 0)
-        return mog_set_script(m, MOG_LAB_0887);
+        return mog_set_script(m, MOG_x_DragonPartDie);
     if (hp(m, k) > 0) {                                 /* LAB_0299 */
         near_in_depth(m, &r);
         if ((uint16_t)r.d0 && !(sw(ix_rw(VM, k + 4)) > 100)) {
             ix_ww(VM, a1 + 64, 0x14);
-            return mog_set_script(m, MOG_LAB_0881);
+            return mog_set_script(m, MOG_x_DragonPartAtk);
         }
     }
     return dragon_done(m);

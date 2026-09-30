@@ -37,11 +37,11 @@ static uint32_t argb(uint16_t c)
 /* Sprite 0 (pointeur, 2 plans, couleurs 17 à 19) en (LAB_097F, LAB_0980) */
 static void draw_pointer(MogGame *g)
 {
-    if (!ix_rw(VM, MOG_LAB_097C))
+    if (!ix_rw(VM, MOG_v_PointerHidden))
         return;
-    uint32_t s = ix_rl(VM, MOG_LAB_097D);
+    uint32_t s = ix_rl(VM, MOG_v_PointerSprite);
     int h = ix_rw(VM, s);
-    int x0 = (int16_t)ix_rw(VM, MOG_LAB_097F), y0 = (int16_t)ix_rw(VM, MOG_LAB_0980);
+    int x0 = (int16_t)ix_rw(VM, MOG_v_PointerX), y0 = (int16_t)ix_rw(VM, MOG_v_PointerY);
     for (int r = 0; r < h; r++) {
         int y = y0 + r;
         if (y < 0 || y >= MOG_GAME_H)
@@ -145,7 +145,7 @@ int mog_game_boot(MogGame *g)
     if (mog_boot_memory(VM) < 0)
         return -1;
     /* LAB_04A5 : graine du hasard selon le faisceau (VHPOSR & 3) */
-    ix_wl(VM, MOG_LAB_0973, ix_rl(VM, MOG_LAB_0974 + 4u * (unsigned)(g->seed & 3)));
+    ix_wl(VM, MOG_v_RandomSeed, ix_rl(VM, MOG_t_RandomSeeds + 4u * (unsigned)(g->seed & 3)));
     mog_boot_graphics(VM);                              /* SECSTRT_30, SECSTRT_28 */
     ix_wl(VM, MOG_v_PalCurrent, MOG_t_FightPalette);              /* LAB_0E53 : palette courante */
     mog_boot_ui(VM);                                    /* LAB_012C */

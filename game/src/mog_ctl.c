@@ -314,9 +314,9 @@ static CtlResult r_020B(MogCombat *m, uint32_t a0, uint32_t a1)
         hurt(m, a1, mog_knight_damage(m, a0));
         return mog_react_script(m, a0, a1);
     }
-    ix_wl(VM, MOG_v_CtlScript, MOG_LAB_07F8);
+    ix_wl(VM, MOG_v_CtlScript, MOG_x_KnightDie);
     if (ix_rw(VM, a0 + 64) == 8)
-        ix_wl(VM, MOG_v_CtlScript, MOG_LAB_07F9);
+        ix_wl(VM, MOG_v_CtlScript, MOG_x_KnightDieHead);
     return mog_ctl_return(m);
 }
 
@@ -336,13 +336,13 @@ static CtlResult react_hit_by(MogCombat *m, uint32_t fn, uint32_t a0, uint32_t a
         hurt(m, a1, 5);
         if (!ix_rl(VM, a1 + 14) && hp(m, a1) <= 0 && !ix_rl(VM, MOG_v_Gore)) {
             uint32_t att = ix_rl(VM, a1 + 18);
-            uint32_t s = ix_rb(VM, a1 + 10) != ix_rb(VM, att + 10) ? MOG_LAB_084E : MOG_LAB_0849;
+            uint32_t s = ix_rb(VM, a1 + 10) != ix_rb(VM, att + 10) ? MOG_x_PassingKnightKill : MOG_x_PassingKnightKillBack;
             mog_restart_entity(m, att, s);
             return mog_set_script(m, 0);
         } else {                                        /* LAB_0209 */
             uint32_t att = ix_rl(VM, a1 + 18);
             return mog_set_script(m, ix_rb(VM, a1 + 10) == ix_rb(VM, att + 10)
-                                 ? MOG_LAB_084A : MOG_LAB_084B);
+                                 ? MOG_x_PassingKnightHitFront : MOG_x_PassingKnightHitBack);
         }
     case MOG_LAB_020B:
         return r_020B(m, a0, a1);
@@ -361,7 +361,7 @@ static CtlResult react_hit_by(MogCombat *m, uint32_t fn, uint32_t a0, uint32_t a
         if (ix_rw(VM, a0 + 64) == 0x20) {
             a1 = ix_rl(VM, MOG_v_CurObj);
             if (hp(m, a1) <= 0)
-                return mog_set_script(m, MOG_LAB_07FD);
+                return mog_set_script(m, MOG_x_KnightCrushed);
         }
         return mog_react_script(m, a0, a1);
     case MOG_LAB_0200:
@@ -375,14 +375,14 @@ static CtlResult react_hit_by(MogCombat *m, uint32_t fn, uint32_t a0, uint32_t a
         return r_0201(m, a0, a1, 0x1E);
     case MOG_LAB_0203:
         hurt(m, a1, scale_down(m, a1, (uint16_t)(idx - 10)));
-        ix_wb(VM, MOG_LAB_08D0, 1);
-        ix_wl(VM, MOG_LAB_08CE, MOG_LAB_08CC);
-        ix_wl(VM, MOG_v_CtlScript, MOG_LAB_07FB);
+        ix_wb(VM, MOG_v_BackDir, 1);
+        ix_wl(VM, MOG_v_BackSteps, MOG_t_BackStepsA);
+        ix_wl(VM, MOG_v_CtlScript, MOG_x_KnightDropped);
         ix_wb(VM, a1 + 10, 3);
         return mog_ctl_return(m);
     case MOG_LAB_0205:
         if (hp(m, a1) <= 0)
-            return mog_set_script(m, MOG_LAB_07F9);         /* LAB_01F5 */
+            return mog_set_script(m, MOG_x_KnightDieHead);         /* LAB_01F5 */
         mog_check_parry(m, a1);
         if (!ix_rw(VM, MOG_LAB_01EB))
             return r_020B(m, a0, a1);
@@ -398,17 +398,17 @@ static CtlResult react_hit_by(MogCombat *m, uint32_t fn, uint32_t a0, uint32_t a
             uint32_t dmg = ix_rl(VM, ix_rl(VM, a0 + 42) + k);
             hurt(m, a1, (uint16_t)dmg);
             if (k == 4) {
-                ix_wl(VM, MOG_v_CtlScript, MOG_LAB_085F);
+                ix_wl(VM, MOG_v_CtlScript, MOG_x_RatHitByKnight4);
                 ix_wb(VM, a1 + 130, 1);
                 return mog_ctl_return(m);
             }
-            return mog_set_script(m, MOG_LAB_085E);
+            return mog_set_script(m, MOG_x_RatHitByKnight8);
         }
         return r_020B(m, a0, a1);
     }
     case MOG_LAB_01F2:
         if (hp(m, a1) <= 0)                             /* LAB_01F4 */
-            return mog_set_script(m, ix_rb(VM, a0 + 77) == 0x18 ? MOG_LAB_07F9 : MOG_LAB_07F8);
+            return mog_set_script(m, ix_rb(VM, a0 + 77) == 0x18 ? MOG_x_KnightDieHead : MOG_x_KnightDie);
         mog_check_parry(m, a1);
         if (ix_rw(VM, MOG_LAB_01EB))
             return mog_own_attack(m);
@@ -419,10 +419,10 @@ static CtlResult react_hit_by(MogCombat *m, uint32_t fn, uint32_t a0, uint32_t a
     case MOG_LAB_01F6:
         mog_check_parry(m, a1);
         if (ix_rw(VM, MOG_LAB_01EB))
-            return mog_set_script(m, MOG_LAB_07F3);
+            return mog_set_script(m, MOG_x_KnightAtk7);
         hurt(m, a1, 3);
         if (!ix_rl(VM, a1 + 14) && hp(m, a1) <= 0 && !ix_rl(VM, MOG_v_Gore)) {
-            mog_restart_entity(m, ix_rl(VM, a1 + 18), MOG_LAB_081C);
+            mog_restart_entity(m, ix_rl(VM, a1 + 18), MOG_x_TroggKill);
             return mog_set_script(m, 0);
         }
         return mog_react_script(m, a0, a1);
@@ -638,7 +638,7 @@ void mog_combat_init(MogCombat *m, IxVM *vm, const IxHost *host)
 static CtlResult projectile(MogCombat *m, uint32_t a0)
 {
     ix_wl(VM, MOG_v_CurObj, a0);
-    ix_wl(VM, MOG_v_CtlScript, MOG_LAB_07EC);
+    ix_wl(VM, MOG_v_CtlScript, MOG_x_ProjectileFly);
     int16_t x = sw(ix_rw(VM, a0 + 4));
     int gone;
     if (ix_rl(VM, a0 + 14))

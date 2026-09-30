@@ -137,7 +137,7 @@ int mog_menu(MogCombat *m)
 {
     mog_fade_out(m);                                    /* LAB_03F1 */
     /* LAB_012D : LAB_0100 (disquette 2) sans objet */
-    mog_load_cel(VM, MOG_LAB_07AD, rl(m, MOG_v_SheetPlanes));
+    mog_load_cel(VM, MOG_s_SelCel, rl(m, MOG_v_SheetPlanes));
     wl(m, MOG_v_Combatants + 10, rl(m, MOG_t_FontBank + 16));
     menu_background(m);
     mog_copy_screen(m, rl(m, MOG_SECSTRT_35), rl(m, MOG_LAB_0D92));
@@ -153,7 +153,7 @@ int mog_menu(MogCombat *m)
     wl(m, MOG_v_CursorCel, rl(m, MOG_v_SheetPlanes));
     menu_draw(m);
     mog_fade_to(m, MOG_LAB_0D2B);
-    wl(m, MOG_LAB_0714, MOG_LAB_029F);
+    wl(m, MOG_v_KnightCtlFn, MOG_LAB_029F);
     for (;;) {                                          /* LAB_00B5 */
         busy_tick(m);
         uint16_t d1 = mog_read_joy(m);
@@ -191,9 +191,9 @@ static void knights_draw(MogCombat *m)
     for (uint16_t d7 = 0; d7 < 4; d7++)
         if (rb(m, MOG_v_KnightsFree) & (1u << d7))
             mog_draw_cel(VM, &m->blt, rl(m, MOG_v_CursorCel), (uint16_t)(d7 + 2),
-                         rw(m, MOG_LAB_0702 + 2u * d7), 0x50);
+                         rw(m, MOG_t_KnightChoiceX + 2u * d7), 0x50);
     mog_draw_cel(VM, &m->blt, rl(m, MOG_v_CursorCel), 1,
-                 rw(m, MOG_LAB_0702 + 2u * rw(m, MOG_LAB_0703)), 0x50);
+                 rw(m, MOG_t_KnightChoiceX + 2u * rw(m, MOG_v_KnightChoice)), 0x50);
     if (rw(m, MOG_v_NameEditing))
         mog_text(m, rl(m, MOG_v_NameEdited), 0x32, 0x32, 0);   /* LAB_0431 */
     mog_swap_screens(m);
@@ -282,7 +282,7 @@ void mog_choose_knights(MogCombat *m)
     ww(m, MOG_v_ChooseLeft, rw(m, MOG_v_Players));
     wb(m, MOG_v_KnightsFree, 0x0F);
     wl(m, MOG_v_ChooseKnightObj, MOG_t_KnightObjects);
-    ww(m, MOG_LAB_0703, 0);
+    ww(m, MOG_v_KnightChoice, 0);
     wl(m, MOG_v_CursorCel, rl(m, MOG_v_SheetPlanes));
     mog_set_planes(m, rl(m, MOG_LAB_0D92));
     knights_draw(m);
@@ -292,7 +292,7 @@ void mog_choose_knights(MogCombat *m)
         busy_tick(m);
         uint16_t d1 = mog_read_joy(m);
         if (d1 & MOG_JOY_FIRE) {
-            take_knight(m, rw(m, MOG_LAB_0703), rl(m, MOG_v_ChooseKnightObj));
+            take_knight(m, rw(m, MOG_v_KnightChoice), rl(m, MOG_v_ChooseKnightObj));
             ww(m, MOG_v_ChooseLeft, (uint16_t)(rw(m, MOG_v_ChooseLeft) - 1));
             if (!rw(m, MOG_v_ChooseLeft))
                 break;
@@ -300,21 +300,21 @@ void mog_choose_knights(MogCombat *m)
             uint16_t d0 = 0;                            /* LAB_00DD */
             while (!(rb(m, MOG_v_KnightsFree) & (1u << (d0 & 7))))
                 d0++;
-            ww(m, MOG_LAB_0703, d0);
+            ww(m, MOG_v_KnightChoice, d0);
             knights_draw(m);
         } else if (d1 & MOG_JOY_LEFT) {
-            int16_t d0 = (int16_t)rw(m, MOG_LAB_0703);
+            int16_t d0 = (int16_t)rw(m, MOG_v_KnightChoice);
             while (--d0 >= 0)
                 if (rb(m, MOG_v_KnightsFree) & (1u << d0)) {
-                    ww(m, MOG_LAB_0703, (uint16_t)d0);
+                    ww(m, MOG_v_KnightChoice, (uint16_t)d0);
                     knights_draw(m);
                     break;
                 }
         } else if (d1 & MOG_JOY_RIGHT) {
-            uint16_t d0 = rw(m, MOG_LAB_0703);
+            uint16_t d0 = rw(m, MOG_v_KnightChoice);
             while (++d0 != 4)
                 if (rb(m, MOG_v_KnightsFree) & (1u << d0)) {
-                    ww(m, MOG_LAB_0703, d0);
+                    ww(m, MOG_v_KnightChoice, d0);
                     knights_draw(m);
                     break;
                 }

@@ -54,14 +54,14 @@ void mog_fade_to(MogCombat *m, uint32_t a)
 /* LAB_03F0 : fondu au noir (LAB_08D8), sans toucher au son */
 void mog_fade_black(MogCombat *m)
 {
-    mog_fade_to(m, MOG_LAB_08D8);
+    mog_fade_to(m, MOG_t_PalBlack);
 }
 
 /* LAB_03F1 : fondu au noir (LAB_08D8, volume baissé : LAB_0FC4), puis
  * LAB_0AA9 (voies libérées, son $A7 sur chacune) */
 void mog_fade_out(MogCombat *m)
 {
-    wl(m, MOG_v_PalFadeTarget, MOG_LAB_08D8);
+    wl(m, MOG_v_PalFadeTarget, MOG_t_PalBlack);
     ww(m, MOG_v_PalFadeDelay, 2);
     ww(m, MOG_v_PalFadeCount, 2);
     ww(m, MOG_v_SoundFading, 1);
@@ -182,12 +182,12 @@ static void loading_screen(MogCombat *m)
     mog_piv_decode(m, rl(m, MOG_LAB_0D92));
 
     wl(m, MOG_v_Combatants + 10, rl(m, MOG_t_FontBank + 16));
-    uint16_t n = rw(m, MOG_LAB_071D);
-    mog_text_records(m, rl(m, MOG_LAB_071E + (uint32_t)(uint16_t)(n << 2)));   /* LAB_0432 */
+    uint16_t n = rw(m, MOG_v_LoadingTextIndex);
+    mog_text_records(m, rl(m, MOG_t_LoadingTexts + (uint32_t)(uint16_t)(n << 2)));   /* LAB_0432 */
     n = (uint16_t)(n + 1);
     if (!(sw(n) < 14))
         n = 0;
-    ww(m, MOG_LAB_071D, n);
+    ww(m, MOG_v_LoadingTextIndex, n);
     mog_fade_to(m, MOG_LAB_0D2B);                       /* LAB_03F2 */
 }
 
@@ -377,8 +377,8 @@ static void terrain_load(MogCombat *m, uint32_t name)
  * de la carte (LAB_076D = 2 : LAB_076E). */
 static void terrain_next(MogCombat *m, uint32_t tbl, uint32_t ctr, int byte_ctr)
 {
-    if (rl(m, MOG_LAB_076D) == 2) {
-        terrain_load(m, rl(m, MOG_LAB_076E));
+    if (rl(m, MOG_v_TerrainMode) == 2) {
+        terrain_load(m, rl(m, MOG_v_LairTerrain));
         return;
     }
     uint16_t c = byte_ctr ? rb(m, ctr) : rw(m, ctr);
@@ -400,30 +400,30 @@ static void setup_scenery(MogCombat *m)
 {
     mog_clear_screen(m, rl(m, MOG_v_BgPlanes));
     terrain_default(m);
-    switch (rl(m, MOG_LAB_08C4)) {
+    switch (rl(m, MOG_v_PlaceType)) {
     case 4:                                             /* LAB_0147 */
         piv_to(m, MOG_v_SheetPlanes, 8, 0x5958);             /* LAB_014A */
         tiles_common(m);
         piv_to(m, MOG_v_BgPlanes, 24, 0x6395);
-        terrain_next(m, MOG_LAB_07B9, MOG_v_TerrainNextSwamp, 1);
+        terrain_next(m, MOG_t_TerrainsForest, MOG_v_TerrainNextForest, 1);
         break;
     case 0:                                             /* LAB_0144 */
         piv_to(m, MOG_v_SheetPlanes, 8, 0x5958);
         tiles_common(m);
         piv_to(m, MOG_v_BgPlanes, 28, 0x51A5);
-        terrain_next(m, MOG_LAB_07B7, MOG_v_TerrainNextForest, 0);
+        terrain_next(m, MOG_t_TerrainsGlade, MOG_v_TerrainNextGlade, 0);
         break;
     case 8:                                             /* LAB_013D */
         piv_to(m, MOG_v_SheetPlanes, 20, 0x4658);            /* LAB_014C */
         tiles_common(m);
         piv_to(m, MOG_v_BgPlanes, 36, 0x4C0A);
-        terrain_next(m, MOG_LAB_07B8, MOG_v_TerrainNextGlade, 0);
+        terrain_next(m, MOG_t_TerrainsSwamp, MOG_v_TerrainNextSwamp, 0);
         break;
     case 12:                                            /* LAB_0140 */
         piv_to(m, MOG_v_SheetPlanes, 16, 0x3A55);            /* LAB_014E */
         tiles_common(m);
         background_32(m);
-        terrain_next(m, MOG_LAB_07B6, MOG_v_TerrainNextWater, 0);
+        terrain_next(m, MOG_t_TerrainsWater, MOG_v_TerrainNextWater, 0);
         break;
     }
 }
@@ -460,7 +460,7 @@ static uint32_t cel_after(MogCombat *m, unsigned i, uint32_t name)
 static void knight_extra(MogCombat *m)
 {
     wl(m, MOG_t_BankKnight + 16, rl(m, MOG_t_FastBuffers + 44));
-    mog_load_cel(VM, MOG_LAB_0773, rl(m, MOG_t_BankKnight + 16));
+    mog_load_cel(VM, MOG_s_Kn5Ob, rl(m, MOG_t_BankKnight + 16));
 }
 
 /* Chargeur de la créature (LAB_0116, LAB_0118...) */
@@ -479,18 +479,18 @@ static void load_creature(MogCombat *m, uint32_t fn)
         a1 = rl(m, MOG_t_ChipBuffers + 8);
         wl(m, bank(0), a1);
         if (fn == MOG_LAB_011A) {
-            mog_load_cel(VM, MOG_LAB_0778, a1);
-            a1 = cel_after(m, 0, MOG_LAB_0778);
+            mog_load_cel(VM, MOG_s_TroggAxe1Cel, a1);
+            a1 = cel_after(m, 0, MOG_s_TroggAxe1Cel);
             wl(m, bank(1), a1);
-            mog_load_hit_cel(VM, MOG_LAB_0779, a1);
+            mog_load_hit_cel(VM, MOG_s_TroggAxe2Cel, a1);
         } else {
-            mog_load_cel(VM, MOG_LAB_077A, a1);
-            a1 = cel_after(m, 0, MOG_LAB_077A);
+            mog_load_cel(VM, MOG_s_TroggSpear1Cel, a1);
+            a1 = cel_after(m, 0, MOG_s_TroggSpear1Cel);
             for (unsigned i = 1; i < 5; i++)
                 wl(m, bank(i), a1);
-            mog_load_hit_cel(VM, MOG_LAB_077B, a1);
+            mog_load_hit_cel(VM, MOG_s_TroggSpear2Cel, a1);
         }
-        load_sounds(m, MOG_LAB_0ABB, MOG_b_SoundsCreature, 0xAB28);     /* LAB_0AB1 */
+        load_sounds(m, MOG_s_TrA, MOG_b_SoundsCreature, 0xAB28);     /* LAB_0AB1 */
         break;
     case MOG_LAB_011C:                                  /* Ratmen */
         if (rb(m, MOG_v_CreatureLoaded) == 0x24)
@@ -498,34 +498,34 @@ static void load_creature(MogCombat *m, uint32_t fn)
         wb(m, MOG_v_CreatureLoaded, 0x24);
         a1 = rl(m, MOG_t_ChipBuffers + 8);
         wl(m, bank(0), a1);
-        mog_load_hit_cel(VM, MOG_LAB_077C, a1);
-        a1 = cel_after(m, 0, MOG_LAB_077C);
+        mog_load_hit_cel(VM, MOG_s_Ratmen1Cel, a1);
+        a1 = cel_after(m, 0, MOG_s_Ratmen1Cel);
         wl(m, bank(1), a1);
-        mog_load_cel(VM, MOG_LAB_077D, a1);
-        load_sounds(m, MOG_LAB_0ABF, MOG_b_SoundsRatmen, 0xD508);     /* LAB_0AB2 */
+        mog_load_cel(VM, MOG_s_Ratmen2Cel, a1);
+        load_sounds(m, MOG_s_RaA, MOG_b_SoundsRatmen, 0xD508);     /* LAB_0AB2 */
         break;
     case MOG_LAB_011E:                                  /* Mudmen */
         wb(m, MOG_v_CreatureLoaded, 4);
         a1 = rl(m, MOG_t_ChipBuffers + 8);
         wl(m, bank(0), a1);
-        mog_load_hit_cel(VM, MOG_LAB_0782, a1);
+        mog_load_hit_cel(VM, MOG_s_Mudmen1Cel, a1);
         a1 = rl(m, MOG_t_FastBuffers + 44);
         wl(m, bank(1), a1);
-        mog_load_cel(VM, MOG_LAB_0783, a1);
-        load_sounds(m, MOG_LAB_0AC0, MOG_b_SoundsCreature, 0xB690);     /* LAB_0AB3 */
+        mog_load_cel(VM, MOG_s_Mudmen2Cel, a1);
+        load_sounds(m, MOG_s_MuA, MOG_b_SoundsCreature, 0xB690);     /* LAB_0AB3 */
         break;
     case MOG_LAB_011F:                                  /* Balok */
         if (rb(m, MOG_v_CreatureLoaded) != 0x30) {
             wb(m, MOG_v_CreatureLoaded, 0x30);
             a1 = rl(m, MOG_t_ChipBuffers + 8);
             wl(m, bank(0), a1);
-            mog_load_hit_cel(VM, MOG_LAB_0785, a1);
-            wl(m, bank(1), cel_after(m, 0, MOG_LAB_0785));
-            mog_load_cel(VM, MOG_LAB_0786, rl(m, bank(1)));
-            a1 = cel_after(m, 1, MOG_LAB_0786);
+            mog_load_hit_cel(VM, MOG_s_Balok1Cel, a1);
+            wl(m, bank(1), cel_after(m, 0, MOG_s_Balok1Cel));
+            mog_load_cel(VM, MOG_s_Balok3Cel, rl(m, bank(1)));
+            a1 = cel_after(m, 1, MOG_s_Balok3Cel);
             wl(m, bank(2), a1);
-            mog_load_cel(VM, MOG_LAB_0787, a1);
-            load_sounds(m, MOG_LAB_0AB8, MOG_b_SoundsCreature, 0xBDCC); /* LAB_0AAB */
+            mog_load_cel(VM, MOG_s_Balok2Cel, a1);
+            load_sounds(m, MOG_s_BaA, MOG_b_SoundsCreature, 0xBDCC); /* LAB_0AAB */
         }
         knight_extra(m);
         break;
@@ -533,14 +533,14 @@ static void load_creature(MogCombat *m, uint32_t fn)
         wb(m, MOG_v_CreatureLoaded, 0x14);
         a1 = rl(m, MOG_t_ChipBuffers + 8);
         wl(m, bank(0), a1);
-        mog_load_hit_cel(VM, MOG_LAB_0780, a1);
-        a1 = cel_after(m, 0, MOG_LAB_0780);
+        mog_load_hit_cel(VM, MOG_s_Dragon1Cel, a1);
+        a1 = cel_after(m, 0, MOG_s_Dragon1Cel);
         wl(m, bank(1), a1);
-        mog_load_hit_cel(VM, MOG_LAB_0781, a1);
-        a1 = cel_after(m, 1, MOG_LAB_0781);
+        mog_load_hit_cel(VM, MOG_s_Dragon2Cel, a1);
+        a1 = cel_after(m, 1, MOG_s_Dragon2Cel);
         wl(m, bank(4), a1);
-        mog_load_hit_cel(VM, MOG_LAB_0122, a1);
-        load_sounds(m, MOG_LAB_0AB9, MOG_b_SoundsCreature, 0xC140);     /* LAB_0AAC */
+        mog_load_hit_cel(VM, MOG_s_Dragon5Cel, a1);
+        load_sounds(m, MOG_s_DrA, MOG_b_SoundsCreature, 0xC140);     /* LAB_0AAC */
         knight_extra(m);
         break;
     case MOG_LAB_0123:                                  /* chevalier de passage */
@@ -549,41 +549,41 @@ static void load_creature(MogCombat *m, uint32_t fn)
         wb(m, MOG_v_CreatureLoaded, 0);
         a1 = rl(m, MOG_t_ChipBuffers + 8);
         wl(m, bank(0), a1);
-        mog_load_hit_cel(VM, MOG_LAB_077E, a1);
-        a1 = cel_after(m, 0, MOG_LAB_077E);
+        mog_load_hit_cel(VM, MOG_s_Be1C, a1);
+        a1 = cel_after(m, 0, MOG_s_Be1C);
         wl(m, bank(1), a1);
-        mog_load_cel(VM, MOG_LAB_077F, a1);
-        load_sounds(m, MOG_LAB_0AB7, MOG_b_SoundsCreature, 0x57BE);     /* LAB_0AAD */
+        mog_load_cel(VM, MOG_s_Be2C, a1);
+        load_sounds(m, MOG_s_BeA, MOG_b_SoundsCreature, 0x57BE);     /* LAB_0AAD */
         break;
     case MOG_LAB_0125:                                  /* Démon */
         background_32(m);
         wb(m, MOG_v_CreatureLoaded, 8);
         a1 = rl(m, MOG_t_FastBuffers + 44);
         wl(m, bank(3), a1);
-        mog_load_cel(VM, MOG_LAB_07B3, a1);
-        a1 = rl(m, MOG_t_FastBuffers + 44) + mog_cel_size(VM, MOG_LAB_07B3);
+        mog_load_cel(VM, MOG_s_Demon4Cel, a1);
+        a1 = rl(m, MOG_t_FastBuffers + 44) + mog_cel_size(VM, MOG_s_Demon4Cel);
         wl(m, bank(4), a1);
-        mog_load_cel(VM, MOG_LAB_07B0, a1);
+        mog_load_cel(VM, MOG_s_Demon1Cel, a1);
         a1 = rl(m, MOG_t_ChipBuffers + 8);
         wl(m, bank(0), a1);
-        mog_load_hit_cel(VM, MOG_LAB_07B1, a1);
-        a1 = cel_after(m, 0, MOG_LAB_07B1);
+        mog_load_hit_cel(VM, MOG_s_Demon2Cel, a1);
+        a1 = cel_after(m, 0, MOG_s_Demon2Cel);
         wl(m, bank(2), a1);
-        mog_load_hit_cel(VM, MOG_LAB_07B2, a1);
-        load_sounds(m, MOG_LAB_0ABD, MOG_b_SoundsCreature, 0xB27C);     /* LAB_0AAE */
+        mog_load_hit_cel(VM, MOG_s_Demon3Cel, a1);
+        load_sounds(m, MOG_s_GuA, MOG_b_SoundsCreature, 0xB27C);     /* LAB_0AAE */
         break;
     case MOG_LAB_0126:                                  /* Troll */
         if (rb(m, MOG_v_CreatureLoaded) != 0x40) {
             wb(m, MOG_v_CreatureLoaded, 0x40);
             wl(m, MOG_v_LoadPtr, rl(m, MOG_t_ChipBuffers + 8));
             wl(m, bank(0), rl(m, MOG_v_LoadPtr));
-            mog_load_hit_cel(VM, MOG_LAB_07B4, rl(m, MOG_v_LoadPtr));
-            wl(m, MOG_v_LoadPtr, rl(m, MOG_v_LoadPtr) + mog_cel_size(VM, MOG_LAB_07B4));
+            mog_load_hit_cel(VM, MOG_s_Troll1Cel, rl(m, MOG_v_LoadPtr));
+            wl(m, MOG_v_LoadPtr, rl(m, MOG_v_LoadPtr) + mog_cel_size(VM, MOG_s_Troll1Cel));
             wl(m, bank(1), rl(m, MOG_v_LoadPtr));
-            mog_load_hit_cel(VM, MOG_LAB_07B5, rl(m, MOG_v_LoadPtr));
+            mog_load_hit_cel(VM, MOG_s_Troll2Cel, rl(m, MOG_v_LoadPtr));
         }
         knight_extra(m);
-        load_sounds(m, MOG_LAB_0ABA, MOG_b_SoundsCreature, 0xBBC8);     /* LAB_0AAF */
+        load_sounds(m, MOG_s_ToA, MOG_b_SoundsCreature, 0xBBC8);     /* LAB_0AAF */
         break;
     }
 }
@@ -600,8 +600,8 @@ static void knight_kit(MogCombat *m, uint32_t a1)
     wl(m, a1 + 42, MOG_t_KnightDamage);
     wl(m, a1 + 46, MOG_t_KnightWalk);
     wl(m, a1 + 50, MOG_t_KnightField50);
-    wl(m, a1 + 22, MOG_LAB_07DB);
-    wl(m, a1 + 26, MOG_LAB_07DC);
+    wl(m, a1 + 22, MOG_x_KnightStand);
+    wl(m, a1 + 26, MOG_x_KnightRecoil);
     wl(m, a1 + 38, MOG_t_BankKnight);
     ww(m, a1 + 116, 0x64);
     ww(m, a1 + 120, 4);
@@ -615,8 +615,8 @@ static void dragon_kit(MogCombat *m, uint32_t a1)
     wl(m, a1 + 38, MOG_t_BankEnemy);
     wl(m, a1 + 30, MOG_t_DragonScripts);
     wl(m, a1 + 46, MOG_t_DragonWalk);
-    wl(m, a1 + 22, MOG_LAB_0882);
-    wl(m, a1 + 26, MOG_LAB_0882);
+    wl(m, a1 + 22, MOG_x_DragonStand);
+    wl(m, a1 + 26, MOG_x_DragonStand);
     ww(m, a1 + 116, 0x3C);
     ww(m, a1 + 118, 0x14);
     ww(m, a1 + 120, 5);
@@ -667,7 +667,7 @@ static void player_enters(MogCombat *m)
     ww(m, a1 + 8, 0x64);
     wb(m, a1 + 10, 3);
     knight_kit(m, a1);
-    mog_enter_object_with(m, a1, MOG_LAB_07FC);
+    mog_enter_object_with(m, a1, MOG_x_KnightEnter);
 }
 
 /* LAB_015F : états des quatre chevaliers remis à zéro */
@@ -732,8 +732,8 @@ static void scale_opponents(MogCombat *m)
         ww(m, MOG_LAB_0186, 3);
         ww(m, MOG_v_FoesToBeat, (uint16_t)(rw(m, MOG_v_FoesToBeat) + 1));
     }
-    if (rl(m, MOG_LAB_076D) == 2)
-        ww(m, MOG_v_FoesToBeat, rw(m, rl(m, MOG_LAB_08C6) + 6));
+    if (rl(m, MOG_v_TerrainMode) == 2)
+        ww(m, MOG_v_FoesToBeat, rw(m, rl(m, MOG_v_Lair) + 6));
     if (rl(m, MOG_v_NextFoeFn) == MOG_LAB_0197)
         ww(m, MOG_v_FoesAtOnce, 1);
     if (rl(m, MOG_v_NextFoeFn) == MOG_LAB_019B)
@@ -797,9 +797,9 @@ static void knight_colours(MogCombat *m, uint32_t a0, uint32_t a1)
 
 static void set_palette(MogCombat *m, uint32_t type)
 {
-    copy(m, MOG_LAB_08D9, MOG_LAB_0D2B, 64);
+    copy(m, MOG_t_PalCombat, MOG_LAB_0D2B, 64);
     wl(m, MOG_LAB_0411, type);
-    uint32_t a0 = MOG_LAB_08D9 + 0x12;
+    uint32_t a0 = MOG_t_PalCombat + 0x12;
     switch (type) {
     case 0: {
         static const uint16_t v[] = { 0x776, 0x443, 0x731, 0x520, 0x300, 0x09A, 0xC00 };
@@ -814,7 +814,7 @@ static void set_palette(MogCombat *m, uint32_t type)
         static const uint16_t v12[] = { 0x025, 0x004, 0x001, 0x830, 0x400, 0xF80, 0xC00 };
         static const uint16_t v0[]  = { 0x104, 0x102, 0x000, 0x600, 0x300, 0x693, 0xC00 };
         static const uint16_t vx[]  = { 0x500, 0x200, 0x000, 0xB40, 0x610, 0x895, 0xC00 };
-        uint32_t g = rl(m, MOG_LAB_08C4);
+        uint32_t g = rl(m, MOG_v_PlaceType);
         put(m, a0, g == 12 ? v12 : g == 0 ? v0 : vx, 7);
         break;
     }
@@ -827,7 +827,7 @@ static void set_palette(MogCombat *m, uint32_t type)
         static const uint16_t v[] = { 0xC00, 0x976, 0x700, 0x500, 0x754, 0xC30, 0xA00 };
         static const uint16_t w[] = { 0xFC0, 0xF80, 0xC50 };
         put(m, a0, v, 7);
-        put(m, MOG_LAB_08D9 + 0x3A, w, 3);
+        put(m, MOG_t_PalCombat + 0x3A, w, 3);
         break;
     }
     case 48: {
@@ -841,7 +841,7 @@ static void set_palette(MogCombat *m, uint32_t type)
         break;
     }
     case 8:
-        copy(m, a0, MOG_LAB_08D5, 46);
+        copy(m, a0, MOG_t_PalCombatBase, 46);
         break;
     case 4: {
         static const uint16_t v[] = { 0x332, 0xCCB, 0xB81, 0x851, 0x630, 0xF52, 0x900 };
@@ -852,23 +852,23 @@ static void set_palette(MogCombat *m, uint32_t type)
     /* LAB_0401 */
     mog_fade_out(m);                                    /* LAB_03F1 */
     show_background(m);                                 /* LAB_0418 */
-    knight_colours(m, MOG_LAB_08D9 + 0x0C, rl(m, MOG_v_Combatants));
+    knight_colours(m, MOG_t_PalCombat + 0x0C, rl(m, MOG_v_Combatants));
     if (rl(m, MOG_LAB_0411) != 8) {                     /* LAB_0409 */
         static const uint16_t hi[] = { 0xFFD, 0x998, 0x776, 0x443 };
         uint32_t a1 = 0;
-        switch (rl(m, MOG_LAB_08C4)) {
-        case 0:  a1 = MOG_LAB_08D1; break;
-        case 4:  a1 = MOG_LAB_08D2; break;
-        case 8:  put(m, MOG_LAB_08D9 + 2, hi, 4); a1 = MOG_LAB_08D4; break;
-        case 12: put(m, MOG_LAB_08D9 + 2, hi, 4); a1 = MOG_LAB_08D3; break;
+        switch (rl(m, MOG_v_PlaceType)) {
+        case 0:  a1 = MOG_t_PalGlade; break;
+        case 4:  a1 = MOG_t_PalForest; break;
+        case 8:  put(m, MOG_t_PalCombat + 2, hi, 4); a1 = MOG_t_PalSwamp; break;
+        case 12: put(m, MOG_t_PalCombat + 2, hi, 4); a1 = MOG_t_PalWater; break;
         }
         if (a1)
-            copy(m, MOG_LAB_08D9 + 0x20, a1, 26);
+            copy(m, MOG_t_PalCombat + 0x20, a1, 26);
     }
-    ww(m, MOG_LAB_08D9, 0);
+    ww(m, MOG_t_PalCombat, 0);
     if (rl(m, MOG_LAB_0411) != 20)
-        ww(m, MOG_LAB_08D9 + 30, 0xC00);
-    mog_fade_to(m, MOG_LAB_08D9);                       /* LAB_03F2 */
+        ww(m, MOG_t_PalCombat + 30, 0xC00);
+    mog_fade_to(m, MOG_t_PalCombat);                       /* LAB_03F2 */
 }
 
 /* ------------------------------------------------------------------ */
@@ -901,7 +901,7 @@ int mog_encounter_init(MogCombat *m, uint32_t fn)
         wb(m, a1 + 10, 1);
         knight_kit(m, a1);
         wl(m, a1 + 38, MOG_t_BankEnemy);
-        mog_enter_object_with(m, a1, MOG_LAB_07FC);
+        mog_enter_object_with(m, a1, MOG_x_KnightEnter);
         opponents(m, 1, 1, MOG_LAB_0166, 0);
         set_palette(m, 12);
         return 1;
@@ -909,47 +909,47 @@ int mog_encounter_init(MogCombat *m, uint32_t fn)
     case MOG_LAB_016A:                                  /* Troggs à hache (2) */
         prepare(m);
         horde(m, MOG_LAB_011A, 1, 3, MOG_LAB_016B,
-              fn == MOG_LAB_0168 ? MOG_LAB_0169 : MOG_LAB_0170, MOG_LAB_07BA, 0x18);
+              fn == MOG_LAB_0168 ? MOG_LAB_0169 : MOG_LAB_0170, MOG_t_EntriesA, 0x18);
         return 1;
     case MOG_LAB_0175:                                  /* Troggs à lance */
         prepare(m);
         load_creature(m, MOG_LAB_0118);
         a0 = rl(m, rl(m, MOG_v_CurObj) + 34);
-        wl(m, a0 + 28, MOG_LAB_07F3);
-        wl(m, a0 + 16, MOG_LAB_07F3);
+        wl(m, a0 + 28, MOG_x_KnightAtk7);
+        wl(m, a0 + 16, MOG_x_KnightAtk7);
         opponents(m, 1, 3, MOG_LAB_016B, MOG_LAB_0176);
         scale_opponents(m);
-        first_opponents(m, MOG_LAB_07BA);
+        first_opponents(m, MOG_t_EntriesA);
         set_palette(m, 0x20);
         return 1;
     case MOG_LAB_0188:                                  /* chevaliers de passage */
         prepare(m);
         load_creature(m, MOG_LAB_0123);
         a1 = rl(m, MOG_v_CurObj);
-        wl(m, rl(m, a1 + 34) + 28, MOG_LAB_07F3);
+        wl(m, rl(m, a1 + 34) + 28, MOG_x_KnightAtk7);
         a0 = rl(m, a1 + 30);
-        wl(m, a0 + 32, MOG_LAB_084A);
-        wl(m, a0 + 28, MOG_LAB_084A);
+        wl(m, a0 + 32, MOG_x_PassingKnightHitFront);
+        wl(m, a0 + 28, MOG_x_PassingKnightHitFront);
         opponents(m, 1, 3, MOG_LAB_0189, MOG_LAB_018B);
         scale_opponents(m);
-        first_opponents(m, MOG_LAB_07BB);
+        first_opponents(m, MOG_t_EntriesB);
         set_palette(m, 0);
         return 1;
     case MOG_LAB_018C: {                                /* Ratmen */
         prepare(m);
         load_creature(m, MOG_LAB_011C);
         a0 = rl(m, rl(m, MOG_v_CurObj) + 34);
-        wl(m, a0 + 16, MOG_LAB_07F2);
-        wl(m, a0 + 28, MOG_LAB_07F0);
+        wl(m, a0 + 16, MOG_x_KnightRatAtk4);
+        wl(m, a0 + 28, MOG_x_KnightRatReact7);
         opponents(m, 2, 2, MOG_LAB_018D, MOG_LAB_018F);
         wl(m, MOG_v_KnightAiFlags, 0);
         uint16_t v = rw(m, MOG_LAB_0A98);                /* LAB_01A5 */
         uint16_t d = (uint16_t)((((uint16_t)(200 - v)) >> 1) + v - 0x2F);
         ww(m, MOG_v_EntryDepth3, d);
-        wl(m, MOG_v_DemonCompanion, ix_spawn(&m->eng, MOG_LAB_0870, MOG_t_BankEnemy, 0xA0,
+        wl(m, MOG_v_DemonCompanion, ix_spawn(&m->eng, MOG_x_DemonCompanionEnter, MOG_t_BankEnemy, 0xA0,
                                      (int16_t)(d - 0xC8), (int16_t)d, 1, 0x28));
         scale_opponents(m);
-        first_opponents(m, MOG_LAB_07BC);
+        first_opponents(m, MOG_t_EntriesC);
         set_palette(m, 0x24);
         return 1;
     }
@@ -957,10 +957,10 @@ int mog_encounter_init(MogCombat *m, uint32_t fn)
         prepare(m);
         load_creature(m, MOG_LAB_0121);
         a0 = rl(m, rl(m, MOG_v_CurObj) + 30);
-        wl(m, a0 + 4, MOG_LAB_07F5);
-        wl(m, a0 + 8, MOG_LAB_07FE);
-        wl(m, a0 + 32, MOG_LAB_07FE);
-        wl(m, a0 + 20, MOG_LAB_07FB);
+        wl(m, a0 + 4, MOG_x_KnightReact8);
+        wl(m, a0 + 8, MOG_x_KnightDragonReact);
+        wl(m, a0 + 32, MOG_x_KnightDragonReact);
+        wl(m, a0 + 20, MOG_x_KnightDropped);
         wl(m, MOG_t_DragonDamage + 8, 0x1E);
         wl(m, MOG_t_DragonDamage + 32, 0x1E);
         wl(m, MOG_t_DragonDamage + 20, 0x0A);
@@ -985,8 +985,8 @@ int mog_encounter_init(MogCombat *m, uint32_t fn)
             ww(m, a1 + 84, 0x32);
             dragon_kit(m, a1);
             wb(m, a1 + 77, 0x2C);
-            wl(m, a1 + 22, MOG_LAB_0880);
-            wl(m, a1 + 26, MOG_LAB_0880);
+            wl(m, a1 + 22, MOG_x_DragonPartStand);
+            wl(m, a1 + 26, MOG_x_DragonPartStand);
             ww(m, a1 + 120, 0x0A);
             mog_enter_object(m, a1);
         }
@@ -997,14 +997,14 @@ int mog_encounter_init(MogCombat *m, uint32_t fn)
     case MOG_LAB_0196:                                  /* Balok */
         prepare(m);
         load_creature(m, MOG_LAB_011F);
-        wl(m, rl(m, rl(m, MOG_v_TargetObj) + 30) + 8, MOG_LAB_07FB);
+        wl(m, rl(m, rl(m, MOG_v_TargetObj) + 30) + 8, MOG_x_KnightDropped);
         opponents(m, 1, 2, MOG_LAB_0197, MOG_LAB_0198);
         scale_opponents(m);
         first_opponents(m, MOG_LAB_0199);
         set_palette(m, 0x30);
         return 1;
     case MOG_LAB_019A:                                  /* Mudmen */
-        wl(m, MOG_LAB_08C4, 8);
+        wl(m, MOG_v_PlaceType, 8);
         prepare(m);
         load_creature(m, MOG_LAB_011E);
         opponents(m, 1, 2, MOG_LAB_019B, MOG_LAB_019D);
@@ -1015,7 +1015,7 @@ int mog_encounter_init(MogCombat *m, uint32_t fn)
     case MOG_LAB_019E:                                  /* Troll */
         prepare(m);
         load_creature(m, MOG_LAB_0126);
-        wl(m, rl(m, rl(m, MOG_v_TargetObj) + 30) + 8, MOG_LAB_07FB);
+        wl(m, rl(m, rl(m, MOG_v_TargetObj) + 30) + 8, MOG_x_KnightDropped);
         opponents(m, 1, 1, MOG_LAB_016B, MOG_LAB_019F);
         scale_opponents(m);
         mog_next_opponent(m, MOG_LAB_016B);
@@ -1029,11 +1029,11 @@ int mog_encounter_init(MogCombat *m, uint32_t fn)
         mog_reset_entities(m);
         terrain_default(m);
         player_enters(m);
-        wl(m, rl(m, rl(m, MOG_v_CurObj) + 30) + 32, MOG_LAB_07FB);
+        wl(m, rl(m, rl(m, MOG_v_CurObj) + 30) + 32, MOG_x_KnightDropped);
         a1 = mog_alloc_object(m);
         wl(m, MOG_LAB_01A1, a1);
-        wl(m, a1 + 22, MOG_LAB_08AE);
-        wl(m, a1 + 26, MOG_LAB_08B0);
+        wl(m, a1 + 22, MOG_x_DemonStand);
+        wl(m, a1 + 26, MOG_x_DemonRecoil);
         wl(m, a1 + 38, MOG_t_BankEnemy);
         ww(m, a1 + 80, 0x8C);
         wb(m, a1 + 77, 8);
@@ -1131,7 +1131,7 @@ static void new_game_01ae(MogCombat *m)
     wl(m, MOG_v_Combatants, MOG_t_KnightObjects);
     wl(m, MOG_v_TargetObj, MOG_t_KnightObjects);
     wb(m, MOG_v_Combatants + 8, 0);
-    static const uint32_t ai[4] = { MOG_LAB_08C0, MOG_LAB_08C1, MOG_LAB_08C2, MOG_LAB_08C3 };
+    static const uint32_t ai[4] = { MOG_s_SirBanner, MOG_s_SirDwain, MOG_s_SirBalain, MOG_s_SirEdward2 };
     static const uint16_t pos[4][2] = { { 0x0F, 0x64 }, { 0x12C, 0x64 }, { 0xA0, 0x14 }, { 0xA0, 0xB4 } };
     for (unsigned i = 0; i < 4; i++) {
         uint32_t a1 = MOG_t_KnightObjects + i * IX_OBJECT_SIZE;
@@ -1211,7 +1211,7 @@ void mog_new_game(MogCombat *m)
 static void lair_treasure(MogCombat *m)
 {
     int16_t d0 = (int16_t)mog_d100(m);
-    uint32_t a0 = MOG_LAB_08C5;
+    uint32_t a0 = MOG_t_LairTreasure;
     for (int d7 = 3; d7 >= 0; d7--) {
         int16_t t = (int16_t)rw(m, a0);
         a0 += 2;
@@ -1255,7 +1255,7 @@ void mog_new_game_full(MogCombat *m)
         wb(m, inv + i, 0);
     for (uint32_t i = 0; i < 0x1E0; i++)
         wb(m, lairs + i, 0);
-    wl(m, MOG_LAB_08C6, lairs);
+    wl(m, MOG_v_Lair, lairs);
     for (uint32_t i = 0; i < 24; i++) {                 /* LAB_01B3 */
         wl(m, lairs + 20 * i, inv + 24 * i);
         ww(m, lairs + 20 * i + 8, 0);
@@ -1270,16 +1270,16 @@ void mog_new_game_full(MogCombat *m)
         wb(m, rl(m, lairs + 120 * g + d0) + 20, key[g]);
     for (int i = 0; i < 24; i++) {                      /* LAB_01B5 */
         lair_treasure(m);
-        wl(m, MOG_LAB_08C6, rl(m, MOG_LAB_08C6) + 20);
+        wl(m, MOG_v_Lair, rl(m, MOG_v_Lair) + 20);
     }
-    wl(m, MOG_LAB_08C6, lairs);                         /* LAB_01B6 */
+    wl(m, MOG_v_Lair, lairs);                         /* LAB_01B6 */
     for (uint32_t i = 0; i < 24; i++) {
         uint32_t a0 = lairs + 20 * i;
-        wl(m, a0 + 4, rl(m, MOG_LAB_07BD + 4 * i));
-        ww(m, a0 + 10, rw(m, MOG_LAB_07BE + 4 * i));
-        ww(m, a0 + 12, rw(m, MOG_LAB_07BE + 4 * i + 2));
-        ww(m, a0 + 14, rw(m, MOG_LAB_07BF + 2 * i));
-        wl(m, a0 + 16, rl(m, MOG_LAB_07C0 + 4 * i));
+        wl(m, a0 + 4, rl(m, MOG_t_LairCreature + 4 * i));
+        ww(m, a0 + 10, rw(m, MOG_t_LairPos + 4 * i));
+        ww(m, a0 + 12, rw(m, MOG_t_LairPos + 4 * i + 2));
+        ww(m, a0 + 14, rw(m, MOG_t_LairPlace + 2 * i));
+        wl(m, a0 + 16, rl(m, MOG_t_LairTerrain + 4 * i));
     }
 }
 
@@ -1307,7 +1307,7 @@ void mog_practice(MogCombat *m)
     wl(m, MOG_v_Knight2Obj + 54, 2);
     mog_boot_reactions(VM);                             /* LAB_020F */
     loading_screen(m);                                  /* LAB_0134 */
-    wl(m, MOG_LAB_08C4, 12);
+    wl(m, MOG_v_PlaceType, 12);
     setup_scenery(m);                                   /* LAB_013C */
     mog_new_game_players(m);                            /* LAB_01BE */
     /* LAB_0165 */
@@ -1325,9 +1325,9 @@ void mog_practice(MogCombat *m)
     knight_kit(m, a1);                                  /* LAB_0167 */
     wl(m, a1 + 38, MOG_t_BankEnemy);
     wb(m, a1 + 11, 1);
-    mog_enter_object_with(m, a1, MOG_LAB_07FC);         /* LAB_01A9 */
+    mog_enter_object_with(m, a1, MOG_x_KnightEnter);         /* LAB_01A9 */
     opponents(m, 1, 1, MOG_LAB_0166, 0);
-    wl(m, MOG_LAB_08C4, 12);
+    wl(m, MOG_v_PlaceType, 12);
     set_palette(m, 12);                                 /* LAB_03F3 */
     for (uint32_t i = 0; i < 4; i++)                    /* LAB_0011 */
         mog_update_knight(m, MOG_t_KnightObjects + i * IX_OBJECT_SIZE);

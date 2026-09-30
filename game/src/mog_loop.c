@@ -227,13 +227,13 @@ void mog_combat_begin(MogCombat *m)
         mog_message(m, "Turning on colour glow");
         uint16_t c[32];
         for (int i = 0; i < 32; i++)
-            c[i] = ix_rw(VM, MOG_LAB_08D9 + 2u * (unsigned)i);
+            c[i] = ix_rw(VM, MOG_t_PalCombat + 2u * (unsigned)i);
         mog_wait_vbls(m, 1);                            /* LAB_0D8A */
         if (m->palette)
             m->palette(m->out.user, c);
         uint32_t cur = ix_rl(VM, MOG_v_PalCurrent);         /* LAB_03EE */
         for (uint32_t i = 0; i < 64; i++)
-            ix_wb(VM, cur + i, ix_rb(VM, MOG_LAB_08D9 + i));
+            ix_wb(VM, cur + i, ix_rb(VM, MOG_t_PalCombat + i));
         ix_wl(VM, MOG_LAB_0414, mog_glow(VM, 14, 0x100, 2, 0));
     }
 }
@@ -306,8 +306,8 @@ void mog_combat_run(MogCombat *m)
     ix_ww(VM, MOG_v_ReversedOn, 0);
     mog_fade_out(m);                                    /* LAB_03F1 */
     mog_reset_entities(m);                              /* LAB_0305 */
-    if (ix_rl(VM, MOG_LAB_076D) == 2)
-        ix_ww(VM, ix_rl(VM, MOG_LAB_08C6) + 6, ix_rw(VM, MOG_v_FoesToBeat));
+    if (ix_rl(VM, MOG_v_TerrainMode) == 2)
+        ix_ww(VM, ix_rl(VM, MOG_v_Lair) + 6, ix_rw(VM, MOG_v_FoesToBeat));
     m->planes = planes;
 }
 

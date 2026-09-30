@@ -107,53 +107,53 @@ static void sprite_set(MogCombat *m, uint16_t n, uint32_t a0, uint32_t a1, uint3
 /* LAB_0575 : pointeur montré, mené par l'interruption d'image (LAB_057D) */
 static void pointer_on(MogCombat *m)
 {
-    if (rw(m, MOG_LAB_097C))
+    if (rw(m, MOG_v_PointerHidden))
         return;
-    ww(m, MOG_LAB_097C, 1);
-    sprite_set(m, 0, rl(m, MOG_LAB_097D), MOG_EXT_0023, rl(m, MOG_LAB_097E));   /* LAB_0E77 */
-    sprite_move(m, 0, rw(m, MOG_LAB_097F), rw(m, MOG_LAB_0980));
-    ww(m, MOG_LAB_0981, 1);
+    ww(m, MOG_v_PointerHidden, 1);
+    sprite_set(m, 0, rl(m, MOG_v_PointerSprite), MOG_EXT_0023, rl(m, MOG_v_PointerSprite2));   /* LAB_0E77 */
+    sprite_move(m, 0, rw(m, MOG_v_PointerX), rw(m, MOG_v_PointerY));
+    ww(m, MOG_v_PointerOn, 1);
     uint32_t a0 = MOG_LAB_0B96;                         /* serveur d'interruption */
     while (rl(m, a0))
         a0 += 4;
     wl(m, a0, MOG_LAB_057D);
-    wl(m, MOG_LAB_0982, a0);
+    wl(m, MOG_v_PointerHook, a0);
 }
 
 /* LAB_057B : pointeur caché */
 static void pointer_off(MogCombat *m)
 {
-    if (!rw(m, MOG_LAB_097C))
+    if (!rw(m, MOG_v_PointerHidden))
         return;
-    ww(m, MOG_LAB_097C, 0);
+    ww(m, MOG_v_PointerHidden, 0);
     sprite_set(m, 0, MOG_SECSTRT_38, MOG_EXT_0023, 0);  /* LAB_0E76 */
-    wl(m, rl(m, MOG_LAB_0982), 0);
+    wl(m, rl(m, MOG_v_PointerHook), 0);
 }
 
 void mog_screen_vbl(MogCombat *m)
 {
-    if (!rw(m, MOG_LAB_097C))
+    if (!rw(m, MOG_v_PointerHidden))
         return;
     /* LAB_057D : joystick du chevalier LAB_068B (11 = 1 : port 0) */
-    ww(m, MOG_LAB_0981, 1);
+    ww(m, MOG_v_PointerOn, 1);
     ww(m, MOG_v_Joy0, m->joy[0]);                     /* LAB_00EE */
     ww(m, MOG_v_Joy1, m->joy[1]);
     uint16_t d1 = m->joy[1];
     if (rb(m, rl(m, MOG_v_ScreenKnight) + 11) == 1)
         d1 = m->joy[0];
-    uint16_t x = rw(m, MOG_LAB_097F), y = rw(m, MOG_LAB_0980);
+    uint16_t x = rw(m, MOG_v_PointerX), y = rw(m, MOG_v_PointerY);
     if (d1 & 1) x = (uint16_t)(x + 2);
     if (d1 & 2) x = (uint16_t)(x - 2);
     if (d1 & 4) y = (uint16_t)(y + 2);
     if (d1 & 8) y = (uint16_t)(y - 2);
     if (d1 & 0x10)
-        ww(m, MOG_LAB_0981, 0);
+        ww(m, MOG_v_PointerOn, 0);
     if (!(sw(x) < 0x13B)) x = 0x13A;
     if (sw(x) < 0) x = 0;
     if (!(sw(y) < 0xC4)) y = 0xC3;
     if (sw(y) < 0) y = 0;
-    ww(m, MOG_LAB_097F, x);
-    ww(m, MOG_LAB_0980, y);
+    ww(m, MOG_v_PointerX, x);
+    ww(m, MOG_v_PointerY, y);
     sprite_move(m, 0, x, y);
 }
 
@@ -161,7 +161,7 @@ void mog_pointer_boot(MogCombat *m)
 {
     /* LAB_0572 : po.cel -> sprite 0 (SECSTRT_37 dans SECSTRT_43) */
     uint32_t cel = rl(m, MOG_LAB_0D92);
-    mog_load_cel(VM, MOG_LAB_0983, cel);
+    mog_load_cel(VM, MOG_s_PoCel, cel);
     uint32_t a3 = MOG_SECSTRT_43;
     wl(m, MOG_LAB_0E8D, a3);
     uint32_t a1 = rl(m, cel + 2) + rl(m, cel + 10);
@@ -182,8 +182,8 @@ void mog_pointer_boot(MogCombat *m)
         for (uint32_t i = 0; i < 4 && a3 + i < MOG_SECSTRT_43 + 80; i++)
             wb(m, a3 + i, 0);
     }
-    wl(m, MOG_LAB_097D, rl(m, MOG_LAB_0E8D));
-    wl(m, MOG_LAB_097E, rl(m, MOG_LAB_0E8E));
+    wl(m, MOG_v_PointerSprite, rl(m, MOG_LAB_0E8D));
+    wl(m, MOG_v_PointerSprite2, rl(m, MOG_LAB_0E8E));
 }
 
 /* ------------------------------------------------------------------ */
@@ -217,8 +217,8 @@ static void add_zone(MogCombat *m)
  * la zone (0 : aucune) */
 static uint32_t zone_at(MogCombat *m, uint16_t x, uint16_t y)
 {
-    ww(m, MOG_LAB_08DA, x);
-    ww(m, MOG_LAB_08DB, y);
+    ww(m, MOG_v_HoverX, x);
+    ww(m, MOG_v_HoverY, y);
     for (uint32_t a0 = rl(m, MOG_SECSTRT_14); rw(m, a0 + 4); a0 += 24) {
         int d5 = mog_span(x, (uint16_t)(x + 1), rw(m, a0 + 12),
                           (uint16_t)(rw(m, a0 + 12) + rw(m, a0 + 4)));
@@ -237,10 +237,10 @@ static uint32_t zone_at(MogCombat *m, uint16_t x, uint16_t y)
 static void icon_zone(MogCombat *m)
 {
     uint32_t a1 = MOG_LAB_0A58;
-    uint32_t e = rl(m, MOG_LAB_0986) + (uint32_t)(int32_t)sw((uint16_t)(rw(m, MOG_v_IconFrame) * 10));
+    uint32_t e = rl(m, MOG_v_IconCel) + (uint32_t)(int32_t)sw((uint16_t)(rw(m, MOG_v_IconFrame) * 10));
     ww(m, a1 + 4, rw(m, e + 14));
     ww(m, a1 + 6, rw(m, e + 16));
-    ww(m, a1 + 12, (uint16_t)(rw(m, MOG_v_IconX) + rw(m, MOG_LAB_0985)));
+    ww(m, a1 + 12, (uint16_t)(rw(m, MOG_v_IconX) + rw(m, MOG_v_PanelX)));
     ww(m, a1 + 14, rw(m, MOG_v_IconY));
     uint32_t d0 = rl(m, MOG_v_IconId);
     wl(m, a1 + 16, d0);
@@ -260,8 +260,8 @@ static void icons(MogCombat *m, uint32_t d7, int check_kind)
     if (!(uint16_t)d7)
         return;
     for (uint32_t i = (uint16_t)(d7 - 1) + 1u; i > 0; i--) {
-        mog_draw_cel(VM, &m->blt, rl(m, MOG_LAB_0986), rw(m, MOG_v_IconFrame),
-                     (uint16_t)(rw(m, MOG_v_IconX) + rw(m, MOG_LAB_0985)), rw(m, MOG_v_IconY));
+        mog_draw_cel(VM, &m->blt, rl(m, MOG_v_IconCel), rw(m, MOG_v_IconFrame),
+                     (uint16_t)(rw(m, MOG_v_IconX) + rw(m, MOG_v_PanelX)), rw(m, MOG_v_IconY));
         icon_zone(m);
         ww(m, MOG_v_IconX, (uint16_t)(rw(m, MOG_v_IconX) + rw(m, MOG_v_IconStep)));
     }
@@ -288,11 +288,11 @@ static void icon_set(MogCombat *m, uint16_t f, uint16_t x, uint16_t y, uint16_t 
 static void exit_zone(MogCombat *m, uint16_t d1, uint16_t d2)
 {
     uint32_t a0 = MOG_LAB_0A58;
-    ww(m, a0 + 12, (uint16_t)(d1 + rw(m, MOG_LAB_0985)));
+    ww(m, a0 + 12, (uint16_t)(d1 + rw(m, MOG_v_PanelX)));
     ww(m, a0 + 14, d2);
     ww(m, a0 + 4, 0x19);
     ww(m, a0 + 6, 0x75);
-    wl(m, a0 + 8, MOG_LAB_09EE);
+    wl(m, a0 + 8, MOG_t_ExitZoneText);
     wl(m, a0 + 16, 7);
     ww(m, a0 + 20, 0);
     ww(m, a0 + 22, 0);
@@ -311,12 +311,12 @@ static void draw_list(MogCombat *m, uint32_t a1)
             exit_zone(m, d1, d2);
         uint16_t d3 = rw(m, a1 + 6);
         a1 += 8;
-        uint32_t cel = rl(m, MOG_LAB_0986);
+        uint32_t cel = rl(m, MOG_v_IconCel);
         uint32_t e = cel + (uint32_t)(int32_t)sw((uint16_t)(d0 * 10));
         int original = rb(m, e + 18) == 1;
         if (original ? d3 != 0 : d3 == 0)
             ix_flip_frame(&m->eng, cel, d0);            /* Cel_FlipFrame */
-        mog_draw_cel(VM, &m->blt, cel, d0, (uint16_t)(d1 + rw(m, MOG_LAB_0985)), d2);
+        mog_draw_cel(VM, &m->blt, cel, d0, (uint16_t)(d1 + rw(m, MOG_v_PanelX)), d2);
     }
 }
 
@@ -325,11 +325,11 @@ static void draw_frames(MogCombat *m)
 {
     mog_set_planes(m, rl(m, MOG_v_BgPlanes));
     mog_clear_screen(m, rl(m, MOG_v_BgPlanes));
-    ww(m, MOG_LAB_0985, 0);
+    ww(m, MOG_v_PanelX, 0);
     uint32_t a1 = MOG_LAB_04F3;
-    for (uint32_t a2 = MOG_LAB_098A; sw(rw(m, a2)) >= 0; a2 += 2)
+    for (uint32_t a2 = MOG_t_PanelFrames; sw(rw(m, a2)) >= 0; a2 += 2)
         if (rw(m, a2) == (uint16_t)KIND) {
-            ww(m, MOG_LAB_0985, 0x4A);
+            ww(m, MOG_v_PanelX, 0x4A);
             a1 = MOG_L00_0AFE4;
             break;
         }
@@ -339,8 +339,8 @@ static void draw_frames(MogCombat *m)
 /* Numéro (LAB_0442) écrit en (x + LAB_0985, y) */
 static void number_at(MogCombat *m, uint32_t v, uint16_t x, uint16_t y)
 {
-    mog_number(m, v, MOG_LAB_0987);
-    mog_text(m, MOG_LAB_0987, (uint16_t)(x + rw(m, MOG_LAB_0985)), y, 0);
+    mog_number(m, v, MOG_b_ScreenNumber);
+    mog_text(m, MOG_b_ScreenNumber, (uint16_t)(x + rw(m, MOG_v_PanelX)), y, 0);
 }
 
 /* LAB_04FE : inventaire rl(LAB_0632) (24 octets) en icônes */
@@ -464,7 +464,7 @@ static void draw_knight(MogCombat *m)
     uint32_t a0 = rl(m, MOG_v_LoadPtr);
     mog_knight_defence(m, a0);
     mog_knight_hp(m, a0);
-    mog_text(m, rl(m, a0 + 108), (uint16_t)(0x3C + rw(m, MOG_LAB_0985)), 0x18, 0);
+    mog_text(m, rl(m, a0 + 108), (uint16_t)(0x3C + rw(m, MOG_v_PanelX)), 0x18, 0);
     a0 = rl(m, MOG_v_LoadPtr);
     stat_icons(m, rb(m, a0 + 70), 0x26, 0x29, 0x23, 0, 0, 3, 0x46);
     stat_icons(m, rb(m, a0 + 72), 0x28, 0x29, 0x31, 0, 4, 3, 0x48);
@@ -474,14 +474,14 @@ static void draw_knight(MogCombat *m)
     a0 = rl(m, MOG_v_LoadPtr);
     number_at(m, rw(m, a0 + 78), 0x70, 0x23);
     a0 = rl(m, MOG_v_LoadPtr);
-    wl(m, MOG_LAB_0987, 0);
+    wl(m, MOG_b_ScreenNumber, 0);
     number_at(m, rw(m, a0 + 74), 0x70, 0x2A);
     ww(m, MOG_LAB_04F6, 0x46);
     ww(m, MOG_L00_0B042, 0x23);
     for (int i = 0; i < 3; i++) {                       /* LAB_04F9 */
         a0 = rl(m, MOG_v_LoadPtr);
         uint32_t v = rb(m, a0 + (uint32_t)(int32_t)sw(rw(m, MOG_LAB_04F6)));
-        wl(m, MOG_LAB_0987, 0);
+        wl(m, MOG_b_ScreenNumber, 0);
         number_at(m, v, 0x3F, rw(m, MOG_L00_0B042));
         ww(m, MOG_LAB_04F6, (uint16_t)(rw(m, MOG_LAB_04F6) + 1));
         ww(m, MOG_L00_0B042, (uint16_t)(rw(m, MOG_L00_0B042) + 7));
@@ -495,13 +495,13 @@ static void draw_knight(MogCombat *m)
         f = (uint16_t)(f + 2);
     stat_icons(m, (uint32_t)lives, f, 0x29, 0x3B, 0x13, 0x0C, 3, 0x49);
     a0 = rl(m, MOG_v_LoadPtr);
-    wl(m, MOG_LAB_0987, 0);
-    wl(m, MOG_LAB_0988, 0);
-    wl(m, MOG_LAB_0989, 0);
-    uint32_t e = mog_number(m, rw(m, a0 + 80), MOG_LAB_0987);
+    wl(m, MOG_b_ScreenNumber, 0);
+    wl(m, MOG_v_Screen0988, 0);
+    wl(m, MOG_v_Screen0989, 0);
+    uint32_t e = mog_number(m, rw(m, a0 + 80), MOG_b_ScreenNumber);
     wb(m, e, 0x2F);
     mog_number(m, rw(m, rl(m, MOG_v_LoadPtr) + 84), e + 1);
-    mog_text(m, MOG_LAB_0987, (uint16_t)(0x70 + rw(m, MOG_LAB_0985)), 0x31, 0);
+    mog_text(m, MOG_b_ScreenNumber, (uint16_t)(0x70 + rw(m, MOG_v_PanelX)), 0x31, 0);
     a0 = rl(m, MOG_v_LoadPtr);
     stat_icons(m, rb(m, a0 + 76), 0x15, 0x26, 0x4E, 0x0A, 0x14, 3, 0x4C);
     a0 = rl(m, MOG_v_LoadPtr);
@@ -528,29 +528,29 @@ static void magic_sword(MogCombat *m, uint32_t a0)
 static void creature_gold(MogCombat *m, uint16_t d0)
 {
     stat_icons(m, 1, 0x25, 0x57, 0x40, 0, 0x10, 2, 0x4A);
-    wl(m, MOG_LAB_0987, 0);
-    uint32_t e = mog_number(m, d0, MOG_LAB_0987);
+    wl(m, MOG_b_ScreenNumber, 0);
+    uint32_t e = mog_number(m, d0, MOG_b_ScreenNumber);
     static const char gp[] = " gp.";
     for (int i = 0; i < 5; i++)
         wb(m, e + (uint32_t)i, (uint8_t)gp[i]);
-    mog_text(m, MOG_LAB_0987, (uint16_t)(0x5C + rw(m, MOG_LAB_0985)), 0x5B, 0);
+    mog_text(m, MOG_b_ScreenNumber, (uint16_t)(0x5C + rw(m, MOG_v_PanelX)), 0x5B, 0);
 }
 
 /* LAB_051B : la créature LAB_08C6 (butin sur la carte) */
 static void draw_creature(MogCombat *m)
 {
     wl(m, MOG_v_IconTexts, MOG_b_ZoneTextsRight);
-    ww(m, MOG_LAB_0985, 0x96);
+    ww(m, MOG_v_PanelX, 0x96);
     ww(m, MOG_v_BlitByCpu, 1);
-    uint32_t cel = rl(m, MOG_LAB_0986);
-    uint16_t off = rw(m, MOG_LAB_0985);
+    uint32_t cel = rl(m, MOG_v_IconCel);
+    uint16_t off = rw(m, MOG_v_PanelX);
     mog_draw_cel(VM, &m->blt, cel, 0x1F, (uint16_t)(0x3A + off), 0x2E);
     mog_draw_cel(VM, &m->blt, cel, 0x20, (uint16_t)(0x4C + off), 0x21);
     mog_draw_cel(VM, &m->blt, cel, 0x21, (uint16_t)(0x3A + off), 0x3C);
-    uint32_t a0 = rl(m, MOG_LAB_08C6);
+    uint32_t a0 = rl(m, MOG_v_Lair);
     if (rw(m, a0 + 8))
         creature_gold(m, rw(m, a0 + 8));
-    magic_sword(m, rl(m, rl(m, MOG_LAB_08C6)));
+    magic_sword(m, rl(m, rl(m, MOG_v_Lair)));
     wl(m, MOG_v_LoadPtr, rl(m, MOG_v_ScreenOtherInv));
     draw_inventory(m);
 }
@@ -580,13 +580,13 @@ static void draw_shop(MogCombat *m)
 /* LAB_0524 : bouton « suivant » (autre chevalier, identifiant LAB_09EF) */
 static void next_button(MogCombat *m)
 {
-    mog_draw_cel(VM, &m->blt, rl(m, MOG_LAB_0986), 0x2C, 0x92, 0x47);
+    mog_draw_cel(VM, &m->blt, rl(m, MOG_v_IconCel), 0x2C, 0x92, 0x47);
     uint32_t a0 = MOG_LAB_0A58;
     ww(m, a0 + 12, 0x92);
     ww(m, a0 + 14, 0x47);
     ww(m, a0 + 4, 0x14);
     ww(m, a0 + 6, 0x14);
-    wl(m, a0 + 8, MOG_LAB_09EF);
+    wl(m, a0 + 8, MOG_t_NextKnightText);
     wl(m, a0 + 16, 0);
     ww(m, a0 + 20, 0);
     ww(m, a0 + 22, 0);
@@ -596,7 +596,7 @@ static void next_button(MogCombat *m)
 /* LAB_04E1 : couleurs des chevaliers des deux panneaux (LAB_09F1) */
 static void panel_colours(MogCombat *m)
 {
-    uint32_t a1 = rl(m, MOG_v_ScreenKnight), a0 = MOG_LAB_09F1;
+    uint32_t a1 = rl(m, MOG_v_ScreenKnight), a0 = MOG_t_PanelKnightColours;
     for (int n = 0; n < 2; n++) {
         static const uint16_t c[5][2] = {
             { 0x03F, 0x028 }, { 0xFB0, 0xB60 }, { 0x4C3, 0x160 }, { 0xF00, 0x800 }, { 0x027, 0x003 },
@@ -620,163 +620,163 @@ static void panel_colours(MogCombat *m)
 /* LAB_0588 : tables des textes montrés au survol (une par genre d'écran) */
 static void text_tables(MogCombat *m)
 {
-    wl(m, MOG_t_TextsLoot + 0, MOG_LAB_09AB);
-    wl(m, MOG_t_TextsLoot + 4, MOG_LAB_09AC);
-    wl(m, MOG_t_TextsLoot + 8, MOG_LAB_09AD);
-    wl(m, MOG_t_TextsLoot + 12, MOG_LAB_09CC);
-    wl(m, MOG_t_TextsLoot + 16, MOG_LAB_09C2);
-    wl(m, MOG_t_TextsLoot + 20, MOG_LAB_09C3);
-    wl(m, MOG_t_TextsLoot + 24, MOG_LAB_09B1);
-    wl(m, MOG_t_TextsLoot + 28, MOG_LAB_09C9);
-    wl(m, MOG_t_TextsLoot + 32, MOG_LAB_09C8);
-    wl(m, MOG_t_TextsLoot + 36, MOG_LAB_09C7);
-    wl(m, MOG_t_TextsLoot + 40, MOG_LAB_09B5);
-    wl(m, MOG_t_TextsLoot + 44, MOG_LAB_09C6);
-    wl(m, MOG_t_TextsLoot + 48, MOG_LAB_09C4);
-    wl(m, MOG_t_TextsLoot + 52, MOG_LAB_09C5);
-    wl(m, MOG_t_TextsLoot + 56, MOG_LAB_09CB);
-    wl(m, MOG_t_TextsLoot + 60, MOG_LAB_09CB);
-    wl(m, MOG_t_TextsLoot + 64, MOG_LAB_09CB);
-    wl(m, MOG_t_TextsLoot + 68, MOG_LAB_09CA);
-    wl(m, MOG_t_TextsLoot + 72, MOG_LAB_09B9);
-    wl(m, MOG_t_TextsLoot + 76, MOG_LAB_09BA);
-    wl(m, MOG_t_TextsLoot + 80, MOG_LAB_09BB);
-    wl(m, MOG_t_TextsLoot + 84, MOG_LAB_09BC);
-    wl(m, MOG_t_TextsLoot + 88, MOG_LAB_09BD);
-    wl(m, MOG_t_TextsLoot + 96, MOG_LAB_09BE);
-    wl(m, MOG_t_TextsLoot + 92, MOG_LAB_09BF);
-    wl(m, MOG_t_TextsLoot + 100, MOG_LAB_09C0);
-    wl(m, MOG_t_TextsLoot + 104, MOG_LAB_09C1);
-    wl(m, MOG_t_TextsTrain + 0, MOG_LAB_09A8);
-    wl(m, MOG_t_TextsTrain + 4, MOG_LAB_09A9);
-    wl(m, MOG_t_TextsTrain + 8, MOG_LAB_09AA);
-    wl(m, MOG_t_TextsTrain + 12, MOG_LAB_09AE);
-    wl(m, MOG_t_TextsTrain + 16, MOG_LAB_09AF);
-    wl(m, MOG_t_TextsTrain + 20, MOG_LAB_09B0);
-    wl(m, MOG_t_TextsTrain + 36, MOG_LAB_09B4);
-    wl(m, MOG_t_TextsTrain + 32, MOG_LAB_09B3);
-    wl(m, MOG_t_TextsTrain + 28, MOG_LAB_09B2);
-    wl(m, MOG_t_TextsTrain + 24, MOG_LAB_09B1);
-    wl(m, MOG_t_TextsTrain + 48, MOG_LAB_09B7);
-    wl(m, MOG_t_TextsTrain + 40, MOG_LAB_09B5);
-    wl(m, MOG_t_TextsTrain + 52, MOG_LAB_09B8);
-    wl(m, MOG_t_TextsTrain + 44, MOG_LAB_09B6);
-    wl(m, MOG_t_TextsTrain + 56, MOG_LAB_0994);
-    wl(m, MOG_t_TextsTrain + 60, MOG_LAB_0995);
-    wl(m, MOG_t_TextsTrain + 64, MOG_LAB_0996);
-    wl(m, MOG_t_TextsTrain + 68, MOG_LAB_0997);
-    wl(m, MOG_t_TextsTrain + 72, MOG_LAB_098B);
-    wl(m, MOG_t_TextsTrain + 76, MOG_LAB_098C);
-    wl(m, MOG_t_TextsTrain + 80, MOG_LAB_098D);
-    wl(m, MOG_t_TextsTrain + 84, MOG_LAB_098E);
-    wl(m, MOG_t_TextsTrain + 88, MOG_LAB_098F);
-    wl(m, MOG_t_TextsTrain + 96, MOG_LAB_0990);
-    wl(m, MOG_t_TextsTrain + 92, MOG_LAB_0991);
-    wl(m, MOG_t_TextsTrain + 100, MOG_LAB_0992);
-    wl(m, MOG_t_TextsTrain + 104, MOG_LAB_0993);
-    wl(m, MOG_t_TextsInventory + 0, MOG_LAB_09AB);
-    wl(m, MOG_t_TextsInventory + 4, MOG_LAB_09AC);
-    wl(m, MOG_t_TextsInventory + 8, MOG_LAB_09AD);
-    wl(m, MOG_t_TextsInventory + 12, MOG_LAB_09AE);
-    wl(m, MOG_t_TextsInventory + 16, MOG_LAB_09AF);
-    wl(m, MOG_t_TextsInventory + 20, MOG_LAB_09B0);
-    wl(m, MOG_t_TextsInventory + 24, MOG_LAB_09B1);
-    wl(m, MOG_t_TextsInventory + 28, MOG_LAB_09B2);
-    wl(m, MOG_t_TextsInventory + 32, MOG_LAB_09B3);
-    wl(m, MOG_t_TextsInventory + 36, MOG_LAB_09B4);
-    wl(m, MOG_t_TextsInventory + 40, MOG_LAB_09B5);
-    wl(m, MOG_t_TextsInventory + 44, MOG_LAB_09B6);
-    wl(m, MOG_t_TextsInventory + 48, MOG_LAB_09B7);
-    wl(m, MOG_t_TextsInventory + 52, MOG_LAB_09B8);
-    wl(m, MOG_t_TextsInventory + 56, MOG_LAB_0994);
-    wl(m, MOG_t_TextsInventory + 60, MOG_LAB_0995);
-    wl(m, MOG_t_TextsInventory + 64, MOG_LAB_0996);
-    wl(m, MOG_t_TextsInventory + 68, MOG_LAB_0997);
-    wl(m, MOG_t_TextsInventory + 72, MOG_LAB_098B);
-    wl(m, MOG_t_TextsInventory + 76, MOG_LAB_098C);
-    wl(m, MOG_t_TextsInventory + 80, MOG_LAB_098D);
-    wl(m, MOG_t_TextsInventory + 84, MOG_LAB_098E);
-    wl(m, MOG_t_TextsInventory + 88, MOG_LAB_098F);
-    wl(m, MOG_t_TextsInventory + 96, MOG_LAB_0990);
-    wl(m, MOG_t_TextsInventory + 92, MOG_LAB_0991);
-    wl(m, MOG_t_TextsInventory + 100, MOG_LAB_0992);
-    wl(m, MOG_t_TextsInventory + 104, MOG_LAB_0993);
-    wl(m, MOG_t_TextsDefault + 0, MOG_LAB_09AB);
-    wl(m, MOG_t_TextsDefault + 4, MOG_LAB_09AC);
-    wl(m, MOG_t_TextsDefault + 8, MOG_LAB_09AD);
-    wl(m, MOG_t_TextsDefault + 12, MOG_LAB_09AE);
-    wl(m, MOG_t_TextsDefault + 16, MOG_LAB_09AF);
-    wl(m, MOG_t_TextsDefault + 20, MOG_LAB_09B0);
-    wl(m, MOG_t_TextsDefault + 24, MOG_LAB_09B1);
-    wl(m, MOG_t_TextsDefault + 28, MOG_LAB_09B2);
-    wl(m, MOG_t_TextsDefault + 32, MOG_LAB_09B3);
-    wl(m, MOG_t_TextsDefault + 36, MOG_LAB_09B4);
-    wl(m, MOG_t_TextsDefault + 40, MOG_LAB_09B5);
-    wl(m, MOG_t_TextsDefault + 44, MOG_LAB_09B6);
-    wl(m, MOG_t_TextsDefault + 48, MOG_LAB_09B7);
-    wl(m, MOG_t_TextsDefault + 52, MOG_LAB_09B8);
-    wl(m, MOG_t_TextsDefault + 56, MOG_LAB_0994);
-    wl(m, MOG_t_TextsDefault + 60, MOG_LAB_0995);
-    wl(m, MOG_t_TextsDefault + 64, MOG_LAB_0996);
-    wl(m, MOG_t_TextsDefault + 68, MOG_LAB_0997);
-    wl(m, MOG_t_TextsDefault + 72, MOG_LAB_0998);
-    wl(m, MOG_t_TextsDefault + 76, MOG_LAB_0999);
-    wl(m, MOG_t_TextsDefault + 80, MOG_LAB_098D);
-    wl(m, MOG_t_TextsDefault + 84, MOG_LAB_098E);
-    wl(m, MOG_t_TextsDefault + 88, MOG_LAB_099A);
-    wl(m, MOG_t_TextsDefault + 96, MOG_LAB_099B);
-    wl(m, MOG_t_TextsDefault + 92, MOG_LAB_099C);
-    wl(m, MOG_t_TextsDefault + 100, MOG_LAB_099D);
-    wl(m, MOG_t_TextsDefault + 104, MOG_LAB_099E);
+    wl(m, MOG_t_TextsLoot + 0, MOG_s_Strength);
+    wl(m, MOG_t_TextsLoot + 4, MOG_s_Endurance);
+    wl(m, MOG_t_TextsLoot + 8, MOG_s_Constitution);
+    wl(m, MOG_t_TextsLoot + 12, MOG_s_LifePointsLeft);
+    wl(m, MOG_t_TextsLoot + 16, MOG_s_TakeGold);
+    wl(m, MOG_t_TextsLoot + 20, MOG_s_TakeDaggers);
+    wl(m, MOG_t_TextsLoot + 24, MOG_s_PaddedArmour);
+    wl(m, MOG_t_TextsLoot + 28, MOG_s_TakeChainmail);
+    wl(m, MOG_t_TextsLoot + 32, MOG_s_TakePlateArmour);
+    wl(m, MOG_t_TextsLoot + 36, MOG_s_TakeBattleArmour);
+    wl(m, MOG_t_TextsLoot + 40, MOG_s_LongSword);
+    wl(m, MOG_t_TextsLoot + 44, MOG_s_TakeBroadSword);
+    wl(m, MOG_t_TextsLoot + 48, MOG_s_TakeClaymoreSword);
+    wl(m, MOG_t_TextsLoot + 52, MOG_s_TakeSwordOfSharpness);
+    wl(m, MOG_t_TextsLoot + 56, MOG_s_TakeMoonstone);
+    wl(m, MOG_t_TextsLoot + 60, MOG_s_TakeMoonstone);
+    wl(m, MOG_t_TextsLoot + 64, MOG_s_TakeMoonstone);
+    wl(m, MOG_t_TextsLoot + 68, MOG_s_TakeKeyToTheValley);
+    wl(m, MOG_t_TextsLoot + 72, MOG_s_TakePotionOfHealing);
+    wl(m, MOG_t_TextsLoot + 76, MOG_s_TakeGemOfSeeing);
+    wl(m, MOG_t_TextsLoot + 80, MOG_s_TakeRingOfProtection);
+    wl(m, MOG_t_TextsLoot + 84, MOG_s_TakeTalismanOfTheWyrm);
+    wl(m, MOG_t_TextsLoot + 88, MOG_s_TakeScrollOfHaste);
+    wl(m, MOG_t_TextsLoot + 96, MOG_s_TakeScrollOfAquisition);
+    wl(m, MOG_t_TextsLoot + 92, MOG_s_TakeScrollOfTheHawk);
+    wl(m, MOG_t_TextsLoot + 100, MOG_s_TakeScrollOfTheWyrm);
+    wl(m, MOG_t_TextsLoot + 104, MOG_s_TakeScrollOfProtection);
+    wl(m, MOG_t_TextsTrain + 0, MOG_s_IncreaseStrength);
+    wl(m, MOG_t_TextsTrain + 4, MOG_s_IncreaseEndurance);
+    wl(m, MOG_t_TextsTrain + 8, MOG_s_IncreaseConstitution);
+    wl(m, MOG_t_TextsTrain + 12, MOG_s_LifePoints);
+    wl(m, MOG_t_TextsTrain + 16, MOG_s_Gold);
+    wl(m, MOG_t_TextsTrain + 20, MOG_s_Dagger);
+    wl(m, MOG_t_TextsTrain + 36, MOG_s_BattleArmour);
+    wl(m, MOG_t_TextsTrain + 32, MOG_s_PlateArmour);
+    wl(m, MOG_t_TextsTrain + 28, MOG_s_ChainMail);
+    wl(m, MOG_t_TextsTrain + 24, MOG_s_PaddedArmour);
+    wl(m, MOG_t_TextsTrain + 48, MOG_s_ClaymoreSword);
+    wl(m, MOG_t_TextsTrain + 40, MOG_s_LongSword);
+    wl(m, MOG_t_TextsTrain + 52, MOG_s_SwordOfSharpness);
+    wl(m, MOG_t_TextsTrain + 44, MOG_s_BroadSword);
+    wl(m, MOG_t_TextsTrain + 56, MOG_s_NewMoonMoonstone);
+    wl(m, MOG_t_TextsTrain + 60, MOG_s_FullMoonstone);
+    wl(m, MOG_t_TextsTrain + 64, MOG_s_HalfMoonstone);
+    wl(m, MOG_t_TextsTrain + 68, MOG_s_KeyToTheValley);
+    wl(m, MOG_t_TextsTrain + 72, MOG_s_DrinkHealingPotion);
+    wl(m, MOG_t_TextsTrain + 76, MOG_s_UseGemOfSeeing);
+    wl(m, MOG_t_TextsTrain + 80, MOG_s_RingOfProtection);
+    wl(m, MOG_t_TextsTrain + 84, MOG_s_TalismanOfTheWyrm);
+    wl(m, MOG_t_TextsTrain + 88, MOG_s_CastScrollOfHaste);
+    wl(m, MOG_t_TextsTrain + 96, MOG_s_CastScrollOfAquisition);
+    wl(m, MOG_t_TextsTrain + 92, MOG_s_CastScrollOfTheHawk);
+    wl(m, MOG_t_TextsTrain + 100, MOG_s_CastScrollOfTheWyrm);
+    wl(m, MOG_t_TextsTrain + 104, MOG_s_CastScrollOfProtection);
+    wl(m, MOG_t_TextsInventory + 0, MOG_s_Strength);
+    wl(m, MOG_t_TextsInventory + 4, MOG_s_Endurance);
+    wl(m, MOG_t_TextsInventory + 8, MOG_s_Constitution);
+    wl(m, MOG_t_TextsInventory + 12, MOG_s_LifePoints);
+    wl(m, MOG_t_TextsInventory + 16, MOG_s_Gold);
+    wl(m, MOG_t_TextsInventory + 20, MOG_s_Dagger);
+    wl(m, MOG_t_TextsInventory + 24, MOG_s_PaddedArmour);
+    wl(m, MOG_t_TextsInventory + 28, MOG_s_ChainMail);
+    wl(m, MOG_t_TextsInventory + 32, MOG_s_PlateArmour);
+    wl(m, MOG_t_TextsInventory + 36, MOG_s_BattleArmour);
+    wl(m, MOG_t_TextsInventory + 40, MOG_s_LongSword);
+    wl(m, MOG_t_TextsInventory + 44, MOG_s_BroadSword);
+    wl(m, MOG_t_TextsInventory + 48, MOG_s_ClaymoreSword);
+    wl(m, MOG_t_TextsInventory + 52, MOG_s_SwordOfSharpness);
+    wl(m, MOG_t_TextsInventory + 56, MOG_s_NewMoonMoonstone);
+    wl(m, MOG_t_TextsInventory + 60, MOG_s_FullMoonstone);
+    wl(m, MOG_t_TextsInventory + 64, MOG_s_HalfMoonstone);
+    wl(m, MOG_t_TextsInventory + 68, MOG_s_KeyToTheValley);
+    wl(m, MOG_t_TextsInventory + 72, MOG_s_DrinkHealingPotion);
+    wl(m, MOG_t_TextsInventory + 76, MOG_s_UseGemOfSeeing);
+    wl(m, MOG_t_TextsInventory + 80, MOG_s_RingOfProtection);
+    wl(m, MOG_t_TextsInventory + 84, MOG_s_TalismanOfTheWyrm);
+    wl(m, MOG_t_TextsInventory + 88, MOG_s_CastScrollOfHaste);
+    wl(m, MOG_t_TextsInventory + 96, MOG_s_CastScrollOfAquisition);
+    wl(m, MOG_t_TextsInventory + 92, MOG_s_CastScrollOfTheHawk);
+    wl(m, MOG_t_TextsInventory + 100, MOG_s_CastScrollOfTheWyrm);
+    wl(m, MOG_t_TextsInventory + 104, MOG_s_CastScrollOfProtection);
+    wl(m, MOG_t_TextsDefault + 0, MOG_s_Strength);
+    wl(m, MOG_t_TextsDefault + 4, MOG_s_Endurance);
+    wl(m, MOG_t_TextsDefault + 8, MOG_s_Constitution);
+    wl(m, MOG_t_TextsDefault + 12, MOG_s_LifePoints);
+    wl(m, MOG_t_TextsDefault + 16, MOG_s_Gold);
+    wl(m, MOG_t_TextsDefault + 20, MOG_s_Dagger);
+    wl(m, MOG_t_TextsDefault + 24, MOG_s_PaddedArmour);
+    wl(m, MOG_t_TextsDefault + 28, MOG_s_ChainMail);
+    wl(m, MOG_t_TextsDefault + 32, MOG_s_PlateArmour);
+    wl(m, MOG_t_TextsDefault + 36, MOG_s_BattleArmour);
+    wl(m, MOG_t_TextsDefault + 40, MOG_s_LongSword);
+    wl(m, MOG_t_TextsDefault + 44, MOG_s_BroadSword);
+    wl(m, MOG_t_TextsDefault + 48, MOG_s_ClaymoreSword);
+    wl(m, MOG_t_TextsDefault + 52, MOG_s_SwordOfSharpness);
+    wl(m, MOG_t_TextsDefault + 56, MOG_s_NewMoonMoonstone);
+    wl(m, MOG_t_TextsDefault + 60, MOG_s_FullMoonstone);
+    wl(m, MOG_t_TextsDefault + 64, MOG_s_HalfMoonstone);
+    wl(m, MOG_t_TextsDefault + 68, MOG_s_KeyToTheValley);
+    wl(m, MOG_t_TextsDefault + 72, MOG_s_PotionOfHealing);
+    wl(m, MOG_t_TextsDefault + 76, MOG_s_GemOfSeeing);
+    wl(m, MOG_t_TextsDefault + 80, MOG_s_RingOfProtection);
+    wl(m, MOG_t_TextsDefault + 84, MOG_s_TalismanOfTheWyrm);
+    wl(m, MOG_t_TextsDefault + 88, MOG_s_ScrollOfHaste);
+    wl(m, MOG_t_TextsDefault + 96, MOG_s_ScrollOfAquisition);
+    wl(m, MOG_t_TextsDefault + 92, MOG_s_ScrollOfTheHawk);
+    wl(m, MOG_t_TextsDefault + 100, MOG_s_ScrollOfTheWyrm);
+    wl(m, MOG_t_TextsDefault + 104, MOG_s_ScrollOfProtection);
     for (uint32_t i = 0; i < 27; i++)                   /* LAB_0589 */
-        wl(m, MOG_t_TextsScreen3 + 4 * i, MOG_LAB_09EB);
-    wl(m, MOG_t_TextsScreen3 + 56, MOG_LAB_0994);
-    wl(m, MOG_t_TextsScreen3 + 60, MOG_LAB_0995);
-    wl(m, MOG_t_TextsScreen3 + 64, MOG_LAB_0996);
-    wl(m, MOG_t_TextsScreen3 + 68, MOG_LAB_0997);
-    wl(m, MOG_t_TextsScreen3 + 72, MOG_LAB_099F);
-    wl(m, MOG_t_TextsScreen3 + 76, MOG_LAB_09A0);
-    wl(m, MOG_t_TextsScreen3 + 80, MOG_LAB_09A1);
-    wl(m, MOG_t_TextsScreen3 + 84, MOG_LAB_09A2);
-    wl(m, MOG_t_TextsScreen3 + 88, MOG_LAB_09A3);
-    wl(m, MOG_t_TextsScreen3 + 96, MOG_LAB_09A4);
-    wl(m, MOG_t_TextsScreen3 + 92, MOG_LAB_09A5);
-    wl(m, MOG_t_TextsScreen3 + 100, MOG_LAB_09A6);
-    wl(m, MOG_t_TextsScreen3 + 104, MOG_LAB_09A7);
-    wl(m, MOG_t_TextsShop + 44, MOG_LAB_09CD);
-    wl(m, MOG_t_TextsShop + 48, MOG_LAB_09CE);
-    wl(m, MOG_t_TextsShop + 28, MOG_LAB_09CF);
-    wl(m, MOG_t_TextsShop + 32, MOG_LAB_09D0);
-    wl(m, MOG_t_TextsShop + 36, MOG_LAB_09D1);
-    wl(m, MOG_t_TextsShop + 20, MOG_LAB_09D2);
-    wl(m, MOG_t_TextsShop + 52, MOG_LAB_09D3);
-    wl(m, MOG_t_TextsShop + 68, MOG_LAB_09D4);
-    wl(m, MOG_t_TextsShop + 72, MOG_LAB_09D5);
-    wl(m, MOG_t_TextsShop + 76, MOG_LAB_09D6);
-    wl(m, MOG_t_TextsShop + 80, MOG_LAB_09D7);
-    wl(m, MOG_t_TextsShop + 84, MOG_LAB_09D8);
-    wl(m, MOG_t_TextsShop + 88, MOG_LAB_09D9);
-    wl(m, MOG_t_TextsShop + 96, MOG_LAB_09DA);
-    wl(m, MOG_t_TextsShop + 92, MOG_LAB_09DB);
-    wl(m, MOG_t_TextsShop + 100, MOG_LAB_09DC);
-    wl(m, MOG_t_TextsShop + 104, MOG_LAB_09DD);
-    wl(m, MOG_t_TextsShop + 56, MOG_LAB_09DE);
-    wl(m, MOG_t_TextsShop + 60, MOG_LAB_09DE);
-    wl(m, MOG_t_TextsShop + 64, MOG_LAB_09DE);
-    wl(m, MOG_t_TextsScreen6 + 52, MOG_LAB_09DF);
-    wl(m, MOG_t_TextsScreen6 + 68, MOG_LAB_09E0);
-    wl(m, MOG_t_TextsScreen6 + 72, MOG_LAB_09E1);
-    wl(m, MOG_t_TextsScreen6 + 76, MOG_LAB_09E2);
-    wl(m, MOG_t_TextsScreen6 + 80, MOG_LAB_09E3);
-    wl(m, MOG_t_TextsScreen6 + 84, MOG_LAB_09E4);
-    wl(m, MOG_t_TextsScreen6 + 88, MOG_LAB_09E5);
-    wl(m, MOG_t_TextsScreen6 + 96, MOG_LAB_09E6);
-    wl(m, MOG_t_TextsScreen6 + 92, MOG_LAB_09E7);
-    wl(m, MOG_t_TextsScreen6 + 100, MOG_LAB_09E8);
-    wl(m, MOG_t_TextsScreen6 + 104, MOG_LAB_09E9);
-    wl(m, MOG_t_TextsScreen6 + 56, MOG_LAB_09EA);
-    wl(m, MOG_t_TextsScreen6 + 60, MOG_LAB_09EA);
-    wl(m, MOG_t_TextsScreen6 + 64, MOG_LAB_09EA);
+        wl(m, MOG_t_TextsScreen3 + 4 * i, MOG_s_Space);
+    wl(m, MOG_t_TextsScreen3 + 56, MOG_s_NewMoonMoonstone);
+    wl(m, MOG_t_TextsScreen3 + 60, MOG_s_FullMoonstone);
+    wl(m, MOG_t_TextsScreen3 + 64, MOG_s_HalfMoonstone);
+    wl(m, MOG_t_TextsScreen3 + 68, MOG_s_KeyToTheValley);
+    wl(m, MOG_t_TextsScreen3 + 72, MOG_s_OfferPotionOfHealing);
+    wl(m, MOG_t_TextsScreen3 + 76, MOG_s_OfferGemOfSeeing);
+    wl(m, MOG_t_TextsScreen3 + 80, MOG_s_OfferRingOfProtection);
+    wl(m, MOG_t_TextsScreen3 + 84, MOG_s_OfferTalismanOfTheWyrm);
+    wl(m, MOG_t_TextsScreen3 + 88, MOG_s_OfferScrollOfHaste);
+    wl(m, MOG_t_TextsScreen3 + 96, MOG_s_OfferScrollOfAquisition);
+    wl(m, MOG_t_TextsScreen3 + 92, MOG_s_OfferScrollOfTheHawk);
+    wl(m, MOG_t_TextsScreen3 + 100, MOG_s_OfferScrollOfTheWyrm);
+    wl(m, MOG_t_TextsScreen3 + 104, MOG_s_OfferScrollOfProtection);
+    wl(m, MOG_t_TextsShop + 44, MOG_s_BuyBroadSwordFor10Gp);
+    wl(m, MOG_t_TextsShop + 48, MOG_s_BuyClaymoreSwordFor25Gp);
+    wl(m, MOG_t_TextsShop + 28, MOG_s_BuyChainmailFor30Gp);
+    wl(m, MOG_t_TextsShop + 32, MOG_s_BuyPlateArmourFor50Gp);
+    wl(m, MOG_t_TextsShop + 36, MOG_s_BuyBattleArmourFor75Gp);
+    wl(m, MOG_t_TextsShop + 20, MOG_s_BuyADaggerFor2Gp);
+    wl(m, MOG_t_TextsShop + 52, MOG_s_BuySwordOfSharpnessFor52Gp);
+    wl(m, MOG_t_TextsShop + 68, MOG_s_BuyKeyFor12Gp);
+    wl(m, MOG_t_TextsShop + 72, MOG_s_BuyPotionOfHealingFor20Gp);
+    wl(m, MOG_t_TextsShop + 76, MOG_s_BuyGemOfSeeingFor32Gp);
+    wl(m, MOG_t_TextsShop + 80, MOG_s_BuyRingOfProtectionFor40Gp);
+    wl(m, MOG_t_TextsShop + 84, MOG_s_BuyTalismanFor52Gp);
+    wl(m, MOG_t_TextsShop + 88, MOG_s_BuyScrollOfHasteFor36Gp);
+    wl(m, MOG_t_TextsShop + 96, MOG_s_BuyScrollOfAquisitionFor52Gp);
+    wl(m, MOG_t_TextsShop + 92, MOG_s_BuyScrollOfTheHawkFor52Gp);
+    wl(m, MOG_t_TextsShop + 100, MOG_s_BuyScrollOfTheWyrmFor40Gp);
+    wl(m, MOG_t_TextsShop + 104, MOG_s_BuyScrollOfProtectionFor24Gp);
+    wl(m, MOG_t_TextsShop + 56, MOG_s_BuyMoonstoneFor20Gp);
+    wl(m, MOG_t_TextsShop + 60, MOG_s_BuyMoonstoneFor20Gp);
+    wl(m, MOG_t_TextsShop + 64, MOG_s_BuyMoonstoneFor20Gp);
+    wl(m, MOG_t_TextsScreen6 + 52, MOG_s_SwordOfSharpness2);
+    wl(m, MOG_t_TextsScreen6 + 68, MOG_s_SellKeyFor6Gp);
+    wl(m, MOG_t_TextsScreen6 + 72, MOG_s_SellPotionOfHealingFor10Gp);
+    wl(m, MOG_t_TextsScreen6 + 76, MOG_s_SellGemOfSeeingFor16Gp);
+    wl(m, MOG_t_TextsScreen6 + 80, MOG_s_SellRingFor20Gp);
+    wl(m, MOG_t_TextsScreen6 + 84, MOG_s_SellTalismanFor26Gp);
+    wl(m, MOG_t_TextsScreen6 + 88, MOG_s_SellScrollOfHasteFor16Gp);
+    wl(m, MOG_t_TextsScreen6 + 96, MOG_s_SellScrollOfAquisitionFor26G);
+    wl(m, MOG_t_TextsScreen6 + 92, MOG_s_SellScrollOfTheHawkFor26Gp);
+    wl(m, MOG_t_TextsScreen6 + 100, MOG_s_SellScrollOfTheWyrmFor20Gp);
+    wl(m, MOG_t_TextsScreen6 + 104, MOG_s_SellScrollOfProtectionFor12G);
+    wl(m, MOG_t_TextsScreen6 + 56, MOG_s_SellMoonstoneFor10Gp);
+    wl(m, MOG_t_TextsScreen6 + 60, MOG_s_SellMoonstoneFor10Gp);
+    wl(m, MOG_t_TextsScreen6 + 64, MOG_s_SellMoonstoneFor10Gp);
     ww(m, MOG_t_ShopPrices + 0, 0x0014);
     ww(m, MOG_t_ShopPrices + 2, 0x0020);
     ww(m, MOG_t_ShopPrices + 4, 0x0034);
@@ -821,8 +821,8 @@ static void select_panels(MogCombat *m)
     if (kind == 3) a0 = MOG_t_TextsScreen3;
     if (kind == 2) {
         a0 = MOG_t_TextsDefault;
-        wl(m, MOG_v_ScreenOther, rl(m, MOG_LAB_08C6));
-        wl(m, MOG_v_ScreenOtherInv, rl(m, rl(m, MOG_LAB_08C6)));
+        wl(m, MOG_v_ScreenOther, rl(m, MOG_v_Lair));
+        wl(m, MOG_v_ScreenOtherInv, rl(m, rl(m, MOG_v_Lair)));
     }
     if (kind == 0x0A) {
         a0 = MOG_t_TextsDefault;
@@ -888,16 +888,16 @@ static void build(MogCombat *m)
             wb(m, MOG_b_RestoreA + i, 0xFF);
         wl(m, MOG_v_IconTexts, MOG_b_ZoneTextsLeft);
         wl(m, MOG_v_LoadPtr, rl(m, MOG_v_ScreenKnight));
-        ww(m, MOG_LAB_0985, 0);
+        ww(m, MOG_v_PanelX, 0);
         ww(m, MOG_v_LivesIconAlt, 0);
-        for (uint32_t a2 = MOG_LAB_098A; sw(rw(m, a2)) >= 0; a2 += 2)
+        for (uint32_t a2 = MOG_t_PanelFrames; sw(rw(m, a2)) >= 0; a2 += 2)
             if (rw(m, a2) == (uint16_t)KIND) {
-                ww(m, MOG_LAB_0985, 0x4A);
+                ww(m, MOG_v_PanelX, 0x4A);
                 break;
             }
         draw_knight(m);                                 /* LAB_04F8 */
         wl(m, MOG_v_IconTexts, MOG_b_ZoneTextsRight);
-        ww(m, MOG_LAB_0985, 0x96);
+        ww(m, MOG_v_PanelX, 0x96);
         uint32_t kind = KIND;
         if (kind == 2) {
             draw_creature(m);                           /* LAB_051B */
@@ -938,13 +938,13 @@ static void build(MogCombat *m)
     copy_screen(m, rl(m, MOG_SECSTRT_35), rl(m, MOG_LAB_0D92));
     uint16_t c[32];                                     /* LAB_0D8A, LAB_03EE */
     for (int i = 0; i < 32; i++)
-        c[i] = rw(m, MOG_LAB_09F0 + 2u * (unsigned)i);
+        c[i] = rw(m, MOG_t_ScreenPalette + 2u * (unsigned)i);
     mog_wait_vbls(m, 1);
     if (m->palette)
         m->palette(m->out.user, c);
     uint32_t cur = rl(m, MOG_v_PalCurrent);
     for (uint32_t i = 0; i < 64; i++)
-        wb(m, cur + i, rb(m, MOG_LAB_09F0 + i));
+        wb(m, cur + i, rb(m, MOG_t_ScreenPalette + i));
 }
 
 /* ------------------------------------------------------------------ */
@@ -1051,7 +1051,7 @@ static void trade_shop(MogCombat *m, uint16_t d1, uint8_t d3)
     uint32_t a0 = rl(m, MOG_v_ScreenInventory), a1 = MOG_t_ShopInventory, a2 = rl(m, MOG_v_ScreenKnight);
     uint32_t a3 = MOG_t_ShopPrices;
     int16_t price = sw(rw(m, a3 + d1));
-    if (!(sw(rw(m, MOG_LAB_097F)) < 0xA0)) {
+    if (!(sw(rw(m, MOG_v_PointerX)) < 0xA0)) {
         mog_message(m, "Purchasing");
         if (price > sw(rw(m, a2 + 74)))
             return;
@@ -1110,7 +1110,7 @@ static void use(MogCombat *m, uint16_t flags, uint16_t d1, uint8_t d3)
         mog_sound(m, 0x9C);
         dec(m, a0 + d1);
         ww(m, MOG_LAB_053B, d1);
-        ww(m, MOG_LAB_0984, 1);
+        ww(m, MOG_v_ScreenChanged, 1);
         build(m);
         return;
     }
@@ -1145,7 +1145,7 @@ static void use(MogCombat *m, uint16_t flags, uint16_t d1, uint8_t d3)
     case 2:
         good_sound(m);
         mog_map_0E02(m);
-        ww(m, MOG_LAB_0984, 1);
+        ww(m, MOG_v_ScreenChanged, 1);
         break;
     case 0x0C:
         if (d100(m) > 0x0F) {
@@ -1155,7 +1155,7 @@ static void use(MogCombat *m, uint16_t flags, uint16_t d1, uint8_t d3)
             bad_sound(m);
             mog_map_0E06(m);
         }
-        ww(m, MOG_LAB_0984, 1);
+        ww(m, MOG_v_ScreenChanged, 1);
         break;
     case 0x10:
         good_sound(m);
@@ -1164,7 +1164,7 @@ static void use(MogCombat *m, uint16_t flags, uint16_t d1, uint8_t d3)
         mog_screen_run(m, 0x0B);
         return;
     case 0x12:
-        ww(m, MOG_LAB_0984, 1);
+        ww(m, MOG_v_ScreenChanged, 1);
         if (d100(m) > 0x0A) {
             good_sound(m);
         } else {
@@ -1181,10 +1181,10 @@ static void use(MogCombat *m, uint16_t flags, uint16_t d1, uint8_t d3)
 static void click(MogCombat *m, uint32_t z)
 {
     if (rl(m, z + 16) == 7) {                           /* sortie */
-        ww(m, MOG_LAB_0984, 1);
+        ww(m, MOG_v_ScreenChanged, 1);
         return;
     }
-    if (rl(m, z + 8) == MOG_LAB_09EF) {                 /* chevalier suivant */
+    if (rl(m, z + 8) == MOG_t_NextKnightText) {                 /* chevalier suivant */
         next_knight(m, 0);
         build(m);
         return;
@@ -1271,7 +1271,7 @@ static void click(MogCombat *m, uint32_t z)
             wl(m, a0 + 88, 0x16);
         dec(m, a1 + d1);
         ww(m, MOG_LAB_053B, d1);
-        ww(m, MOG_LAB_0984, 1);
+        ww(m, MOG_v_ScreenChanged, 1);
         traded(m);
         return;
     }
@@ -1279,7 +1279,7 @@ static void click(MogCombat *m, uint32_t z)
         return;
     switch (d1) {                                       /* LAB_054A */
     case 0x4A: {                                        /* or */
-        uint32_t g = KIND == 2 ? rl(m, MOG_LAB_08C6) + 8 : a1 + 74;
+        uint32_t g = KIND == 2 ? rl(m, MOG_v_Lair) + 8 : a1 + 74;
         if (rw(m, g)) {
             for (;;) {
                 if (rw(m, a0 + 74) == 0x96)
@@ -1333,10 +1333,10 @@ static void click(MogCombat *m, uint32_t z)
 void mog_screen_run(MogCombat *m, uint32_t kind)
 {
     ww(m, MOG_v_BlitByCpu, 1);                             /* LAB_04CF */
-    wl(m, MOG_LAB_0986, rl(m, MOG_t_BankMap + 4));
+    wl(m, MOG_v_IconCel, rl(m, MOG_t_BankMap + 4));
     ww(m, MOG_v_LootTaken, 0);
     wl(m, MOG_v_ScreenKind, kind);
-    ww(m, MOG_LAB_0984, 0);
+    ww(m, MOG_v_ScreenChanged, 0);
     mog_fade_black(m);                                  /* LAB_03F0 */
     pointer_on(m);                                      /* LAB_0575 */
     text_tables(m);                                     /* LAB_0588 */
@@ -1344,10 +1344,10 @@ void mog_screen_run(MogCombat *m, uint32_t kind)
     for (;;) {                                          /* LAB_04D0 */
         if (m->frame_start)             /* point de rendez-vous (pas dans mog) */
             m->frame_start(m->out.user);
-        uint32_t z = zone_at(m, rw(m, MOG_LAB_097F), rw(m, MOG_LAB_0980));
-        if (z && !rw(m, MOG_LAB_0981)) {
+        uint32_t z = zone_at(m, rw(m, MOG_v_PointerX), rw(m, MOG_v_PointerY));
+        if (z && !rw(m, MOG_v_PointerOn)) {
             click(m, z);
-            if (rw(m, MOG_LAB_0984))
+            if (rw(m, MOG_v_ScreenChanged))
                 break;
         }
         mog_swap_screens(m);

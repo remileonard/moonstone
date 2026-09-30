@@ -205,8 +205,8 @@ int mog_fight_start(MogFight *f, const MogFightSetup *s)
         ix_wl(VM, MOG_v_Combatants + 4, o);
     }
 
-    ix_wl(VM, MOG_LAB_08C4, (uint32_t)(s->place & 12));
-    ix_wl(VM, MOG_LAB_076D, 0);
+    ix_wl(VM, MOG_v_PlaceType, (uint32_t)(s->place & 12));
+    ix_wl(VM, MOG_v_TerrainMode, 0);
     uint32_t init = ix_rl(VM, MOG_t_CreatureInit + (uint32_t)(s->encounter & 0x7C));
     if (!mog_encounter_init(m, init))
         return -1;
