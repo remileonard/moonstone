@@ -97,6 +97,7 @@ class Blitter:
 
     def run(self, size):
         self.count += 1
+        self.olda = self.oldb = 0        # barillet à zéro à chaque blit (WinUAE)
         con0, con1 = self.rw(0x40), self.rw(0x42)
         if con1 & 0x19:
             raise Stop('blitter : mode ligne ou remplissage (BLTCON1=%04X)' % con1)

@@ -17,7 +17,7 @@ enum {
     MOG_JOY_UP = 0x08, MOG_JOY_FIRE = 0x10
 };
 
-typedef struct {
+typedef struct MogCombat {
     IxEngine       eng;       /* moteur de scripts ; eng.vm = mémoire de mog */
     IxHost         eng_host;  /* hôte donné au moteur : $B0 -> mog_native    */
     IxHost         out;       /* hôte du jeu : dessin, sons, messages        */
@@ -44,6 +44,9 @@ typedef struct {
     /* COLOR00 écrit directement (éclair rouge de LAB_00CC) : $10000 | $0RGB,
      * 0 : registre tenu par la palette */
     uint32_t color00;
+    /* Mode debug : appelé par Combat_Collisions avant que les listes de
+     * frames (frappe, corps) soient vidées ; NULL : rien. */
+    void (*debug)(struct MogCombat *m);
 } MogCombat;
 
 /* Prépare la structure sur une mémoire déjà chargée. `host` : dessin, sons,

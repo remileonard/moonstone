@@ -35,6 +35,8 @@ struct ProgIntro {
     ProgPaula paula;                /* voies audio (musique)             */
     uint16_t potgor;                /* POTGOR ($DFF016) : bit 10 = bouton
                                        droit relâché (banc : 0)          */
+    int load_time;                  /* temps de chargement rendu en VBL
+                                       (le jeu : 1 ; bancs : 0)          */
     void *user;
 };
 

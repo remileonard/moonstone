@@ -4,9 +4,11 @@
  * image montrée toutes les N VBL (<préfixe>_NNNNN.png), musique dans
  * <préfixe>.wav (stéréo 16 bits, 44100 Hz).
  *
- *   prog_intro_shot <données> <préfixe> [N [drapeaux]]
+ *   prog_intro_shot [-t] <données> <préfixe> [N [drapeaux]]
  *
  * drapeaux : EXT_0007 ($3E0) écrit par mog ; bit 7 : la fin au lieu de l'intro.
+ * -t : temps de chargement (disquette, 68000) comme dans le jeu ; sans -t,
+ * chargements instantanés comme le banc tools/prog_ref.py.
  */
 #include "prog_intro.h"
 #include "prog_vbl.h"
@@ -144,8 +146,11 @@ static void on_vbl(ProgIntro *p)
 
 int main(int argc, char **argv)
 {
+    int load_time = argc > 1 && !strcmp(argv[1], "-t");
+    if (load_time)
+        argc--, argv++;
     if (argc < 3) {
-        fprintf(stderr, "usage : prog_intro_shot données préfixe [N]\n");
+        fprintf(stderr, "usage : prog_intro_shot [-t] données préfixe [N [drapeaux]]\n");
         return 2;
     }
     if (moon_init(argv[1]) != 0)
@@ -169,6 +174,7 @@ int main(int argc, char **argv)
     p.vm = &vm;
     p.vbl = on_vbl;
     p.potgor = 0xFFFF;
+    p.load_time = load_time;
     prog_boot(&p, PROG_CHIP_BLOCK, PROG_CHIP_SIZE, fast, PROG_FAST_SIZE);
     prog_intro(&p);
     wav_header(wav, wav_frames);

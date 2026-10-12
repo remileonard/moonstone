@@ -9,6 +9,7 @@
  */
 #include "mog_boot.h"
 #include "ix_mog_names.h"
+#include "mog_vbl.h"
 #include "mog_struct.h"
 #include "moon_assets.h"
 
@@ -494,6 +495,43 @@ int mog_boot_memory(IxVM *vm)
     ix_wl(VM, MOG_v_FastSize, MOG_FAST_SIZE);
     partition(vm, MOG_CHIP_BLOCK, fast);
     return 0;
+}
+
+/* SECSTRT_34 (partie mémoire) : mémoire chip à zéro de EXT_001d à $80000,
+ * copper list en $7F6AE copiée de v_CopperList (pointeurs de sprites
+ * SPRxPT sur v_SpriteNull), plans montrés (SECSTRT_35) dans la copper
+ * list, écrans à zéro (LAB_0D72). Le pointeur (LAB_0E85) y cherche ses
+ * registres SPR0PT : sans elle, sa recherche sortait de la liste et
+ * écrivait dans les données de mog (cadres des écrans LAB_04CF). */
+void mog_boot_display(IxVM *vm)
+{
+    for (uint32_t a = 0x6BEFA; a != 0x80000; a += 2)    /* LAB_0D52 */
+        ix_ww(vm, a, 0);
+    uint32_t a0 = 0x7F6AE, a1 = ix_rl(vm, MOG_v_CopperList);
+    uint32_t d1 = MOG_v_SpriteNull, d2 = d1 >> 16;
+    for (;;) {                                          /* LAB_0D53 */
+        uint32_t d0 = ix_rl(vm, a1);
+        a1 += 4;
+        if ((int32_t)d0 >= 0x01200000 && (int32_t)d0 < 0x01400000) {
+            d0 = (d0 & 0xFFFF0000u) | (d2 & 0xFFFF);
+            if (d0 & (1u << 17))
+                d0 = (d0 & 0xFFFF0000u) | (d1 & 0xFFFF);
+        }
+        ix_wl(vm, a0, d0);
+        a0 += 4;
+        if (d0 == 0xFFFFFFFEu)
+            break;
+    }
+    uint32_t s = ix_rl(vm, MOG_v_ShowPlanes);           /* EXT_0024 ... */
+    for (uint32_t p = 0; p < 5; p++) {
+        ix_ww(vm, MOG_COPPER_BPL + 8 * p, (uint16_t)((s + p * 0x1F40) >> 16));
+        ix_ww(vm, MOG_COPPER_BPL + 8 * p + 4, (uint16_t)(s + p * 0x1F40));
+    }
+    for (int k = 0; k < 2; k++) {                       /* LAB_0D72 */
+        uint32_t a = ix_rl(vm, k ? MOG_v_ShowPlanes : MOG_v_DrawPlanes);
+        for (uint32_t i = 0; i < 5 * 0x1F40; i += 4)
+            ix_wl(vm, a + i, 0);
+    }
 }
 
 /* LAB_013A : les huit décors (PIV compressés) du fichier « Test » à

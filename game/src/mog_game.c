@@ -147,6 +147,7 @@ int mog_game_boot(MogGame *g)
         return -1;
     /* LAB_04A5 : graine du hasard selon le faisceau (VHPOSR & 3) */
     ix_wl(VM, MOG_v_RandomSeed, ix_rl(VM, MOG_t_RandomSeeds + 4u * (unsigned)(g->seed & 3)));
+    mog_boot_display(VM);                               /* SECSTRT_34 */
     mog_boot_graphics(VM);                              /* SECSTRT_30, SECSTRT_28 */
     ix_wl(VM, MOG_v_PalCurrent, MOG_t_FightPalette);              /* LAB_0E53 : palette courante */
     mog_boot_ui(VM);                                    /* LAB_012C */

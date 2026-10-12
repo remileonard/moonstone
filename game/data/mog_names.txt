@@ -971,6 +971,8 @@ LAB_0D02    v_DestPlane3        plan de destination 3
 LAB_0D03    v_DestPlane4        plan de destination 4
 LAB_0D2B    t_PivPalette        palette du dernier PIV décodé
 LAB_0D92    v_DrawPlanes        plans de l'écran de dessin (tampon arrière)
+LAB_0D95    v_SpriteNull        sprite nul des pointeurs SPRxPT de la copper list (SECSTRT_34)
+LAB_0D96    v_CopperList        modèle de la copper list (plans, sprites), copié en $7F6AE
 LAB_0D99    t_KeyChars          caractère de chaque code de touche
 
 # --- Pointeur, créatures, dés, son ---

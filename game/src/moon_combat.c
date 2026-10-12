@@ -6,10 +6,12 @@
  */
 #include "moon_game.h"
 #include "mog_fight.h"
+#include "moon_debug.h"
 
 #include <string.h>
 
 static MogFight s_fight;
+static int s_key_g;                     /* touche G (SDL_SCANCODE_G) */
 
 static uint16_t read_joy(const MoonInput *in, int port)
 {
@@ -55,12 +57,18 @@ void game_run_combats(GameCtx *ctx, int encounter, int all, int place)
         }
         if (mog_fight_start(&s_fight, &s) < 0)
             return;
+        moon_debug_attach(&s_fight.m);                  /* mode debug : G */
         for (;;) {
             if (hal_poll(&ctx->input) && (ctx->input.quit || ctx->input.escape))
                 return;
+            int g = ctx->input.keys && ctx->input.n_keys > 10 && ctx->input.keys[10];
+            if (g && !s_key_g)
+                moon_debug_toggle();
+            s_key_g = g;
             int running = mog_fight_frame(&s_fight, read_joy(&ctx->input, 0),
                                           read_joy(&ctx->input, 1));
             mog_fight_render(&s_fight, ctx->fb);
+            moon_debug_draw(ctx->fb, hal_ticks());
             hal_present(ctx->fb);
             for (int v = mog_fight_frame_vbls(&s_fight); v > 0; v--)
                 hal_vbl_wait();

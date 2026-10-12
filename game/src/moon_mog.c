@@ -14,6 +14,7 @@
  * retour arrière ; Échap = quitter.
  */
 #include "moon_game.h"
+#include "moon_debug.h"
 #include "moon_hal.h"
 #include "mog_game.h"
 #include "mog_map.h"
@@ -26,7 +27,7 @@
 #include <string.h>
 
 enum {                                  /* codes SDL_Scancode */
-    SC_A = 4, SC_D = 7, SC_E = 8, SC_F = 9, SC_S = 22, SC_W = 26, SC_I = 12, SC_Q = 20, SC_Z = 29, SC_1 = 30, SC_9 = 38,
+    SC_A = 4, SC_D = 7, SC_E = 8, SC_F = 9, SC_G = 10, SC_S = 22, SC_W = 26, SC_I = 12, SC_Q = 20, SC_Z = 29, SC_1 = 30, SC_9 = 38,
     SC_0 = 39, SC_RETURN = 40, SC_BACKSPACE = 42, SC_TAB = 43, SC_MINUS = 45, SC_SPACE = 44, SC_RIGHT = 79, SC_LEFT = 80, SC_DOWN = 81,
     SC_UP = 82, SC_LCTRL = 224, SC_RCTRL = 228
 };
@@ -51,7 +52,17 @@ static int pressed(const MoonInput *in, int sc)
 static void host_vbl(void *user, MogGame *g, MogGameInput *out)
 {
     GameCtx *ctx = user;
-    hal_present(g->fb);
+    static uint32_t shown[MOG_GAME_W * MOG_GAME_H];
+    uint32_t now = hal_ticks();
+    moon_debug_attach(&g->m);                           /* mode debug (G) */
+    if (moon_debug_enabled() && moon_debug_in_combat(now)) {
+        memcpy(shown, g->fb, sizeof shown);
+        moon_debug_draw(shown, now);
+        hal_present(shown);
+    } else {
+        moon_debug_draw(NULL, now);
+        hal_present(g->fb);
+    }
     hal_vbl_wait();
     MoonInput *in = &ctx->input;
     if (hal_poll(in) && (in->quit || in->escape)) {
@@ -84,8 +95,12 @@ static void host_vbl(void *user, MogGame *g, MogGameInput *out)
      * d'espace, Entrée, retour arrière */
     int key = 0;
     for (int sc = SC_A; sc <= SC_Z; sc++)
-        if (pressed(in, sc))
-            key = 'A' + (sc - SC_A);
+        if (pressed(in, sc)) {
+            if (sc == SC_G && moon_debug_in_combat(now))
+                moon_debug_toggle();                    /* G en combat : debug */
+            else
+                key = 'A' + (sc - SC_A);
+        }
     for (int sc = SC_1; sc <= SC_9; sc++)
         if (pressed(in, sc))
             key = '1' + (sc - SC_1);
@@ -116,8 +131,14 @@ static int s_rate, s_fast;
 static void intro_vbl(ProgIntro *p)
 {
     GameCtx *ctx = p->user;
-    if (s_fast)
-        return;                                         /* défilement rapide */
+    if (s_fast) {                                       /* défilement rapide */
+#ifdef __EMSCRIPTEN__
+        static unsigned n;
+        if (!(++n & 63))
+            hal_delay(0);                               /* la page reste vivante */
+#endif
+        return;
+    }
     if (s_rate > 0) {
         static int16_t buf[2 * 2048];
         int n = s_rate / 50;
@@ -161,6 +182,7 @@ static void run_program(GameCtx *ctx, uint16_t flags)
     p.vbl = intro_vbl;
     p.user = ctx;
     p.potgor = 0xFFFF;                                  /* bouton droit relâché */
+    p.load_time = 1;                                    /* disquette, 68000 */
     s_fast = 0;
     ix_ww(&vm, 0x3E0, flags);
     prog_boot(&p, PROG_CHIP_BLOCK, PROG_CHIP_SIZE, fast, PROG_FAST_SIZE);
