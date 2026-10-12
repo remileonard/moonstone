@@ -167,6 +167,7 @@ static void run_program(GameCtx *ctx, uint16_t flags)
     p.vbl = intro_vbl;
     p.user = ctx;
     p.potgor = 0xFFFF;                                  /* bouton droit relâché */
+    p.load_time = 1;                                    /* disquette, 68000 */
     s_fast = 0;
     ix_ww(&vm, 0x3E0, flags);
     prog_boot(&p, PROG_CHIP_BLOCK, PROG_CHIP_SIZE, fast, PROG_FAST_SIZE);

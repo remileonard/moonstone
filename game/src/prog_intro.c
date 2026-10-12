@@ -78,6 +78,61 @@ static void wait_vbls(ProgIntro *p, uint32_t n)
         prog_wait_vbl(p);
 }
 
+/* ------------------------------------------------- temps de chargement */
+
+/* Sur Amiga, les fichiers viennent de la disquette (SECSTRT_13 : piste
+ * MFM lue par DMA, $2800 mots soit 1,6 tour ; blocs OFS de 488 octets,
+ * 11 par piste, LAB_03B2) puis sont décompressés par le 68000 : l'image
+ * montrée (le générique) reste à l'écran et les VBL (fondus, musique)
+ * continuent pendant ce temps. Le portage lit et décompresse d'un coup ;
+ * avec p->load_time, ce temps est rendu en VBL, estimé : 20 VBL par piste
+ * (DMA 16,4, pas et stabilisation de la tête, décodage MFM) et 11 800
+ * instructions 68000 par VBL (7,09 MHz, 12 cycles par instruction ;
+ * instructions comptées sur l'original par prog_ref.py). Les bancs
+ * (load_time = 0) restent alignés sur prog_ref.py, sans disquette. */
+#define TRACK_VBLS    20u
+#define INSNS_PER_VBL 11800u
+
+static void disk_time(ProgIntro *p, uint32_t bytes)
+{
+    uint32_t blocks = 1 + (bytes + 487) / 488;          /* en-tête + données */
+    if (p->load_time)
+        wait_vbls(p, (blocks + 10) / 11 * TRACK_VBLS);
+}
+
+static void cpu_time(ProgIntro *p, uint32_t insns)
+{
+    if (p->load_time)
+        wait_vbls(p, insns / INSNS_PER_VBL);
+}
+
+/* LAB_0CBB : CEL lue en entier ; LZSS, 7 instructions par octet compressé
+ * (au1.cel : 30 359 octets, 214 000 instructions) */
+static void load_cel(ProgIntro *p, uint32_t name, uint32_t a1)
+{
+    prog_load_cel(VM, name, a1);
+    disk_time(p, rl(p, PROGRAM_v_FileSize));
+    cpu_time(p, 7 * rl(p, PROGRAM_v_CelHeaderPacked));
+}
+
+/* LAB_0CB6 : en-tête relu (10 octets) */
+static uint32_t cel_size(ProgIntro *p, uint32_t name)
+{
+    uint32_t n = prog_cel_size(VM, name);
+    disk_time(p, 10);
+    return n;
+}
+
+/* Fichier lu tel quel : n octets */
+static void load_file(ProgIntro *p, uint32_t name, uint32_t dst, uint32_t n)
+{
+    MogFile f;
+    prog_file_open(VM, name, &f);
+    prog_file_read(VM, &f, dst, n);
+    prog_file_close(&f);
+    disk_time(p, n);
+}
+
 /* LAB_0017 / LAB_0018 : cadence, LAB_00D0 + LAB_0123 VBL par image */
 static void frame_mark(ProgIntro *p)
 {
@@ -1380,8 +1435,10 @@ static void load_picture(ProgIntro *p, uint32_t name, uint32_t a1)
     uint32_t len = rl(p, a1 + 2);
     prog_file_read(VM, &f, a1 + 2, len);
     prog_file_close(&f);
+    disk_time(p, 6 + n + len);
     ww(p, PROGRAM_v_GfxReady, 1);                         /* LAB_0406 */
     prog_unpack(VM, a1 + 2, len, rl(p, PROGRAM_t_DestPlanes));
+    cpu_time(p, 55000 + 4 * len);                       /* bg1b : 170 000 */
 }
 
 /* LAB_025B : palette LAB_0506 copiée en a0 */
@@ -1429,6 +1486,7 @@ static uint32_t rnc_unpack(ProgIntro *p, uint32_t a0)
         memset(ix_vm_ptr(vm, a0 + (uint32_t)n), 0, end - (a0 + (uint32_t)n));
     }
     free(out);
+    cpu_time(p, 40 * packed);                           /* music.cmp : 3,5 M */
     return n > 0 ? (uint32_t)n : 0;
 }
 
@@ -1645,11 +1703,8 @@ void prog_boot(ProgIntro *p, uint32_t chip, uint32_t chip_size, uint32_t fast, u
         a += 4;
     wl(p, a, PROGRAM_Vbl_Screen);
     wl(p, PROGRAM_t_Controllers, PROGRAM_Ctl_ScriptEnd);
-    prog_load_cel(VM, PROGRAM_s_BoldF, rl(p, PROGRAM_t_FontBank + 16));  /* LAB_0051 */
-    MogFile f;
-    prog_file_open(VM, PROGRAM_s_MessagePiv, &f);
-    prog_file_read(VM, &f, rl(p, PROGRAM_t_FontBank + 20), 0x10E6);
-    prog_file_close(&f);
+    load_cel(p, PROGRAM_s_BoldF, rl(p, PROGRAM_t_FontBank + 16));  /* LAB_0051 */
+    load_file(p, PROGRAM_s_MessagePiv, rl(p, PROGRAM_t_FontBank + 20), 0x10E6);
 }
 
 /* ------------------------------------------------ chargement, générique */
@@ -1760,10 +1815,7 @@ int prog_loading(ProgIntro *p)
     set_planes(p, rl(p, PROGRAM_v_BgSceneB));
     load_picture(p, PROGRAM_s_Bg1aPiv, rl(p, PROGRAM_v_FastFree));
     save_palette(p, PROGRAM_t_PalForest);
-    MogFile f;
-    prog_file_open(VM, PROGRAM_s_IntroStile, &f);                      /* intro.stile */
-    prog_file_read(VM, &f, PROGRAM_b_TileMap, 1000);
-    prog_file_close(&f);
+    load_file(p, PROGRAM_s_IntroStile, PROGRAM_b_TileMap, 1000);       /* intro.stile */
     credits_start(p);
     set_planes(p, rl(p, PROGRAM_v_BgSceneC));
     load_picture(p, PROGRAM_s_Bg1cPiv, rl(p, PROGRAM_v_FastFree));
@@ -1800,22 +1852,20 @@ int prog_loading(ProgIntro *p)
     uint32_t a1 = rl(p, PROGRAM_v_ChipFree);
     for (int i = 0; i < 4; i++) {
         wl(p, PROGRAM_t_Banks + cel[i].slot, a1);
-        prog_load_cel(VM, cel[i].name, a1);
-        a1 = rl(p, PROGRAM_t_Banks + cel[i].slot) + prog_cel_size(VM, cel[i].name);
+        load_cel(p, cel[i].name, a1);
+        a1 = rl(p, PROGRAM_t_Banks + cel[i].slot) + cel_size(p, cel[i].name);
         credits_text(p);
         if (skipped(p))
             return 1;
     }
     a1 = rl(p, PROGRAM_v_CelArea);
     wl(p, PROGRAM_t_Banks + 12, a1);
-    prog_load_cel(VM, PROGRAM_s_Dw1Cel, a1);
-    prog_cel_size(VM, PROGRAM_s_Dw1Cel);
+    load_cel(p, PROGRAM_s_Dw1Cel, a1);
+    cel_size(p, PROGRAM_s_Dw1Cel);
     a1 = rl(p, PROGRAM_b_PivBg2a) + 0x9C40;
     wl(p, PROGRAM_v_OverlayCel, a1);
-    prog_load_cel(VM, PROGRAM_s_Ov1Cel, a1);
-    prog_file_open(VM, PROGRAM_s_MusicCmp, &f);                       /* music.cmp */
-    prog_file_read(VM, &f, rl(p, PROGRAM_b_Music), 0x159D9);
-    prog_file_close(&f);
+    load_cel(p, PROGRAM_s_Ov1Cel, a1);
+    load_file(p, PROGRAM_s_MusicCmp, rl(p, PROGRAM_b_Music), 0x159D9);     /* music.cmp */
     rnc_unpack(p, rl(p, PROGRAM_b_Music));
     return 0;
 }
@@ -1877,23 +1927,18 @@ static void ending_loading(ProgIntro *p)
     uint32_t a1 = rl(p, PROGRAM_v_ChipFree);
     for (int i = 0; i < 5; i++) {
         wl(p, PROGRAM_t_Banks + cel[i].slot, a1);
-        prog_load_cel(VM, cel[i].name, a1);
-        a1 = rl(p, PROGRAM_t_Banks + cel[i].slot) + prog_cel_size(VM, cel[i].name);
+        load_cel(p, cel[i].name, a1);
+        a1 = rl(p, PROGRAM_t_Banks + cel[i].slot) + cel_size(p, cel[i].name);
     }
     a1 = rl(p, PROGRAM_v_BgSceneD);
     wl(p, PROGRAM_t_Banks + 20, a1);
-    prog_load_cel(VM, PROGRAM_s_Klift1Cel, a1);
-    prog_cel_size(VM, PROGRAM_s_Klift1Cel);
+    load_cel(p, PROGRAM_s_Klift1Cel, a1);
+    cel_size(p, PROGRAM_s_Klift1Cel);
     a1 = rl(p, PROGRAM_b_PivBg2);
     wl(p, PROGRAM_v_OverlayCel, a1);
-    prog_load_cel(VM, PROGRAM_s_Ov1Cel, a1);
-    MogFile f;
-    prog_file_open(VM, PROGRAM_s_CoStile, &f);          /* co.stile */
-    prog_file_read(VM, &f, PROGRAM_b_TileMap, 1000);
-    prog_file_close(&f);
-    prog_file_open(VM, PROGRAM_s_VmusicCmp, &f);           /* vmusic.cmp */
-    prog_file_read(VM, &f, rl(p, PROGRAM_b_Music), 0xEFA0);
-    prog_file_close(&f);
+    load_cel(p, PROGRAM_s_Ov1Cel, a1);
+    load_file(p, PROGRAM_s_CoStile, PROGRAM_b_TileMap, 1000);          /* co.stile */
+    load_file(p, PROGRAM_s_VmusicCmp, rl(p, PROGRAM_b_Music), 0xEFA0);       /* vmusic.cmp */
     rnc_unpack(p, rl(p, PROGRAM_b_Music));
 }
 

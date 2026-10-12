@@ -508,10 +508,21 @@ python3 tools/prog_lockstep.py <données> --scene intro
 # la fin (partie gagnée : EXT_0007 = $80 | chevalier | lieu), sans jouer
 python3 tools/prog_lockstep.py <données> --scene intro --flags 0x91
 build/tests/prog_intro_shot <données> <préfixe> 100 [0x91]
+# même chose avec le temps de chargement du jeu (disquette, 68000)
+build/tests/prog_intro_shot -t <données> <préfixe> 100
 
 # libmoon_assets contre les décodeurs du portage, fichier par fichier
 build/tests/lib_audit <données>
 ```
+
+**Temps de chargement de l'intro.** Le banc `prog_ref.py` lit les
+fichiers instantanément ; sur Amiga, chaque chargement (disquette, puis
+décompression par le 68000) dure une à plusieurs secondes, et le
+générique reste à l'écran pendant ce temps. Le jeu (`ProgIntro.load_time
+= 1`) rend ce temps en VBL, estimé dans `prog_intro.c` (`disk_time`,
+`cpu_time`) : 20 VBL par piste de 11 blocs OFS, et les instructions des
+décompresseurs comptées sur l'original à 11 800 par VBL. Les bancs
+gardent `load_time = 0` et restent alignés.
 
 Les fichiers du jeu d'origine ne sont pas dans le dépôt. Le dossier
 `<données>` doit les contenir : `kn1.ob`, `test`, `*.PIV`, `*.CEL`, `*.t`,
