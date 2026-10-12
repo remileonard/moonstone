@@ -3,13 +3,15 @@
  * joueur piloté par un plan simple (s'aligne, s'approche, frappe) ;
  * images PNG (× 2) enregistrées en cours de combat.
  *
- *   mog_fight_shot <données> <préfixe> <rencontre> <lieu> [images] [pas]
+ *   mog_fight_shot [-g] <données> <préfixe> <rencontre> <lieu> [images] [pas]
  *
  * <rencontre> : index de t_CreatureInit (12 chevalier, 24 Troggs...) ;
  * <lieu> : 0 plaine, 4 forêt, 8 marais, 12 friche. Écrit
- * <préfixe>_NNNN.png toutes les <pas> images.
+ * <préfixe>_NNNN.png toutes les <pas> images. -g : relevé du mode debug
+ * (moon_debug.c) dessiné sur les images.
  */
 #include "mog_fight.h"
+#include "moon_debug.h"
 #include "moon_assets.h"
 #include "ix_mog_names.h"
 
@@ -151,8 +153,11 @@ static uint16_t player_joy(MogFight *f, unsigned *hold, uint16_t *cur)
 
 int main(int argc, char **argv)
 {
+    int debug = argc > 1 && !strcmp(argv[1], "-g");
+    if (debug)
+        argc--, argv++;
     if (argc < 5) {
-        fprintf(stderr, "usage : mog_fight_shot données préfixe rencontre lieu [images] [pas]\n");
+        fprintf(stderr, "usage : mog_fight_shot [-g] données préfixe rencontre lieu [images] [pas]\n");
         return 2;
     }
     if (moon_init(argv[1]) != 0)
@@ -172,6 +177,10 @@ int main(int argc, char **argv)
         fprintf(stderr, "combat non préparé\n");
         return 1;
     }
+    if (debug) {
+        moon_debug_attach(&f.m);
+        moon_debug_toggle();
+    }
     static uint32_t fb[MOG_SCREEN_W * MOG_SCREEN_H], big[MOG_SCREEN_W * 2 * MOG_SCREEN_H * 2];
     unsigned hold = 0;
     uint16_t cur = 0;
@@ -179,6 +188,7 @@ int main(int argc, char **argv)
     for (n = 0; n < frames; n++) {
         if (n % step == 0) {
             mog_fight_render(&f, fb);
+            moon_debug_draw(debug ? fb : NULL, 1000u + (uint32_t)n * 40u);
             for (int y = 0; y < MOG_SCREEN_H * 2; y++)
                 for (int x = 0; x < MOG_SCREEN_W * 2; x++)
                     big[y * MOG_SCREEN_W * 2 + x] = fb[(y / 2) * MOG_SCREEN_W + x / 2];

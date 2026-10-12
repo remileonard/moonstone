@@ -17,6 +17,7 @@ labels déjà nommés dans amiga_asm/*.asm :
     x_Nom          script d'animation IMAGEXCEL
 
   python3 tools/ix_names.py gen          en-têtes game/data/ix_<prog>_names.h
+                                         (et ix_mog_labels.h, mode debug)
   python3 tools/ix_names.py apply [f.c]  remplace MOG_LAB_xxxx par MOG_<nom>
                                          dans les sources (toutes par défaut)
   python3 tools/ix_names.py check        labels bruts restant dans le C
@@ -111,6 +112,30 @@ def gen():
         H += ['', '#endif', '']
         open(os.path.join(DATA, 'ix_%s_names.h' % prog), 'w').write('\n'.join(H))
         print('ix_%s_names.h : %d noms' % (prog, len(rows)))
+    labels('mog')
+
+
+def labels(prog):
+    """game/data/ix_<prog>_labels.h : tous les labels triés par adresse,
+    avec leur nom quand il en a un (mode debug : script d'une entité)"""
+    rows = checked(prog)
+    addr = syms(prog)
+    H = ['/*',
+         ' * ix_%s_labels.h — labels de amiga_asm/%s.asm triés par adresse, nommés' % (prog, prog),
+         ' * d\'après game/data/%s_names.txt (générés par tools/ix_names.py ;' % prog,
+         ' * ne pas modifier).',
+         ' */',
+         '#ifndef IX_%s_LABELS_H' % PROGS[prog],
+         '#define IX_%s_LABELS_H' % PROGS[prog],
+         '',
+         '#include <stdint.h>',
+         '',
+         'static const struct { uint32_t addr; const char *name; } ix_%s_labels[] = {' % prog]
+    for lab in sorted(addr, key=lambda l: (addr[l], l)):
+        H.append('    { 0x%06Xu, "%s" },' % (addr[lab], rows[lab][0] if lab in rows else lab))
+    H += ['};', '', '#endif', '']
+    open(os.path.join(DATA, 'ix_%s_labels.h' % prog), 'w').write('\n'.join(H))
+    print('ix_%s_labels.h : %d labels' % (prog, len(addr)))
 
 
 def sources(args):

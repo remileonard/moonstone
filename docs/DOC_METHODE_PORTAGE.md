@@ -515,6 +515,16 @@ build/tests/prog_intro_shot -t <données> <préfixe> 100
 build/tests/lib_audit <données>
 ```
 
+**Mode debug du combat** (`game/src/moon_debug.c`, touche G). Le moteur
+appelle `MogCombat.debug` dans `Combat_Collisions`, juste avant de vider
+les listes de frames de frappe et de corps. Le relevé (entités, listes,
+points de `collide.hit`, PV) est ensuite dessiné par l'hôte sur l'image
+montrée. Le crochet ne fait que lire : les bancs de comparaison sont
+inchangés. Les scripts sont nommés par le label le plus proche avant
+`ENT_PC`, avec la table `game/data/ix_mog_labels.h` générée par
+`tools/ix_names.py gen`. `mog_fight_shot -g` produit des captures avec
+le relevé.
+
 **Temps de chargement de l'intro.** Le banc `prog_ref.py` lit les
 fichiers instantanément ; sur Amiga, chaque chargement (disquette, puis
 décompression par le 68000) dure une à plusieurs secondes, et le

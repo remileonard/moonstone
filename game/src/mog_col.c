@@ -157,5 +157,7 @@ void mog_collisions(MogCombat *m)
             }
         }
     }
+    if (m->debug)
+        m->debug(m);
     ix_clear_frame_lists(&m->eng);
 }

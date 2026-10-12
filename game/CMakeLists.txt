@@ -29,6 +29,7 @@ set(GAME_SOURCES
     src/mog_menu.c
     src/mog_sound.c
     src/moon_mog.c
+    src/moon_debug.c
     src/mog_boot.c
     src/mog_files.c
     src/prog_files.c

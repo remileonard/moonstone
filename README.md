@@ -28,6 +28,17 @@ Commandes : flèches + Espace = joystick 1 ; W A S D + F = joystick 2
 (second joueur d'un duel) ; lettres, chiffres, Tab (barre d'espace),
 Entrée, retour arrière = clavier de l'Amiga ; Échap = quitter.
 
+Mode debug, en combat : G l'active ou le coupe. Il affiche :
+- la boîte de chaque personnage (cyan) ;
+- les frames de corps, qui peuvent être touchées (vert) ;
+- les frames de frappe, avec leurs points d'impact de `collide.hit`
+  (rouge et jaune), et le point d'impact retenu (magenta) ;
+- au-dessus de chaque personnage, son script et le prochain opcode ;
+- en haut à gauche, les images par seconde et les PV du joueur et des
+  ennemis.
+
+`build/tests/mog_fight_shot -g` le dessine sur ses captures.
+
 ## Version web (un seul fichier HTML, usage personnel)
 
 ```sh

@@ -57,6 +57,7 @@ target_link_libraries(mog_boot_dump PRIVATE moon_assets)
 
 # Combat complet sans écran, images PNG (game/src/mog_fight.c)
 add_executable(mog_fight_shot mog_fight_shot.c
+    ${CMAKE_SOURCE_DIR}/game/src/moon_debug.c
     ${CMAKE_SOURCE_DIR}/game/src/ix_vm.c
     ${CMAKE_SOURCE_DIR}/game/src/ix_engine.c
     ${CMAKE_SOURCE_DIR}/game/src/mog_ctl.c
