@@ -13,7 +13,8 @@ typedef struct {
     uint32_t apt, bpt, cpt, dpt;
     int16_t  amod, bmod, cmod, dmod;
     uint16_t adat, bdat, cdat;
-    uint16_t olda, oldb;        /* mots précédents des canaux A et B (barillet) */
+    uint16_t olda, oldb;        /* mots précédents des canaux A et B (barillet,
+                                   remis à zéro à chaque blit) */
     unsigned long count;
 } MogBlitter;
 

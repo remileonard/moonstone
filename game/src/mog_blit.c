@@ -16,6 +16,11 @@ static int16_t sw(uint16_t v) { return (int16_t)v; }
 void mog_blitter_run(IxVM *vm, MogBlitter *b, uint16_t size)
 {
     b->count++;
+    /* Mots précédents du barillet à zéro au début de chaque blit (comme
+     * WinUAE) : gardés d'un blit à l'autre, le dernier mot d'une copie
+     * d'écran entrait dans le masque A du blit suivant et allumait des
+     * pixels à gauche de la première ligne des icônes décalées. */
+    b->olda = b->oldb = 0;
     unsigned h = (unsigned)(size >> 6), w = size & 63u;
     if (!h) h = 1024;
     if (!w) w = 64;
