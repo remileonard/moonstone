@@ -996,6 +996,8 @@
 #define MOG_b_Unpack MOG_LAB_0D4F                            /* tampon des données compressées (41 244 octets) */
 #define MOG_v_ShowPlanes MOG_SECSTRT_35                      /* plans de l'écran montré */
 #define MOG_v_DrawPlanes MOG_LAB_0D92                        /* plans de l'écran de dessin (tampon arrière) */
+#define MOG_v_SpriteNull MOG_LAB_0D95                        /* sprite nul des pointeurs SPRxPT de la copper list (SECSTRT_34) */
+#define MOG_v_CopperList MOG_LAB_0D96                        /* modèle de la copper list (plans, sprites), copié en $7F6AE */
 #define MOG_t_KeyChars MOG_LAB_0D99                          /* caractère de chaque code de touche */
 #define MOG_Ctl_MapDragon MOG_LAB_0DCF                       /* contrôleur 40 sur la carte : vol du dragon */
 #define MOG_v_CellSlowCount MOG_LAB_0DDA                     /* compteur des images en case lente */

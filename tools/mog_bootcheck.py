@@ -48,6 +48,9 @@ def cel_zones(ref):
     z.append(('blo.cel', b, b + 0x1000))
     h = ref.rl(S['LAB_05B9'] + 88)
     z.append(('points kn4', h, ref.rl(S['LAB_0A4D'])))
+    # copper list de SECSTRT_34 (EXT_0023) : registres SPRxPT et fin ; les
+    # plans (les 10 premiers mots longs) suivent les échanges d'écrans
+    z.append(('copper', 0x7F6AE + 4 * 10, 0x7F6AE + 4 * 27))
     return z
 
 

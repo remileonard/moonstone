@@ -133,6 +133,7 @@ int mog_fight_boot(MogFight *f)
     memset(&f->vm, 0, sizeof f->vm);
     if (mog_boot_memory(VM) < 0)
         return -1;
+    mog_boot_display(VM);                               /* SECSTRT_34 */
     mog_boot_graphics(VM);                              /* SECSTRT_30, SECSTRT_28 */
     ix_wl(VM, MOG_v_PalCurrent, MOG_t_FightPalette);              /* LAB_0E53 : palette courante */
     mog_boot_engine(VM);                                /* LAB_0303 */

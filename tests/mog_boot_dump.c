@@ -21,6 +21,7 @@ int main(int argc, char **argv)
     IxVM vm;
     if (mog_boot_memory(&vm) < 0)
         return 1;
+    mog_boot_display(&vm);                              /* SECSTRT_34 */
     mog_boot_engine(&vm);                               /* LAB_0303 */
     mog_hit_init(&vm);
     mog_boot_knight_cels(&vm);                          /* LAB_0115 */
